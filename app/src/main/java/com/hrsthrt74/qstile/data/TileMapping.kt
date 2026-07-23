@@ -7,6 +7,8 @@ object TileMapping {
         val category: String
     )
 
+    const val EXTILE_CUSTOM = "custom(com.hrsthrt74.qstile/.tile.ExTileService)"
+
     val systemTiles = listOf(
         TileInfo("wifi", "WLAN", "网络"),
         TileInfo("bt", "蓝牙", "网络"),
@@ -34,11 +36,18 @@ object TileMapping {
         TileInfo("gps", "GPS", "系统"),
         TileInfo("brightness", "亮度", "系统"),
 
-        TileInfo("edit", "编辑磁贴", "其他")
+        TileInfo("edit", "编辑磁贴", "其他"),
+        TileInfo(EXTILE_CUSTOM, "exTile 收纳", "其他")
     )
 
     fun getDisplayName(value: String): String {
-        return systemTiles.find { it.value == value }?.displayName ?: value
+        return systemTiles.find { it.value == value }?.displayName
+            ?: if (value.startsWith("custom(")) {
+                val pkg = value.removePrefix("custom(").removeSuffix(")")
+                pkg.substringBefore("/").substringAfterLast(".")
+            } else {
+                value
+            }
     }
 
     fun getTilesByCategory(): Map<String, List<TileInfo>> {
