@@ -1,5 +1,6 @@
 package com.hrsthrt74.qstile.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,7 +45,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onNavigateToConfig: () -> Unit,
-    onNavigateToBackup: () -> Unit
+    onNavigateToBackup: () -> Unit,
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -55,22 +57,18 @@ fun HomeScreen(
     var config by remember { mutableStateOf(TileConfig()) }
     var currentTilesCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    fun refreshStatus() {
         hasPermission = ShizukuHelper.hasWriteSecureSettingsPermission(context)
         isShizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
         isShizukuRunning = ShizukuHelper.isShizukuRunning()
-        config = ConfigRepository.getConfig(context)
-        currentTilesCount = SecureSettingsHelper.getCurrentTiles(context).size
-    }
-
-    fun refreshStatus() {
         scope.launch {
-            hasPermission = ShizukuHelper.hasWriteSecureSettingsPermission(context)
-            isShizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
-            isShizukuRunning = ShizukuHelper.isShizukuRunning()
             config = ConfigRepository.getConfig(context)
             currentTilesCount = SecureSettingsHelper.getCurrentTiles(context).size
         }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshStatus()
     }
 
     Column(
@@ -90,10 +88,15 @@ fun HomeScreen(
             isShizukuInstalled = isShizukuInstalled,
             isShizukuRunning = isShizukuRunning,
             onRequestPermission = {
-                scope.launch {
-                    if (isShizukuRunning && ShizukuHelper.checkPermission()) {
-                        val granted = ShizukuHelper.grantWriteSecureSettings(context)
-                        if (granted) {
+                onRequestShizukuPermission { granted ->
+                    if (granted) {
+                        scope.launch {
+                            val success = ShizukuHelper.grantWriteSecureSettings(context)
+                            if (success) {
+                                Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "权限授予失败", Toast.LENGTH_SHORT).show()
+                            }
                             refreshStatus()
                         }
                     }
@@ -186,7 +189,7 @@ private fun PermissionStatusCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onRequestPermission,
-                    enabled = isShizukuRunning
+                    enabled = isShizukuInstalled && isShizukuRunning
                 ) {
                     Text("获取权限")
                 }

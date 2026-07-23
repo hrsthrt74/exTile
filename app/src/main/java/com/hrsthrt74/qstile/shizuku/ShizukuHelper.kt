@@ -52,13 +52,18 @@ object ShizukuHelper {
         }
     }
 
-    fun grantWriteSecureSettings(context: Context): Boolean {
+    suspend fun grantWriteSecureSettings(context: Context): Boolean {
         return try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("pm", "grant", context.packageName, "android.permission.WRITE_SECURE_SETTINGS")
-            )
-            val result = process.waitFor()
-            result == 0
+            if (!SecureSettingsHelper.isBound) {
+                SecureSettingsHelper.bindService()
+                Thread.sleep(500)
+            }
+
+            val command = "pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
+            val result = SecureSettingsHelper.executeCommand(command)
+            Log.d(TAG, "grantWriteSecureSettings result: $result")
+
+            !result.isNullOrEmpty() && !result.startsWith("ERROR")
         } catch (e: Exception) {
             Log.e(TAG, "grantWriteSecureSettings failed", e)
             false

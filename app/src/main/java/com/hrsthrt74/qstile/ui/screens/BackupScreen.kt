@@ -276,15 +276,15 @@ fun BackupScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = {
-                            val currentTiles = SecureSettingsHelper.getCurrentTiles(context)
-                            if (currentTiles.isNotEmpty()) {
-                                scope.launch {
+                            scope.launch {
+                                val currentTiles = SecureSettingsHelper.getCurrentTiles(context)
+                                if (currentTiles.isNotEmpty()) {
                                     ConfigRepository.saveExpandedTiles(context, currentTiles)
                                     config = config.copy(expandedTiles = currentTiles)
                                     Toast.makeText(context, "已从系统导入磁贴配置", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "无法读取系统磁贴配置", Toast.LENGTH_SHORT).show()
                                 }
-                            } else {
-                                Toast.makeText(context, "无法读取系统磁贴配置", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
