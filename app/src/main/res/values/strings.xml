@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">exTile</string>
+    <string name="tile_label">展开/收起</string>
 </resources>
