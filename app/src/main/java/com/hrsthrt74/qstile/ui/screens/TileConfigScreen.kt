@@ -3,6 +3,7 @@ package com.hrsthrt74.qstile.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,8 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -32,16 +32,13 @@ import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.Surface
-import top.yukonga.miuix.kmp.basic.Scaffold
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun TileConfigScreen() {
@@ -64,70 +61,113 @@ fun TileConfigScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 26.dp)
-            .verticalScroll(rememberScrollState())
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        item {
+            SmallTitle(text = "展开时显示的磁贴")
+        }
 
-        Text(
-            text = "磁贴配置",
-            style = MiuixTheme.textStyles.headline1
-        )
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    config.expandedTiles.forEachIndexed { index, tile ->
+                        TileItem(
+                            tileValue = tile,
+                            index = index,
+                            isFirst = index == 0,
+                            isLast = index == config.expandedTiles.size - 1,
+                            onMoveUp = {
+                                if (index > 0) {
+                                    val newList = config.expandedTiles.toMutableList()
+                                    val tmp = newList[index]
+                                    newList[index] = newList[index - 1]
+                                    newList[index - 1] = tmp
+                                    updateConfig(config.copy(expandedTiles = newList))
+                                }
+                            },
+                            onMoveDown = {
+                                if (index < config.expandedTiles.size - 1) {
+                                    val newList = config.expandedTiles.toMutableList()
+                                    val tmp = newList[index]
+                                    newList[index] = newList[index + 1]
+                                    newList[index + 1] = tmp
+                                    updateConfig(config.copy(expandedTiles = newList))
+                                }
+                            },
+                            onRemove = {
+                                updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
+                            }
+                        )
+                    }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        TileListSection(
-            title = "展开时显示的磁贴",
-            tiles = config.expandedTiles,
-            onMoveUp = { index ->
-                if (index > 0) {
-                    val newList = config.expandedTiles.toMutableList()
-                    val tmp = newList[index]; newList[index] = newList[index - 1]; newList[index - 1] = tmp
-                    updateConfig(config.copy(expandedTiles = newList))
+                    IconButton(
+                        onClick = { showAddExpandedDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "添加")
+                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
-            },
-            onMoveDown = { index ->
-                if (index < config.expandedTiles.size - 1) {
-                    val newList = config.expandedTiles.toMutableList()
-                    val tmp = newList[index]; newList[index] = newList[index + 1]; newList[index + 1] = tmp
-                    updateConfig(config.copy(expandedTiles = newList))
-                }
-            },
-            onRemove = { tile ->
-                updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
-            },
-            onAdd = { showAddExpandedDialog = true }
-        )
+            }
+        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        item { Spacer(modifier = Modifier.height(16.dp)) }
 
-        TileListSection(
-            title = "收起时显示的磁贴",
-            tiles = config.collapsedTiles,
-            onMoveUp = { index ->
-                if (index > 0) {
-                    val newList = config.collapsedTiles.toMutableList()
-                    val tmp = newList[index]; newList[index] = newList[index - 1]; newList[index - 1] = tmp
-                    updateConfig(config.copy(collapsedTiles = newList))
-                }
-            },
-            onMoveDown = { index ->
-                if (index < config.collapsedTiles.size - 1) {
-                    val newList = config.collapsedTiles.toMutableList()
-                    val tmp = newList[index]; newList[index] = newList[index + 1]; newList[index + 1] = tmp
-                    updateConfig(config.copy(collapsedTiles = newList))
-                }
-            },
-            onRemove = { tile ->
-                updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
-            },
-            onAdd = { showAddCollapsedDialog = true }
-        )
+        item {
+            SmallTitle(text = "收起时显示的磁贴")
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    config.collapsedTiles.forEachIndexed { index, tile ->
+                        TileItem(
+                            tileValue = tile,
+                            index = index,
+                            isFirst = index == 0,
+                            isLast = index == config.collapsedTiles.size - 1,
+                            onMoveUp = {
+                                if (index > 0) {
+                                    val newList = config.collapsedTiles.toMutableList()
+                                    val tmp = newList[index]
+                                    newList[index] = newList[index - 1]
+                                    newList[index - 1] = tmp
+                                    updateConfig(config.copy(collapsedTiles = newList))
+                                }
+                            },
+                            onMoveDown = {
+                                if (index < config.collapsedTiles.size - 1) {
+                                    val newList = config.collapsedTiles.toMutableList()
+                                    val tmp = newList[index]
+                                    newList[index] = newList[index + 1]
+                                    newList[index + 1] = tmp
+                                    updateConfig(config.copy(collapsedTiles = newList))
+                                }
+                            },
+                            onRemove = {
+                                updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
+                            }
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showAddCollapsedDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "添加")
+                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 
     if (showAddExpandedDialog) {
@@ -156,60 +196,6 @@ fun TileConfigScreen() {
 }
 
 @Composable
-private fun TileListSection(
-    title: String,
-    tiles: List<String>,
-    onMoveUp: (Int) -> Unit,
-    onMoveDown: (Int) -> Unit,
-    onRemove: (String) -> Unit,
-    onAdd: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.title2
-                )
-                IconButton(onClick = onAdd) {
-                    Icon(Icons.Default.Add, contentDescription = "添加")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (tiles.isEmpty()) {
-                Text(
-                    text = "暂无磁贴",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-            } else {
-                tiles.forEachIndexed { index, tile ->
-                    TileItem(
-                        tileValue = tile,
-                        index = index,
-                        isFirst = index == 0,
-                        isLast = index == tiles.size - 1,
-                        onMoveUp = { onMoveUp(index) },
-                        onMoveDown = { onMoveDown(index) },
-                        onRemove = { onRemove(tile) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun TileItem(
     tileValue: String,
     index: Int,
@@ -231,17 +217,19 @@ private fun TileItem(
             modifier = Modifier.width(30.dp)
         )
 
-        Text(
-            text = TileMapping.getDisplayName(tileValue),
-            style = MiuixTheme.textStyles.body2,
+        Column(
             modifier = Modifier.weight(1f)
-        )
-
-        Text(
-            text = tileValue,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-        )
+        ) {
+            Text(
+                text = TileMapping.getDisplayName(tileValue),
+                style = MiuixTheme.textStyles.body1
+            )
+            Text(
+                text = tileValue,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+            )
+        }
 
         IconButton(onClick = onMoveUp, enabled = !isFirst) {
             Icon(Icons.Default.ArrowUpward, contentDescription = "上移")
@@ -268,50 +256,40 @@ private fun AddTileDialog(
         TileMapping.systemTiles.filter { it.value !in existingTiles }
     }
 
-    Dialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
-            ) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.headline2
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState())
-                ) {
-                    availableTiles.forEach { tile ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onAdd(tile.value) }
-                                .padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = tile.displayName,
-                                    style = MiuixTheme.textStyles.body1
-                                )
-                                Text(
-                                    text = tile.value,
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            Icon(Icons.Default.Add, contentDescription = "添加")
+            LazyColumn(contentPadding = PaddingValues(24.dp)) {
+                item {
+                    Text(text = title, style = MiuixTheme.textStyles.headline2)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                items(availableTiles.size) { index ->
+                    val tile = availableTiles[index]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAdd(tile.value) }
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = tile.displayName,
+                                style = MiuixTheme.textStyles.body1
+                            )
+                            Text(
+                                text = tile.value,
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
                         }
+                        Icon(Icons.Default.Add, contentDescription = "添加")
                     }
                 }
             }

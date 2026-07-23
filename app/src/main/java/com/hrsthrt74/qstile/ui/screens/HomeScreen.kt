@@ -3,6 +3,7 @@ package com.hrsthrt74.qstile.ui.screens
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
@@ -65,46 +67,51 @@ fun HomeScreen(
         refreshStatus()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        item {
+            Text(
+                text = "exTile",
+                style = MiuixTheme.textStyles.headline1,
+                modifier = Modifier.padding(start = 4.dp, bottom = 16.dp)
+            )
+        }
 
-        Text(
-            text = "exTile",
-            style = MiuixTheme.textStyles.headline1
-        )
-
-        PermissionStatusCard(
-            hasPermission = hasPermission,
-            isShizukuInstalled = isShizukuInstalled,
-            isShizukuRunning = isShizukuRunning,
-            onRequestPermission = {
-                onRequestShizukuPermission { granted ->
-                    if (granted) {
-                        scope.launch {
-                            val success = ShizukuHelper.grantWriteSecureSettings(context)
-                            if (success) {
-                                Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "权限授予失败", Toast.LENGTH_SHORT).show()
+        item {
+            PermissionStatusCard(
+                hasPermission = hasPermission,
+                isShizukuInstalled = isShizukuInstalled,
+                isShizukuRunning = isShizukuRunning,
+                onRequestPermission = {
+                    onRequestShizukuPermission { granted ->
+                        if (granted) {
+                            scope.launch {
+                                val success = ShizukuHelper.grantWriteSecureSettings(context)
+                                if (success) {
+                                    Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "权限授予失败", Toast.LENGTH_SHORT).show()
+                                }
+                                refreshStatus()
                             }
-                            refreshStatus()
                         }
                     }
                 }
-            }
-        )
+            )
+        }
 
-        CurrentStatusCard(
-            isExpanded = config.isExpanded,
-            expandedTilesCount = config.expandedTiles.size,
-            collapsedTilesCount = config.collapsedTiles.size,
-            currentTilesCount = currentTilesCount
-        )
+        item { Spacer(modifier = Modifier.height(12.dp)) }
+
+        item {
+            CurrentStatusCard(
+                isExpanded = config.isExpanded,
+                expandedTilesCount = config.expandedTiles.size,
+                collapsedTilesCount = config.collapsedTiles.size,
+                currentTilesCount = currentTilesCount
+            )
+        }
     }
 }
 
@@ -115,49 +122,65 @@ private fun PermissionStatusCard(
     isShizukuRunning: Boolean,
     onRequestPermission: () -> Unit
 ) {
+    val containerColor = if (hasPermission) {
+        MiuixTheme.colorScheme.primaryContainer
+    } else {
+        MiuixTheme.colorScheme.errorContainer
+    }
+    val contentColor = if (hasPermission) {
+        MiuixTheme.colorScheme.onPrimaryContainer
+    } else {
+        MiuixTheme.colorScheme.onErrorContainer
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Icon(
+                imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Error,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = if (hasPermission) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 16.dp)
             ) {
-                Icon(
-                    imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Error,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = if (hasPermission) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.error
-                    }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (hasPermission) "已获得权限" else "未获得权限",
-                    style = MiuixTheme.textStyles.title2
+                    style = MiuixTheme.textStyles.title2,
+                    color = MiuixTheme.colorScheme.onSurface
                 )
-            }
-
-            if (!hasPermission) {
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = when {
+                        hasPermission -> "WRITE_SECURE_SETTINGS 已授权"
                         !isShizukuInstalled -> "请先安装 Shizuku 应用"
                         !isShizukuRunning -> "请先启动 Shizuku 服务"
-                        else -> "点击下方按钮获取 WRITE_SECURE_SETTINGS 权限"
+                        else -> "点击下方按钮获取权限"
                     },
-                    style = MiuixTheme.textStyles.body2
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onRequestPermission,
-                    enabled = isShizukuInstalled && isShizukuRunning
-                ) {
-                    Text("获取权限")
-                }
+            }
+        }
+
+        if (!hasPermission) {
+            Button(
+                onClick = onRequestPermission,
+                enabled = isShizukuInstalled && isShizukuRunning,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text("获取权限")
             }
         }
     }
@@ -174,7 +197,7 @@ private fun CurrentStatusCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -182,29 +205,42 @@ private fun CurrentStatusCard(
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp),
+                    tint = MiuixTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isExpanded) "当前：展开状态" else "当前：收起状态",
-                    style = MiuixTheme.textStyles.title2
+                    style = MiuixTheme.textStyles.title2,
+                    modifier = Modifier.padding(start = 12.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "展开时磁贴数：$expandedTilesCount",
-                style = MiuixTheme.textStyles.body2
-            )
-            Text(
-                text = "收起时磁贴数：$collapsedTilesCount",
-                style = MiuixTheme.textStyles.body2
-            )
-            Text(
-                text = "当前系统磁贴数：$currentTilesCount",
-                style = MiuixTheme.textStyles.body2
-            )
+            StatusRow("展开时磁贴数", expandedTilesCount.toString())
+            StatusRow("收起时磁贴数", collapsedTilesCount.toString())
+            StatusRow("当前系统磁贴数", currentTilesCount.toString())
         }
+    }
+}
+
+@Composable
+private fun StatusRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+        )
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurface
+        )
     }
 }
