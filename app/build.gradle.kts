@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.shizuku.provider)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.icons)
+    implementation(libs.miuix.preference)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

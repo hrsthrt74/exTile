@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,8 +25,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.hrsthrt74.qstile.ui.screens.BackupScreen
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
+import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Home : Screen("home", "主页", Icons.Default.Home)
     data object Config : Screen("config", "编辑", Icons.Default.Edit)
-    data object Backup : Screen("backup", "备份", Icons.Default.Backup)
+    data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 }
 
 @Composable
@@ -90,7 +91,7 @@ fun MainApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val screens = listOf(Screen.Home, Screen.Config, Screen.Backup)
+    val screens = listOf(Screen.Home, Screen.Config, Screen.Settings)
     var selectedIndex by mutableIntStateOf(0)
 
     MiuixScaffold(
@@ -133,8 +134,8 @@ fun MainApp(
             composable(Screen.Config.route) {
                 TileConfigScreen()
             }
-            composable(Screen.Backup.route) {
-                BackupScreen()
+            composable(Screen.Settings.route) {
+                SettingsScreen()
             }
         }
     }
