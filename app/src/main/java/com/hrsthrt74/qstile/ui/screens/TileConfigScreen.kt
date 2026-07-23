@@ -5,29 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,14 +27,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Scaffold
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun TileConfigScreen() {
@@ -71,19 +67,17 @@ fun TileConfigScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 26.dp)
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "磁贴配置",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
+            style = MiuixTheme.textStyles.headline1
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         TileListSection(
             title = "展开时显示的磁贴",
@@ -108,7 +102,7 @@ fun TileConfigScreen() {
             onAdd = { showAddExpandedDialog = true }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         TileListSection(
             title = "收起时显示的磁贴",
@@ -132,6 +126,8 @@ fun TileConfigScreen() {
             },
             onAdd = { showAddCollapsedDialog = true }
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showAddExpandedDialog) {
@@ -181,8 +177,7 @@ private fun TileListSection(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.title2
                 )
                 IconButton(onClick = onAdd) {
                     Icon(Icons.Default.Add, contentDescription = "添加")
@@ -194,8 +189,8 @@ private fun TileListSection(
             if (tiles.isEmpty()) {
                 Text(
                     text = "暂无磁贴",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             } else {
                 tiles.forEachIndexed { index, tile ->
@@ -232,20 +227,20 @@ private fun TileItem(
     ) {
         Text(
             text = "${index + 1}.",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MiuixTheme.textStyles.body2,
             modifier = Modifier.width(30.dp)
         )
 
         Text(
             text = TileMapping.getDisplayName(tileValue),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MiuixTheme.textStyles.body2,
             modifier = Modifier.weight(1f)
         )
 
         Text(
             text = tileValue,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
 
         IconButton(onClick = onMoveUp, enabled = !isFirst) {
@@ -280,24 +275,22 @@ private fun AddTileDialog(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .padding(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp)
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.headline2
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                LazyColumn {
-                    items(availableTiles, key = { it.value }) { tile ->
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    availableTiles.forEach { tile ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -309,12 +302,12 @@ private fun AddTileDialog(
                             Column {
                                 Text(
                                     text = tile.displayName,
-                                    style = MaterialTheme.typography.bodyLarge
+                                    style = MiuixTheme.textStyles.body1
                                 )
                                 Text(
                                     text = tile.value,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                 )
                             }
                             Icon(Icons.Default.Add, contentDescription = "添加")

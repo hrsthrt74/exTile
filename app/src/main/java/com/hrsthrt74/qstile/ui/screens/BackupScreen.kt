@@ -8,28 +8,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,12 +28,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun BackupScreen() {
@@ -98,17 +93,15 @@ fun BackupScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 26.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "备份与恢复",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
+            style = MiuixTheme.textStyles.headline1
         )
 
         Card(
@@ -119,13 +112,12 @@ fun BackupScreen() {
             ) {
                 Text(
                     text = "当前系统磁贴",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.title2
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = currentSysuiTiles.ifEmpty { "无数据" },
-                    style = MaterialTheme.typography.bodySmall
+                    style = MiuixTheme.textStyles.body2
                 )
             }
         }
@@ -138,19 +130,16 @@ fun BackupScreen() {
             ) {
                 Text(
                     text = "备份配置",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.title2
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "将当前配置导出为 JSON 格式",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MiuixTheme.textStyles.body2
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Button(
-                    onClick = {
-                        backupText = generateBackupJson()
-                    },
+                    onClick = { backupText = generateBackupJson() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Save, contentDescription = null)
@@ -173,8 +162,7 @@ fun BackupScreen() {
                     ) {
                         Text(
                             text = "备份数据",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            style = MiuixTheme.textStyles.title2
                         )
                         IconButton(
                             onClick = {
@@ -188,13 +176,9 @@ fun BackupScreen() {
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = backupText,
-                        onValueChange = { backupText = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        readOnly = true
+                    Text(
+                        text = backupText,
+                        style = MiuixTheme.textStyles.body2
                     )
                 }
             }
@@ -208,25 +192,22 @@ fun BackupScreen() {
             ) {
                 Text(
                     text = "恢复配置",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.title2
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "粘贴备份的 JSON 数据来恢复配置",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MiuixTheme.textStyles.body2
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
+                TextField(
                     value = backupText,
                     onValueChange = { backupText = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    placeholder = { Text("粘贴备份数据...") }
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "备份数据"
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
                     onClick = {
                         val restoredConfig = parseBackupJson(backupText)
                         if (restoredConfig != null) {
@@ -257,16 +238,15 @@ fun BackupScreen() {
             ) {
                 Text(
                     text = "恢复系统磁贴",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MiuixTheme.textStyles.title2
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "将当前系统磁贴配置保存为展开状态的配置",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MiuixTheme.textStyles.body2
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
                     onClick = {
                         scope.launch {
                             val currentTiles = SecureSettingsHelper.getCurrentTiles(context)
