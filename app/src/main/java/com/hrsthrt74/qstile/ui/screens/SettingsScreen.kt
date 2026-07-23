@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -119,7 +118,6 @@ fun SettingsScreen() {
                 bottom = 16.dp
             )
         ) {
-            // 主题设置
             item {
                 SmallTitle(text = "主题")
             }
@@ -154,7 +152,6 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // 备份与恢复
             item {
                 SmallTitle(text = "备份与恢复")
             }
@@ -236,7 +233,7 @@ fun SettingsScreen() {
                                     },
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Icon(Icons.Default.Restore, contentDescription = null)
+                                    Icon(Icons.Default.Download, contentDescription = null)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("恢复")
                                 }
@@ -248,7 +245,6 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // 系统导入
             item {
                 SmallTitle(text = "系统导入")
             }

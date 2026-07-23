@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -257,11 +257,11 @@ private fun TileItem(
         }
 
         IconButton(onClick = onMoveUp, enabled = !isFirst) {
-            Icon(Icons.Default.ArrowUpward, contentDescription = "上移")
+            Icon(Icons.Default.ExpandLess, contentDescription = "上移")
         }
 
         IconButton(onClick = onMoveDown, enabled = !isLast) {
-            Icon(Icons.Default.ArrowDownward, contentDescription = "下移")
+            Icon(Icons.Default.ExpandMore, contentDescription = "下移")
         }
 
         IconButton(onClick = onRemove) {

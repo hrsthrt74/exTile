@@ -8,19 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -30,9 +23,13 @@ import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -42,7 +39,7 @@ class MainActivity : ComponentActivity() {
     private var shizukuPermissionGranted by mutableStateOf(false)
     private var onPermissionResult: ((Boolean) -> Unit)? = null
 
-    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         val granted = grantResult == PackageManager.PERMISSION_GRANTED
         shizukuPermissionGranted = granted
         onPermissionResult?.invoke(granted)
@@ -78,7 +75,7 @@ class MainActivity : ComponentActivity() {
 }
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    data object Home : Screen("home", "主页", Icons.Default.Home)
+    data object Home : Screen("home", "主页", Icons.Default.AllInclusive)
     data object Config : Screen("config", "编辑", Icons.Default.Edit)
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 }
@@ -92,17 +89,15 @@ fun MainApp(
     val currentRoute = navBackStackEntry?.destination?.route
 
     val screens = listOf(Screen.Home, Screen.Config, Screen.Settings)
-    var selectedIndex by mutableIntStateOf(0)
 
     MiuixScaffold(
         bottomBar = {
             NavigationBar {
-                screens.forEachIndexed { index, screen ->
+                screens.forEach { screen ->
                     NavigationBarItem(
                         selected = currentRoute == screen.route,
                         onClick = {
                             if (currentRoute != screen.route) {
-                                selectedIndex = index
                                 navController.navigate(screen.route) {
                                     popUpTo(Screen.Home.route) {
                                         saveState = true

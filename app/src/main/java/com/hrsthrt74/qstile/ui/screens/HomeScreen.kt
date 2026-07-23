@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
@@ -151,7 +151,7 @@ private fun PermissionStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Error,
+                    imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Close,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = if (hasPermission) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error
