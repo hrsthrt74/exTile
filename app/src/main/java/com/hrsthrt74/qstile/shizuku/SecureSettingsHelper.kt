@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.provider.Settings
 import android.util.Log
 import com.hrsthrt74.qstile.ICommandService
 import kotlinx.coroutines.Dispatchers
@@ -68,15 +69,27 @@ object SecureSettingsHelper {
 
     suspend fun getSysuiQsTiles(context: Context): String? = withContext(Dispatchers.IO) {
         try {
-            if (!isBound || commandService == null) {
-                bindService()
-                Thread.sleep(500)
+            // 优先使用 Shizuku UserService
+            if (isBound && commandService != null) {
+                val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")
+                Log.d(TAG, "getSysuiQsTiles via UserService: $result")
+                if (result != null && !result.startsWith("ERROR") && result != "null") {
+                    return@withContext result
+                }
             }
 
-            val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")
-            Log.d(TAG, "getSysuiQsTiles result: $result")
+            // 尝试直接读取（可能因 targetSdkVersion 限制失败）
+            try {
+                val directResult = Settings.Secure.getString(context.contentResolver, SYSUI_QS_TILES)
+                if (directResult != null) {
+                    Log.d(TAG, "getSysuiQsTiles via API: $directResult")
+                    return@withContext directResult
+                }
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Direct read failed (targetSdkVersion restriction)")
+            }
 
-            if (result == "null" || result.isNullOrEmpty() || result.startsWith("ERROR")) null else result
+            null
         } catch (e: Exception) {
             Log.e(TAG, "getSysuiQsTiles failed", e)
             null
@@ -85,15 +98,25 @@ object SecureSettingsHelper {
 
     suspend fun setSysuiQsTiles(context: Context, value: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (!isBound || commandService == null) {
-                bindService()
-                Thread.sleep(500)
+            // 优先使用 Shizuku UserService
+            if (isBound && commandService != null) {
+                val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")
+                Log.d(TAG, "setSysuiQsTiles via UserService: $result")
+                if (result == null || !result.startsWith("ERROR")) {
+                    return@withContext true
+                }
             }
 
-            val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")
-            Log.d(TAG, "setSysuiQsTiles result: $result")
-            // settings put 成功时返回空字符串，只有出错时才返回 ERROR
-            result == null || !result.startsWith("ERROR")
+            // 尝试直接写入
+            try {
+                val success = Settings.Secure.putString(context.contentResolver, SYSUI_QS_TILES, value)
+                Log.d(TAG, "setSysuiQsTiles via API: $success")
+                return@withContext success
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Direct write failed", e)
+            }
+
+            false
         } catch (e: Exception) {
             Log.e(TAG, "setSysuiQsTiles failed", e)
             false
