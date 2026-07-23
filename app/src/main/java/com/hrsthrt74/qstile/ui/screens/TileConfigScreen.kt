@@ -24,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,12 +33,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
@@ -56,24 +58,12 @@ fun TileConfigScreen() {
         config = ConfigRepository.getConfig(context)
     }
 
-    fun saveConfig(newConfig: TileConfig) {
+    fun updateConfig(newConfig: TileConfig) {
+        config = newConfig
         scope.launch {
             ConfigRepository.saveExpandedTiles(context, newConfig.expandedTiles)
             ConfigRepository.saveCollapsedTiles(context, newConfig.collapsedTiles)
         }
-    }
-
-    fun updateConfig(newConfig: TileConfig) {
-        config = newConfig
-        saveConfig(newConfig)
-    }
-
-    fun swapTiles(list: List<String>, i: Int, j: Int): List<String> {
-        val newList = list.toMutableList()
-        val temp = newList[i]
-        newList[i] = newList[j]
-        newList[j] = temp
-        return newList
     }
 
     Column(
@@ -92,51 +82,53 @@ fun TileConfigScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item(key = "expanded_section") {
-                TileListSection(
-                    title = "展开时显示的磁贴",
-                    tiles = config.expandedTiles,
-                    onMoveUp = { index ->
-                        if (index > 0) {
-                            updateConfig(config.copy(expandedTiles = swapTiles(config.expandedTiles, index, index - 1)))
-                        }
-                    },
-                    onMoveDown = { index ->
-                        if (index < config.expandedTiles.size - 1) {
-                            updateConfig(config.copy(expandedTiles = swapTiles(config.expandedTiles, index, index + 1)))
-                        }
-                    },
-                    onRemove = { tile ->
-                        updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
-                    },
-                    onAdd = { showAddExpandedDialog = true }
-                )
-            }
+        TileListSection(
+            title = "展开时显示的磁贴",
+            tiles = config.expandedTiles,
+            onMoveUp = { index ->
+                if (index > 0) {
+                    val newList = config.expandedTiles.toMutableList()
+                    val tmp = newList[index]; newList[index] = newList[index - 1]; newList[index - 1] = tmp
+                    updateConfig(config.copy(expandedTiles = newList))
+                }
+            },
+            onMoveDown = { index ->
+                if (index < config.expandedTiles.size - 1) {
+                    val newList = config.expandedTiles.toMutableList()
+                    val tmp = newList[index]; newList[index] = newList[index + 1]; newList[index + 1] = tmp
+                    updateConfig(config.copy(expandedTiles = newList))
+                }
+            },
+            onRemove = { tile ->
+                updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
+            },
+            onAdd = { showAddExpandedDialog = true }
+        )
 
-            item(key = "collapsed_section") {
-                TileListSection(
-                    title = "收起时显示的磁贴",
-                    tiles = config.collapsedTiles,
-                    onMoveUp = { index ->
-                        if (index > 0) {
-                            updateConfig(config.copy(collapsedTiles = swapTiles(config.collapsedTiles, index, index - 1)))
-                        }
-                    },
-                    onMoveDown = { index ->
-                        if (index < config.collapsedTiles.size - 1) {
-                            updateConfig(config.copy(collapsedTiles = swapTiles(config.collapsedTiles, index, index + 1)))
-                        }
-                    },
-                    onRemove = { tile ->
-                        updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
-                    },
-                    onAdd = { showAddCollapsedDialog = true }
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TileListSection(
+            title = "收起时显示的磁贴",
+            tiles = config.collapsedTiles,
+            onMoveUp = { index ->
+                if (index > 0) {
+                    val newList = config.collapsedTiles.toMutableList()
+                    val tmp = newList[index]; newList[index] = newList[index - 1]; newList[index - 1] = tmp
+                    updateConfig(config.copy(collapsedTiles = newList))
+                }
+            },
+            onMoveDown = { index ->
+                if (index < config.collapsedTiles.size - 1) {
+                    val newList = config.collapsedTiles.toMutableList()
+                    val tmp = newList[index]; newList[index] = newList[index + 1]; newList[index + 1] = tmp
+                    updateConfig(config.copy(collapsedTiles = newList))
+                }
+            },
+            onRemove = { tile ->
+                updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
+            },
+            onAdd = { showAddCollapsedDialog = true }
+        )
     }
 
     if (showAddExpandedDialog) {
@@ -254,27 +246,15 @@ private fun TileItem(
         )
 
         IconButton(onClick = onMoveUp, enabled = !isFirst) {
-            Icon(
-                Icons.Default.ArrowUpward,
-                contentDescription = "上移",
-                modifier = Modifier.padding(4.dp)
-            )
+            Icon(Icons.Default.ArrowUpward, contentDescription = "上移")
         }
 
         IconButton(onClick = onMoveDown, enabled = !isLast) {
-            Icon(
-                Icons.Default.ArrowDownward,
-                contentDescription = "下移",
-                modifier = Modifier.padding(4.dp)
-            )
+            Icon(Icons.Default.ArrowDownward, contentDescription = "下移")
         }
 
         IconButton(onClick = onRemove) {
-            Icon(
-                Icons.Default.Remove,
-                contentDescription = "移除",
-                modifier = Modifier.padding(4.dp)
-            )
+            Icon(Icons.Default.Remove, contentDescription = "移除")
         }
     }
 }
@@ -290,41 +270,53 @@ private fun AddTileDialog(
         TileMapping.systemTiles.filter { it.value !in existingTiles }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
 
-        Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn {
-            items(availableTiles, key = { it.value }) { tile ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onAdd(tile.value) }
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = tile.displayName,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = tile.value,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                LazyColumn {
+                    items(availableTiles, key = { it.value }) { tile ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onAdd(tile.value) }
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = tile.displayName,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = tile.value,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(Icons.Default.Add, contentDescription = "添加")
+                        }
                     }
-                    Icon(Icons.Default.Add, contentDescription = "添加")
                 }
             }
         }
