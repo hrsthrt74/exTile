@@ -74,7 +74,8 @@ fun TileConfigScreen() {
             TopAppBar(
                 title = "磁贴配置",
                 largeTitle = "磁贴配置",
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
+                defaultWindowInsetsPadding = false
             )
         },
         contentWindowInsets = WindowInsets()
