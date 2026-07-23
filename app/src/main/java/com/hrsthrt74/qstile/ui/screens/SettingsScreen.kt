@@ -103,8 +103,7 @@ fun SettingsScreen() {
             TopAppBar(
                 title = "设置",
                 largeTitle = "设置",
-                scrollBehavior = scrollBehavior,
-                defaultWindowInsetsPadding = false
+                scrollBehavior = scrollBehavior
             )
         },
         contentWindowInsets = WindowInsets()

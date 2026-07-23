@@ -80,8 +80,7 @@ fun HomeScreen(
             TopAppBar(
                 title = "exTile",
                 largeTitle = "exTile",
-                scrollBehavior = scrollBehavior,
-                defaultWindowInsetsPadding = false
+                scrollBehavior = scrollBehavior
             )
         },
         contentWindowInsets = WindowInsets()
