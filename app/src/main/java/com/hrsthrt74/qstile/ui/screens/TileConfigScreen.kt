@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -35,15 +36,21 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun TileConfigScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val topAppBarState = rememberTopAppBarState()
+    val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
     var config by remember { mutableStateOf(TileConfig()) }
     var showAddExpandedDialog by remember { mutableStateOf(false) }
@@ -61,113 +68,128 @@ fun TileConfigScreen() {
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 16.dp)
-    ) {
-        item {
-            SmallTitle(text = "展开时显示的磁贴")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = "磁贴配置",
+                largeTitle = "磁贴配置",
+                scrollBehavior = scrollBehavior
+            )
         }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(
+                top = paddingValues.calculateTopPadding(),
+                bottom = 16.dp
+            )
+        ) {
+            item {
+                SmallTitle(text = "展开时显示的磁贴")
+            }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    config.expandedTiles.forEachIndexed { index, tile ->
-                        TileItem(
-                            tileValue = tile,
-                            index = index,
-                            isFirst = index == 0,
-                            isLast = index == config.expandedTiles.size - 1,
-                            onMoveUp = {
-                                if (index > 0) {
-                                    val newList = config.expandedTiles.toMutableList()
-                                    val tmp = newList[index]
-                                    newList[index] = newList[index - 1]
-                                    newList[index - 1] = tmp
-                                    updateConfig(config.copy(expandedTiles = newList))
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        config.expandedTiles.forEachIndexed { index, tile ->
+                            TileItem(
+                                tileValue = tile,
+                                index = index,
+                                isFirst = index == 0,
+                                isLast = index == config.expandedTiles.size - 1,
+                                onMoveUp = {
+                                    if (index > 0) {
+                                        val newList = config.expandedTiles.toMutableList()
+                                        val tmp = newList[index]
+                                        newList[index] = newList[index - 1]
+                                        newList[index - 1] = tmp
+                                        updateConfig(config.copy(expandedTiles = newList))
+                                    }
+                                },
+                                onMoveDown = {
+                                    if (index < config.expandedTiles.size - 1) {
+                                        val newList = config.expandedTiles.toMutableList()
+                                        val tmp = newList[index]
+                                        newList[index] = newList[index + 1]
+                                        newList[index + 1] = tmp
+                                        updateConfig(config.copy(expandedTiles = newList))
+                                    }
+                                },
+                                onRemove = {
+                                    updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
                                 }
-                            },
-                            onMoveDown = {
-                                if (index < config.expandedTiles.size - 1) {
-                                    val newList = config.expandedTiles.toMutableList()
-                                    val tmp = newList[index]
-                                    newList[index] = newList[index + 1]
-                                    newList[index + 1] = tmp
-                                    updateConfig(config.copy(expandedTiles = newList))
-                                }
-                            },
-                            onRemove = {
-                                updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    IconButton(
-                        onClick = { showAddExpandedDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "添加")
-                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                        IconButton(
+                            onClick = { showAddExpandedDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "添加")
+                            Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
-        }
 
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
 
-        item {
-            SmallTitle(text = "收起时显示的磁贴")
-        }
+            item {
+                SmallTitle(text = "收起时显示的磁贴")
+            }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    config.collapsedTiles.forEachIndexed { index, tile ->
-                        TileItem(
-                            tileValue = tile,
-                            index = index,
-                            isFirst = index == 0,
-                            isLast = index == config.collapsedTiles.size - 1,
-                            onMoveUp = {
-                                if (index > 0) {
-                                    val newList = config.collapsedTiles.toMutableList()
-                                    val tmp = newList[index]
-                                    newList[index] = newList[index - 1]
-                                    newList[index - 1] = tmp
-                                    updateConfig(config.copy(collapsedTiles = newList))
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        config.collapsedTiles.forEachIndexed { index, tile ->
+                            TileItem(
+                                tileValue = tile,
+                                index = index,
+                                isFirst = index == 0,
+                                isLast = index == config.collapsedTiles.size - 1,
+                                onMoveUp = {
+                                    if (index > 0) {
+                                        val newList = config.collapsedTiles.toMutableList()
+                                        val tmp = newList[index]
+                                        newList[index] = newList[index - 1]
+                                        newList[index - 1] = tmp
+                                        updateConfig(config.copy(collapsedTiles = newList))
+                                    }
+                                },
+                                onMoveDown = {
+                                    if (index < config.collapsedTiles.size - 1) {
+                                        val newList = config.collapsedTiles.toMutableList()
+                                        val tmp = newList[index]
+                                        newList[index] = newList[index + 1]
+                                        newList[index + 1] = tmp
+                                        updateConfig(config.copy(collapsedTiles = newList))
+                                    }
+                                },
+                                onRemove = {
+                                    updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
                                 }
-                            },
-                            onMoveDown = {
-                                if (index < config.collapsedTiles.size - 1) {
-                                    val newList = config.collapsedTiles.toMutableList()
-                                    val tmp = newList[index]
-                                    newList[index] = newList[index + 1]
-                                    newList[index + 1] = tmp
-                                    updateConfig(config.copy(collapsedTiles = newList))
-                                }
-                            },
-                            onRemove = {
-                                updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    IconButton(
-                        onClick = { showAddCollapsedDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "添加")
-                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                        IconButton(
+                            onClick = { showAddCollapsedDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "添加")
+                            Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
-        }
 
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
     }
 
     if (showAddExpandedDialog) {
