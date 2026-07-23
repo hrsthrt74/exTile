@@ -12,15 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,6 +29,9 @@ import com.hrsthrt74.qstile.ui.screens.HomeScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -63,17 +60,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             ExTileTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainApp(
-                        onRequestShizukuPermission = { callback ->
-                            onPermissionResult = callback
-                            Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
-                        }
-                    )
-                }
+                MainApp(
+                    onRequestShizukuPermission = { callback ->
+                        onPermissionResult = callback
+                        Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
+                    }
+                )
             }
         }
     }
@@ -99,17 +91,17 @@ fun MainApp(
     val currentRoute = navBackStackEntry?.destination?.route
 
     val screens = listOf(Screen.Home, Screen.Config, Screen.Backup)
+    var selectedIndex by mutableIntStateOf(0)
 
-    Scaffold(
+    MiuixScaffold(
         bottomBar = {
             NavigationBar {
-                screens.forEach { screen ->
+                screens.forEachIndexed { index, screen ->
                     NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
                         selected = currentRoute == screen.route,
                         onClick = {
                             if (currentRoute != screen.route) {
+                                selectedIndex = index
                                 navController.navigate(screen.route) {
                                     popUpTo(Screen.Home.route) {
                                         saveState = true
@@ -118,7 +110,9 @@ fun MainApp(
                                     restoreState = true
                                 }
                             }
-                        }
+                        },
+                        icon = screen.icon,
+                        label = screen.title
                     )
                 }
             }
@@ -127,7 +121,9 @@ fun MainApp(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(

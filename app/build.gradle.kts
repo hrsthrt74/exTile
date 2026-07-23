@@ -5,11 +5,7 @@ plugins {
 
 android {
     namespace = "com.hrsthrt74.qstile"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.hrsthrt74.qstile"
@@ -52,6 +48,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.icons)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
