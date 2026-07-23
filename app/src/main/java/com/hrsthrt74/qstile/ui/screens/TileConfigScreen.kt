@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -51,17 +51,29 @@ fun TileConfigScreen() {
     var config by remember { mutableStateOf(TileConfig()) }
     var showAddExpandedDialog by remember { mutableStateOf(false) }
     var showAddCollapsedDialog by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
     }
 
-    fun saveConfig() {
+    fun saveConfig(newConfig: TileConfig) {
         scope.launch {
-            ConfigRepository.saveExpandedTiles(context, config.expandedTiles)
-            ConfigRepository.saveCollapsedTiles(context, config.collapsedTiles)
+            ConfigRepository.saveExpandedTiles(context, newConfig.expandedTiles)
+            ConfigRepository.saveCollapsedTiles(context, newConfig.collapsedTiles)
         }
+    }
+
+    fun updateConfig(newConfig: TileConfig) {
+        config = newConfig
+        saveConfig(newConfig)
+    }
+
+    fun swapTiles(list: List<String>, i: Int, j: Int): List<String> {
+        val newList = list.toMutableList()
+        val temp = newList[i]
+        newList[i] = newList[j]
+        newList[j] = temp
+        return newList
     }
 
     Column(
@@ -80,79 +92,46 @@ fun TileConfigScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        CategoryFilter(
-            selectedCategory = selectedCategory,
-            onCategorySelected = { selectedCategory = it }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
+            item(key = "expanded_section") {
                 TileListSection(
                     title = "展开时显示的磁贴",
                     tiles = config.expandedTiles,
                     onMoveUp = { index ->
                         if (index > 0) {
-                            val newList = config.expandedTiles.toMutableList()
-                            val temp = newList[index]
-                            newList[index] = newList[index - 1]
-                            newList[index - 1] = temp
-                            config = config.copy(expandedTiles = newList)
-                            saveConfig()
+                            updateConfig(config.copy(expandedTiles = swapTiles(config.expandedTiles, index, index - 1)))
                         }
                     },
                     onMoveDown = { index ->
                         if (index < config.expandedTiles.size - 1) {
-                            val newList = config.expandedTiles.toMutableList()
-                            val temp = newList[index]
-                            newList[index] = newList[index + 1]
-                            newList[index + 1] = temp
-                            config = config.copy(expandedTiles = newList)
-                            saveConfig()
+                            updateConfig(config.copy(expandedTiles = swapTiles(config.expandedTiles, index, index + 1)))
                         }
                     },
                     onRemove = { tile ->
-                        config = config.copy(
-                            expandedTiles = config.expandedTiles.filter { it != tile }
-                        )
-                        saveConfig()
+                        updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
                     },
                     onAdd = { showAddExpandedDialog = true }
                 )
             }
 
-            item {
+            item(key = "collapsed_section") {
                 TileListSection(
                     title = "收起时显示的磁贴",
                     tiles = config.collapsedTiles,
                     onMoveUp = { index ->
                         if (index > 0) {
-                            val newList = config.collapsedTiles.toMutableList()
-                            val temp = newList[index]
-                            newList[index] = newList[index - 1]
-                            newList[index - 1] = temp
-                            config = config.copy(collapsedTiles = newList)
-                            saveConfig()
+                            updateConfig(config.copy(collapsedTiles = swapTiles(config.collapsedTiles, index, index - 1)))
                         }
                     },
                     onMoveDown = { index ->
                         if (index < config.collapsedTiles.size - 1) {
-                            val newList = config.collapsedTiles.toMutableList()
-                            val temp = newList[index]
-                            newList[index] = newList[index + 1]
-                            newList[index + 1] = temp
-                            config = config.copy(collapsedTiles = newList)
-                            saveConfig()
+                            updateConfig(config.copy(collapsedTiles = swapTiles(config.collapsedTiles, index, index + 1)))
                         }
                     },
                     onRemove = { tile ->
-                        config = config.copy(
-                            collapsedTiles = config.collapsedTiles.filter { it != tile }
-                        )
-                        saveConfig()
+                        updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
                     },
                     onAdd = { showAddCollapsedDialog = true }
                 )
@@ -164,13 +143,9 @@ fun TileConfigScreen() {
         AddTileDialog(
             title = "添加展开磁贴",
             existingTiles = config.expandedTiles,
-            selectedCategory = selectedCategory,
             onDismiss = { showAddExpandedDialog = false },
             onAdd = { tile ->
-                config = config.copy(
-                    expandedTiles = config.expandedTiles + tile
-                )
-                saveConfig()
+                updateConfig(config.copy(expandedTiles = config.expandedTiles + tile))
                 showAddExpandedDialog = false
             }
         )
@@ -180,37 +155,12 @@ fun TileConfigScreen() {
         AddTileDialog(
             title = "添加收起磁贴",
             existingTiles = config.collapsedTiles,
-            selectedCategory = selectedCategory,
             onDismiss = { showAddCollapsedDialog = false },
             onAdd = { tile ->
-                config = config.copy(
-                    collapsedTiles = config.collapsedTiles + tile
-                )
-                saveConfig()
+                updateConfig(config.copy(collapsedTiles = config.collapsedTiles + tile))
                 showAddCollapsedDialog = false
             }
         )
-    }
-}
-
-@Composable
-private fun CategoryFilter(
-    selectedCategory: String?,
-    onCategorySelected: (String?) -> Unit
-) {
-    val categories = listOf(null) + TileMapping.getTilesByCategory().keys.toList()
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        categories.forEach { category ->
-            FilterChip(
-                selected = selectedCategory == category,
-                onClick = { onCategorySelected(category) },
-                label = { Text(category ?: "全部") }
-            )
-        }
     }
 }
 
@@ -303,10 +253,7 @@ private fun TileItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        IconButton(
-            onClick = onMoveUp,
-            enabled = !isFirst
-        ) {
+        IconButton(onClick = onMoveUp, enabled = !isFirst) {
             Icon(
                 Icons.Default.ArrowUpward,
                 contentDescription = "上移",
@@ -314,10 +261,7 @@ private fun TileItem(
             )
         }
 
-        IconButton(
-            onClick = onMoveDown,
-            enabled = !isLast
-        ) {
+        IconButton(onClick = onMoveDown, enabled = !isLast) {
             Icon(
                 Icons.Default.ArrowDownward,
                 contentDescription = "下移",
@@ -339,16 +283,12 @@ private fun TileItem(
 private fun AddTileDialog(
     title: String,
     existingTiles: List<String>,
-    selectedCategory: String?,
     onDismiss: () -> Unit,
     onAdd: (String) -> Unit
 ) {
-    val tilesByCategory = TileMapping.getTilesByCategory()
-    val availableTiles = if (selectedCategory != null) {
-        tilesByCategory[selectedCategory] ?: emptyList()
-    } else {
-        tilesByCategory.values.flatten()
-    }.filter { it.value !in existingTiles }
+    val availableTiles = remember(existingTiles) {
+        TileMapping.systemTiles.filter { it.value !in existingTiles }
+    }
 
     Column(
         modifier = Modifier
@@ -364,7 +304,7 @@ private fun AddTileDialog(
         Spacer(modifier = Modifier.height(16.dp))
 
         LazyColumn {
-            items(availableTiles) { tile ->
+            items(availableTiles, key = { it.value }) { tile ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
