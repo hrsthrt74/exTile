@@ -7,15 +7,28 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hrsthrt74.qstile.ui.screens.BackupScreen
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
@@ -54,7 +67,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ExTileNavigation(
+                    MainApp(
                         onRequestShizukuPermission = { callback ->
                             onPermissionResult = callback
                             Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
@@ -71,32 +84,62 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
+    data object Home : Screen("home", "主页", Icons.Default.Home)
+    data object Config : Screen("config", "编辑", Icons.Default.Edit)
+    data object Backup : Screen("backup", "备份", Icons.Default.Backup)
+}
+
 @Composable
-fun ExTileNavigation(
+fun MainApp(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = "home"
-    ) {
-        composable("home") {
-            HomeScreen(
-                onNavigateToConfig = { navController.navigate("config") },
-                onNavigateToBackup = { navController.navigate("backup") },
-                onRequestShizukuPermission = onRequestShizukuPermission
-            )
+    val screens = listOf(Screen.Home, Screen.Config, Screen.Backup)
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                screens.forEach { screen ->
+                    NavigationBarItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        selected = currentRoute == screen.route,
+                        onClick = {
+                            if (currentRoute != screen.route) {
+                                navController.navigate(screen.route) {
+                                    popUpTo(Screen.Home.route) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
+                    )
+                }
+            }
         }
-        composable("config") {
-            TileConfigScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-        composable("backup") {
-            BackupScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onRequestShizukuPermission = onRequestShizukuPermission
+                )
+            }
+            composable(Screen.Config.route) {
+                TileConfigScreen()
+            }
+            composable(Screen.Backup.route) {
+                BackupScreen()
+            }
         }
     }
 }

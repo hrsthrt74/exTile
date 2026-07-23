@@ -20,13 +20,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,8 +46,6 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
-    onNavigateToConfig: () -> Unit,
-    onNavigateToBackup: () -> Unit,
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
@@ -79,7 +75,6 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -118,28 +113,6 @@ fun HomeScreen(
             collapsedTilesCount = config.collapsedTiles.size,
             currentTilesCount = currentTilesCount
         )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onNavigateToConfig,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("磁贴配置")
-            }
-
-            OutlinedButton(
-                onClick = onNavigateToBackup,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("备份与恢复")
-            }
-        }
     }
 }
 

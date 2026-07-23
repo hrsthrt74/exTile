@@ -5,32 +5,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,11 +43,8 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TileConfigScreen(
-    onNavigateBack: () -> Unit
-) {
+fun TileConfigScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -72,101 +64,98 @@ fun TileConfigScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("磁贴配置") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "磁贴配置",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        CategoryFilter(
+            selectedCategory = selectedCategory,
+            onCategorySelected = { selectedCategory = it }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CategoryFilter(
-                selectedCategory = selectedCategory,
-                onCategorySelected = { selectedCategory = it }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    TileListSection(
-                        title = "展开时显示的磁贴",
-                        tiles = config.expandedTiles,
-                        onMoveUp = { index ->
-                            if (index > 0) {
-                                val newList = config.expandedTiles.toMutableList()
-                                val temp = newList[index]
-                                newList[index] = newList[index - 1]
-                                newList[index - 1] = temp
-                                config = config.copy(expandedTiles = newList)
-                                saveConfig()
-                            }
-                        },
-                        onMoveDown = { index ->
-                            if (index < config.expandedTiles.size - 1) {
-                                val newList = config.expandedTiles.toMutableList()
-                                val temp = newList[index]
-                                newList[index] = newList[index + 1]
-                                newList[index + 1] = temp
-                                config = config.copy(expandedTiles = newList)
-                                saveConfig()
-                            }
-                        },
-                        onRemove = { tile ->
-                            config = config.copy(
-                                expandedTiles = config.expandedTiles.filter { it != tile }
-                            )
+            item {
+                TileListSection(
+                    title = "展开时显示的磁贴",
+                    tiles = config.expandedTiles,
+                    onMoveUp = { index ->
+                        if (index > 0) {
+                            val newList = config.expandedTiles.toMutableList()
+                            val temp = newList[index]
+                            newList[index] = newList[index - 1]
+                            newList[index - 1] = temp
+                            config = config.copy(expandedTiles = newList)
                             saveConfig()
-                        },
-                        onAdd = { showAddExpandedDialog = true }
-                    )
-                }
-
-                item {
-                    TileListSection(
-                        title = "收起时显示的磁贴",
-                        tiles = config.collapsedTiles,
-                        onMoveUp = { index ->
-                            if (index > 0) {
-                                val newList = config.collapsedTiles.toMutableList()
-                                val temp = newList[index]
-                                newList[index] = newList[index - 1]
-                                newList[index - 1] = temp
-                                config = config.copy(collapsedTiles = newList)
-                                saveConfig()
-                            }
-                        },
-                        onMoveDown = { index ->
-                            if (index < config.collapsedTiles.size - 1) {
-                                val newList = config.collapsedTiles.toMutableList()
-                                val temp = newList[index]
-                                newList[index] = newList[index + 1]
-                                newList[index + 1] = temp
-                                config = config.copy(collapsedTiles = newList)
-                                saveConfig()
-                            }
-                        },
-                        onRemove = { tile ->
-                            config = config.copy(
-                                collapsedTiles = config.collapsedTiles.filter { it != tile }
-                            )
+                        }
+                    },
+                    onMoveDown = { index ->
+                        if (index < config.expandedTiles.size - 1) {
+                            val newList = config.expandedTiles.toMutableList()
+                            val temp = newList[index]
+                            newList[index] = newList[index + 1]
+                            newList[index + 1] = temp
+                            config = config.copy(expandedTiles = newList)
                             saveConfig()
-                        },
-                        onAdd = { showAddCollapsedDialog = true }
-                    )
-                }
+                        }
+                    },
+                    onRemove = { tile ->
+                        config = config.copy(
+                            expandedTiles = config.expandedTiles.filter { it != tile }
+                        )
+                        saveConfig()
+                    },
+                    onAdd = { showAddExpandedDialog = true }
+                )
+            }
+
+            item {
+                TileListSection(
+                    title = "收起时显示的磁贴",
+                    tiles = config.collapsedTiles,
+                    onMoveUp = { index ->
+                        if (index > 0) {
+                            val newList = config.collapsedTiles.toMutableList()
+                            val temp = newList[index]
+                            newList[index] = newList[index - 1]
+                            newList[index - 1] = temp
+                            config = config.copy(collapsedTiles = newList)
+                            saveConfig()
+                        }
+                    },
+                    onMoveDown = { index ->
+                        if (index < config.collapsedTiles.size - 1) {
+                            val newList = config.collapsedTiles.toMutableList()
+                            val temp = newList[index]
+                            newList[index] = newList[index + 1]
+                            newList[index + 1] = temp
+                            config = config.copy(collapsedTiles = newList)
+                            saveConfig()
+                        }
+                    },
+                    onRemove = { tile ->
+                        config = config.copy(
+                            collapsedTiles = config.collapsedTiles.filter { it != tile }
+                        )
+                        saveConfig()
+                    },
+                    onAdd = { showAddCollapsedDialog = true }
+                )
             }
         }
     }
