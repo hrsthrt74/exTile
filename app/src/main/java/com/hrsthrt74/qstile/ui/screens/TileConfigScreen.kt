@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,13 +34,14 @@ import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
@@ -52,9 +54,10 @@ fun TileConfigScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
+    val tabs = listOf("展开时", "收起时")
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var config by remember { mutableStateOf(TileConfig()) }
-    var showAddExpandedDialog by remember { mutableStateOf(false) }
-    var showAddCollapsedDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
@@ -87,7 +90,14 @@ fun TileConfigScreen() {
             )
         ) {
             item {
-                SmallTitle(text = "展开时显示的磁贴")
+                TabRow(
+                    tabs = tabs,
+                    selectedTabIndex = selectedTabIndex,
+                    onTabSelected = { selectedTabIndex = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
             }
 
             item {
@@ -95,90 +105,59 @@ fun TileConfigScreen() {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        config.expandedTiles.forEachIndexed { index, tile ->
+                        val currentTiles = if (selectedTabIndex == 0) {
+                            config.expandedTiles
+                        } else {
+                            config.collapsedTiles
+                        }
+
+                        currentTiles.forEachIndexed { index, tile ->
                             TileItem(
                                 tileValue = tile,
                                 index = index,
                                 isFirst = index == 0,
-                                isLast = index == config.expandedTiles.size - 1,
+                                isLast = index == currentTiles.size - 1,
                                 onMoveUp = {
                                     if (index > 0) {
-                                        val newList = config.expandedTiles.toMutableList()
+                                        val newList = currentTiles.toMutableList()
                                         val tmp = newList[index]
                                         newList[index] = newList[index - 1]
                                         newList[index - 1] = tmp
-                                        updateConfig(config.copy(expandedTiles = newList))
+                                        val newConfig = if (selectedTabIndex == 0) {
+                                            config.copy(expandedTiles = newList)
+                                        } else {
+                                            config.copy(collapsedTiles = newList)
+                                        }
+                                        updateConfig(newConfig)
                                     }
                                 },
                                 onMoveDown = {
-                                    if (index < config.expandedTiles.size - 1) {
-                                        val newList = config.expandedTiles.toMutableList()
+                                    if (index < currentTiles.size - 1) {
+                                        val newList = currentTiles.toMutableList()
                                         val tmp = newList[index]
                                         newList[index] = newList[index + 1]
                                         newList[index + 1] = tmp
-                                        updateConfig(config.copy(expandedTiles = newList))
+                                        val newConfig = if (selectedTabIndex == 0) {
+                                            config.copy(expandedTiles = newList)
+                                        } else {
+                                            config.copy(collapsedTiles = newList)
+                                        }
+                                        updateConfig(newConfig)
                                     }
                                 },
                                 onRemove = {
-                                    updateConfig(config.copy(expandedTiles = config.expandedTiles.filter { it != tile }))
+                                    val newConfig = if (selectedTabIndex == 0) {
+                                        config.copy(expandedTiles = currentTiles.filter { it != tile })
+                                    } else {
+                                        config.copy(collapsedTiles = currentTiles.filter { it != tile })
+                                    }
+                                    updateConfig(newConfig)
                                 }
                             )
                         }
 
-                        IconButton(
-                            onClick = { showAddExpandedDialog = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "添加")
-                            Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            item {
-                SmallTitle(text = "收起时显示的磁贴")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        config.collapsedTiles.forEachIndexed { index, tile ->
-                            TileItem(
-                                tileValue = tile,
-                                index = index,
-                                isFirst = index == 0,
-                                isLast = index == config.collapsedTiles.size - 1,
-                                onMoveUp = {
-                                    if (index > 0) {
-                                        val newList = config.collapsedTiles.toMutableList()
-                                        val tmp = newList[index]
-                                        newList[index] = newList[index - 1]
-                                        newList[index - 1] = tmp
-                                        updateConfig(config.copy(collapsedTiles = newList))
-                                    }
-                                },
-                                onMoveDown = {
-                                    if (index < config.collapsedTiles.size - 1) {
-                                        val newList = config.collapsedTiles.toMutableList()
-                                        val tmp = newList[index]
-                                        newList[index] = newList[index + 1]
-                                        newList[index + 1] = tmp
-                                        updateConfig(config.copy(collapsedTiles = newList))
-                                    }
-                                },
-                                onRemove = {
-                                    updateConfig(config.copy(collapsedTiles = config.collapsedTiles.filter { it != tile }))
-                                }
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showAddCollapsedDialog = true },
+                        Button(
+                            onClick = { showAddDialog = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "添加")
@@ -192,26 +171,25 @@ fun TileConfigScreen() {
         }
     }
 
-    if (showAddExpandedDialog) {
-        AddTileDialog(
-            title = "添加展开磁贴",
-            existingTiles = config.expandedTiles,
-            onDismiss = { showAddExpandedDialog = false },
-            onAdd = { tile ->
-                updateConfig(config.copy(expandedTiles = config.expandedTiles + tile))
-                showAddExpandedDialog = false
-            }
-        )
-    }
+    if (showAddDialog) {
+        val currentTiles = if (selectedTabIndex == 0) {
+            config.expandedTiles
+        } else {
+            config.collapsedTiles
+        }
 
-    if (showAddCollapsedDialog) {
         AddTileDialog(
-            title = "添加收起磁贴",
-            existingTiles = config.collapsedTiles,
-            onDismiss = { showAddCollapsedDialog = false },
+            title = if (selectedTabIndex == 0) "添加展开磁贴" else "添加收起磁贴",
+            existingTiles = currentTiles,
+            onDismiss = { showAddDialog = false },
             onAdd = { tile ->
-                updateConfig(config.copy(collapsedTiles = config.collapsedTiles + tile))
-                showAddCollapsedDialog = false
+                val newConfig = if (selectedTabIndex == 0) {
+                    config.copy(expandedTiles = currentTiles + tile)
+                } else {
+                    config.copy(collapsedTiles = currentTiles + tile)
+                }
+                updateConfig(newConfig)
+                showAddDialog = false
             }
         )
     }
