@@ -107,7 +107,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding(),
+                top = paddingValues.calculateTopPadding() + 12.dp,
                 start = 16.dp,
                 end = 16.dp,
                 bottom = 16.dp
