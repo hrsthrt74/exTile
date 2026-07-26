@@ -32,14 +32,26 @@ import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
+/**
+ * 应用唯一的主 Activity。
+ * 负责初始化 Shizuku 权限监听、设置 Compose 内容、组装页面导航骨架。
+ */
 class MainActivity : ComponentActivity() {
     companion object {
+        /** Shizuku 权限请求码，用于回调中识别请求 */
         private const val REQUEST_CODE_SHIZUKU = 1001
     }
 
+    /** Shizuku 权限是否已授予（Compose 可观察状态） */
     private var shizukuPermissionGranted by mutableStateOf(false)
+    /** 权限请求完成后的回调，由 HomeScreen 注册 */
     private var onPermissionResult: ((Boolean) -> Unit)? = null
 
+    /**
+     * Shizuku 权限请求结果监听器。
+     * 当用户同意或拒绝权限后由 Shizuku 框架回调。
+     * 更新本地权限状态，通知 HomeScreen，并弹出 Toast 提示。
+     */
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         val granted = grantResult == PackageManager.PERMISSION_GRANTED
         shizukuPermissionGranted = granted
@@ -53,13 +65,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 启用边到边显示，让内容延伸到系统栏区域
         enableEdgeToEdge()
 
+        // 注册 Shizuku 权限回调监听
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
 
+        // 设置 Compose 内容，外层包裹自定义主题
         setContent {
             ExTileTheme {
                 MainApp(
+                    // 将 Shizuku 权限请求逻辑下传给 HomeScreen
                     onRequestShizukuPermission = { callback ->
                         onPermissionResult = callback
                         Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
@@ -71,28 +87,46 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // 移除监听器，防止内存泄漏
         Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
     }
 }
 
+/**
+ * 导航路由封装类。
+ * 每个 Screen 定义路由字符串（route）、展示文本（title）及底部导航图标（icon）。
+ */
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
+    /** 主页 Tab */
     data object Home : Screen("home", "主页", Icons.Default.AllInclusive)
+    /** 磁贴编辑 Tab */
     data object Config : Screen("config", "编辑", Icons.Default.Edit)
+    /** 设置 Tab */
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 }
 
+/**
+ * 应用的 Compose 根组件。
+ * 使用 MIUIX 风格的 Scaffold + 底部导航栏 + NavHost 构建三页导航结构。
+ *
+ * @param onRequestShizukuPermission Shizuku 权限请求的入口方法，接收一个结果回调
+ */
 @Composable
 fun MainApp(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
+    // 导航控制器，管理页面栈
     val navController = rememberNavController()
+    // 观察当前返回栈的顶部路由，用于高亮底部导航项
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     val screens = listOf(Screen.Home, Screen.Config, Screen.Settings)
 
+    // MIUIX 风格 Scaffold，提供 MIUIX 弹窗宿主（MiuixPopupHost）支持
     MiuixScaffold(
         bottomBar = {
+            // 底部导航栏：根据 currentRoute 高亮对应项
             NavigationBar {
                 screens.forEach { screen ->
                     NavigationBarItem(
@@ -100,10 +134,13 @@ fun MainApp(
                         onClick = {
                             if (currentRoute != screen.route) {
                                 navController.navigate(screen.route) {
+                                    // 返回栈弹出到 Home，避免栈无限增长
                                     popUpTo(Screen.Home.route) {
                                         saveState = true
                                     }
+                                    // 同一目标只保留一个实例
                                     launchSingleTop = true
+                                    // 返回时恢复之前的状态
                                     restoreState = true
                                 }
                             }
@@ -115,6 +152,7 @@ fun MainApp(
             }
         }
     ) { paddingValues ->
+        // 导航主体，承载三个页面的路由
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
@@ -123,14 +161,17 @@ fun MainApp(
                 .padding(paddingValues)
                 .consumeWindowInsets(paddingValues)
         ) {
+            // 主页：展示 Shizuku 状态 + 当前磁贴配置概览
             composable(Screen.Home.route) {
                 HomeScreen(
                     onRequestShizukuPermission = onRequestShizukuPermission
                 )
             }
+            // 编辑页：配置展开/收起时的磁贴列表
             composable(Screen.Config.route) {
                 TileConfigScreen()
             }
+            // 设置页：主题配色 + 备份恢复 + 系统导入
             composable(Screen.Settings.route) {
                 SettingsScreen()
             }

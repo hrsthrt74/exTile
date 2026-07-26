@@ -48,10 +48,19 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+/** 配色模式选项标签，索引对应 ColorSchemeMode 枚举值 */
 private val themeModeLabels = listOf("动态取色跟随系统", "跟随系统", "动态取色浅色", "动态取色深色", "浅色", "深色")
+
+/** 调色板风格选项标签 */
 private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
+
+/** 颜色规范选项标签 */
 private val colorSpecLabels = listOf("Spec2021", "Spec2025")
 
+/**
+ * 设置页面。
+ * 包含三大板块：主题配色、备份与恢复、从系统导入磁贴配置。
+ */
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
@@ -59,22 +68,34 @@ fun SettingsScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
+    // ---- 主题设置状态 ----
+    // 从 DataStore Flow 收集主题偏好，自动响应变化
     val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
         .collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
 
+    // ---- 备份与恢复状态 ----
+    /** 当前磁贴配置 */
     var config by remember { mutableStateOf(TileConfig()) }
+    /** 当前系统的 sysui_qs_tiles 原始值（备份时引用） */
     var currentSysuiTiles by remember { mutableStateOf("") }
+    /** 生成的备份 JSON 文本 */
     var backupText by remember { mutableStateOf("") }
 
+    // ---- 对话框开关 ----
     var showThemeModeDialog by remember { mutableStateOf(false) }
     var showPaletteDialog by remember { mutableStateOf(false) }
     var showSpecDialog by remember { mutableStateOf(false) }
 
+    // 首次进入屏幕时加载配置和系统当前磁贴数据
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
         currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
     }
 
+    /**
+     * 将当前磁贴配置 + 系统磁贴数据序列化为 JSON 字符串。
+     * 格式：{ expandedTiles: [...], collapsedTiles: [...], currentSysuiTiles: "..." }
+     */
     fun generateBackupJson(): String {
         return buildString {
             append("{\n")
@@ -85,13 +106,22 @@ fun SettingsScreen() {
         }
     }
 
+    /**
+     * 从 JSON 字符串解析出 TileConfig。
+     * 使用简易正则匹配 expandedTiles 和 collapsedTiles 数组。
+     * 解析失败或无匹配时返回 null。
+     */
     fun parseBackupJson(json: String): TileConfig? {
         return try {
             val expandedMatch = Regex("\"expandedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
             val collapsedMatch = Regex("\"collapsedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
             if (expandedMatch != null && collapsedMatch != null) {
-                val expanded = expandedMatch.groupValues[1].split(",").map { it.trim().removeSurrounding("\"") }.filter { it.isNotBlank() }
-                val collapsed = collapsedMatch.groupValues[1].split(",").map { it.trim().removeSurrounding("\"") }.filter { it.isNotBlank() }
+                val expanded = expandedMatch.groupValues[1].split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotBlank() }
+                val collapsed = collapsedMatch.groupValues[1].split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotBlank() }
                 TileConfig(expandedTiles = expanded, collapsedTiles = collapsed)
             } else null
         } catch (_: Exception) { null }
@@ -115,6 +145,7 @@ fun SettingsScreen() {
                 bottom = 16.dp
             )
         ) {
+            // ===== 主题设置板块 =====
             item {
                 SmallTitle(text = "主题")
             }
@@ -123,6 +154,7 @@ fun SettingsScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
+                    // 配色模式选择入口
                     ArrowPreference(
                         title = "配色模式",
                         summary = themeModeLabels.getOrElse(themeSettings.colorSchemeMode) { "动态取色跟随系统" },
@@ -130,13 +162,16 @@ fun SettingsScreen() {
                         holdDownState = showThemeModeDialog
                     )
 
+                    // 仅在动态取色模式下显示调色板风格和颜色规范选项
                     if (themeSettings.colorSchemeMode in 0..3) {
+                        // 调色板风格选择入口
                         ArrowPreference(
                             title = "调色板风格",
                             summary = paletteStyleLabels.getOrElse(themeSettings.paletteStyle) { "TonalSpot" },
                             onClick = { showPaletteDialog = true },
                             holdDownState = showPaletteDialog
                         )
+                        // 颜色规范选择入口
                         ArrowPreference(
                             title = "颜色规范",
                             summary = colorSpecLabels.getOrElse(themeSettings.colorSpec) { "Spec2021" },
@@ -149,10 +184,12 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
+            // ===== 备份与恢复板块 =====
             item {
                 SmallTitle(text = "备份与恢复")
             }
 
+            // 显示当前系统磁贴原始值（只读）
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -172,6 +209,7 @@ fun SettingsScreen() {
                 }
             }
 
+            // 生成备份按钮
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -193,6 +231,7 @@ fun SettingsScreen() {
                 }
             }
 
+            // 备份结果展示卡片：仅在生成备份后出现
             if (backupText.isNotEmpty()) {
                 item {
                     Card(
@@ -203,7 +242,9 @@ fun SettingsScreen() {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(text = backupText, style = MiuixTheme.textStyles.body2)
                             Spacer(modifier = Modifier.height(12.dp))
+                            // 复制 / 恢复 双按钮
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                // 复制 JSON 到系统剪贴板
                                 Button(
                                     onClick = {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -214,6 +255,7 @@ fun SettingsScreen() {
                                 ) {
                                     Text("复制")
                                 }
+                                // 从 JSON 恢复磁贴配置
                                 Button(
                                     onClick = {
                                         val restored = parseBackupJson(backupText)
@@ -242,10 +284,12 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
+            // ===== 系统导入板块 =====
             item {
                 SmallTitle(text = "系统导入")
             }
 
+            // 一键从系统当前的 sysui_qs_tiles 导入为展开状态配置
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -280,6 +324,7 @@ fun SettingsScreen() {
         }
     }
 
+    // ---- 弹窗：配色模式选择 ----
     if (showThemeModeDialog) {
         ThemeModeDialog(
             currentMode = themeSettings.colorSchemeMode,
@@ -293,6 +338,7 @@ fun SettingsScreen() {
         )
     }
 
+    // ---- 弹窗：调色板风格选择 ----
     if (showPaletteDialog) {
         PaletteStyleDialog(
             currentStyle = themeSettings.paletteStyle,
@@ -306,6 +352,7 @@ fun SettingsScreen() {
         )
     }
 
+    // ---- 弹窗：颜色规范选择 ----
     if (showSpecDialog) {
         ColorSpecDialog(
             currentSpec = themeSettings.colorSpec,
@@ -320,6 +367,10 @@ fun SettingsScreen() {
     }
 }
 
+/**
+ * 配色模式选择弹窗。
+ * 以全屏 Dialog 呈现所有配色模式选项列表，点击即选并关闭。
+ */
 @Composable
 private fun ThemeModeDialog(
     currentMode: Int,
@@ -349,6 +400,10 @@ private fun ThemeModeDialog(
     }
 }
 
+/**
+ * 调色板风格选择弹窗。
+ * 仅在动态取色模式下可见，选择后即时生效。
+ */
 @Composable
 private fun PaletteStyleDialog(
     currentStyle: Int,
@@ -378,6 +433,10 @@ private fun PaletteStyleDialog(
     }
 }
 
+/**
+ * 颜色规范选择弹窗。
+ * 在 Spec2021（Android 12 风格）和 Spec2025（Material 3 新规范）之间切换。
+ */
 @Composable
 private fun ColorSpecDialog(
     currentSpec: Int,
