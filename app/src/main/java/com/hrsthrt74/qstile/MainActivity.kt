@@ -24,13 +24,13 @@ import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AllInclusive
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Settings
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.Settings
 
 /**
  * 应用唯一的主 Activity。
@@ -97,12 +97,12 @@ class MainActivity : ComponentActivity() {
  * 每个 Screen 定义路由字符串（route）、展示文本（title）及底部导航图标（icon）。
  */
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    /** 主页 Tab */
-    data object Home : Screen("home", "主页", Icons.Default.AllInclusive)
-    /** 磁贴编辑 Tab */
-    data object Config : Screen("config", "编辑", Icons.Default.Edit)
-    /** 设置 Tab */
-    data object Settings : Screen("settings", "设置", Icons.Default.Settings)
+    /** 主页 Tab — MIUIX Home 图标 */
+    data object Home : Screen("home", "主页", MiuixIcons.Home)
+    /** 磁贴编辑 Tab — MIUIX Edit 图标 */
+    data object Config : Screen("config", "编辑", MiuixIcons.Edit)
+    /** 设置 Tab — MIUIX Settings 图标 */
+    data object SettingPage : Screen("settings", "设置", MiuixIcons.Settings)
 }
 
 /**
@@ -121,7 +121,7 @@ fun MainApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val screens = listOf(Screen.Home, Screen.Config, Screen.Settings)
+    val screens = listOf(Screen.Home, Screen.Config, Screen.SettingPage)
 
     // MIUIX 风格 Scaffold，提供 MIUIX 弹窗宿主（MiuixPopupHost）支持
     MiuixScaffold(
@@ -172,7 +172,7 @@ fun MainApp(
                 TileConfigScreen()
             }
             // 设置页：主题配色 + 备份恢复 + 系统导入
-            composable(Screen.Settings.route) {
+            composable(Screen.SettingPage.route) {
                 SettingsScreen()
             }
         }

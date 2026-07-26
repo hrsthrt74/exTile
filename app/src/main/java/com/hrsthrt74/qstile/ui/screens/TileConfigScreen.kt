@@ -45,6 +45,8 @@ import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -184,7 +186,7 @@ fun TileConfigScreen() {
                             onClick = { showAddDialog = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "添加")
+                            Icon(MiuixIcons.AddCircle, contentDescription = "添加")
                             Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
                         }
                     }
@@ -250,9 +252,9 @@ private fun TileItem(
     ) {
         // 序号
         Text(
-            text = "${index + 1}.",
+            text = "${index + 1}",
             style = MiuixTheme.textStyles.body2,
-            modifier = Modifier.width(30.dp)
+            modifier = Modifier.width(24.dp)
         )
 
         // 名称 + 原始值（两行）
