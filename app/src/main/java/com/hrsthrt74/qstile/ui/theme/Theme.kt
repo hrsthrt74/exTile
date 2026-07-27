@@ -1,10 +1,16 @@
 package com.hrsthrt74.qstile.ui.theme
 
+import android.app.Activity
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -17,14 +23,21 @@ import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
  * 将存储的整数映射为 MIUIX 的 ColorSchemeMode 枚举。
  * 0=Monet取色跟随系统, 1=跟随系统, 2=浅色Monet, 3=深色Monet, 4=浅色, 5=深色
  */
-private fun Int.toColorSchemeMode(): ColorSchemeMode = when (this) {
-    0 -> ColorSchemeMode.MonetSystem
-    1 -> ColorSchemeMode.System
-    2 -> ColorSchemeMode.MonetLight
-    3 -> ColorSchemeMode.MonetDark
-    4 -> ColorSchemeMode.Light
-    5 -> ColorSchemeMode.Dark
+private fun mapColorSchemeMode(dayNightMode: Int, isDynamicColorMode: Boolean): ColorSchemeMode = when {
+    isDynamicColorMode && dayNightMode == 0 -> ColorSchemeMode.MonetSystem
+    !isDynamicColorMode && dayNightMode == 0 -> ColorSchemeMode.System
+    isDynamicColorMode && dayNightMode == 1 -> ColorSchemeMode.MonetLight
+    !isDynamicColorMode && dayNightMode == 1 -> ColorSchemeMode.Light
+    isDynamicColorMode && dayNightMode == 2 -> ColorSchemeMode.MonetDark
+    !isDynamicColorMode && dayNightMode == 2 -> ColorSchemeMode.Dark
     else -> ColorSchemeMode.System
+}
+
+private fun dayNightModeToIsDark(mode: Int): Boolean? = when (mode) {
+    0 -> null
+    1 -> false
+    2 -> true
+    else -> null
 }
 
 /**
@@ -60,15 +73,31 @@ fun ExTileTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    // 以 Flow 形式收集 DataStore 中的主题设置，自动响应变化
+    val view = LocalView.current
+    val configuration = LocalConfiguration.current
+
     val settings by ThemeRepository.getThemeSettingsFlow(context)
         .collectAsState(initial = ThemeSettings())
 
+    val isSystemDark = configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+    val effectiveDark = when (settings.dayNightMode) {
+        1 -> false
+        2 -> true
+        else -> isSystemDark
+    }
+
+    SideEffect {
+        val window = (view.context as Activity).window
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !effectiveDark
+        }
+    }
+
     // 当设置变化时重新创建 ThemeController，驱动 MIUIX 主题切换
-    val controller = remember(settings.colorSchemeMode, settings.isDark, settings.paletteStyle, settings.colorSpec) {
+    val controller = remember(settings.dayNightMode, settings.isDynamicColorMode, settings.paletteStyle, settings.colorSpec) {
         ThemeController(
-            colorSchemeMode = settings.colorSchemeMode.toColorSchemeMode(),
-            isDark = settings.isDark,
+            colorSchemeMode = mapColorSchemeMode(settings.dayNightMode, settings.isDynamicColorMode),
+            isDark = dayNightModeToIsDark(settings.dayNightMode),
             paletteStyle = settings.paletteStyle.toPaletteStyle(),
             colorSpec = settings.colorSpec.toColorSpec()
         )

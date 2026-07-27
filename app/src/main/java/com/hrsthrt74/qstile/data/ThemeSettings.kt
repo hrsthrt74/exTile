@@ -10,26 +10,25 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 data class ThemeSettings(
-    val colorSchemeMode: Int = 0,
-    val isDark: Boolean? = null,
+    val dayNightMode: Int = 0,
+    val isDynamicColorMode: Boolean = false,
     val paletteStyle: Int = 0,
-    val colorSpec: Int = 0
+    val colorSpec: Int = 1
 )
 
 object ThemeRepository {
-    private val COLOR_SCHEME_MODE = intPreferencesKey("color_scheme_mode")
-    private val IS_DARK = booleanPreferencesKey("is_dark")
-    private val HAS_IS_DARK = booleanPreferencesKey("has_is_dark")
+    private val DAY_NIGHT_MODE = intPreferencesKey("day_night_mode")
+    private val IS_DYNAMIC_COLOR_MODE = booleanPreferencesKey("is_dynamic_color_mode")
     private val PALETTE_STYLE = intPreferencesKey("palette_style")
     private val COLOR_SPEC = intPreferencesKey("color_spec")
 
     fun getThemeSettingsFlow(context: Context): Flow<ThemeSettings> {
         return context.dataStore.data.map { prefs ->
             ThemeSettings(
-                colorSchemeMode = prefs[COLOR_SCHEME_MODE] ?: 0,
-                isDark = if (prefs[HAS_IS_DARK] == true) prefs[IS_DARK] else null,
+                dayNightMode = prefs[DAY_NIGHT_MODE] ?: 0,
+                isDynamicColorMode = prefs[IS_DYNAMIC_COLOR_MODE] ?: false,
                 paletteStyle = prefs[PALETTE_STYLE] ?: 0,
-                colorSpec = prefs[COLOR_SPEC] ?: 0
+                colorSpec = prefs[COLOR_SPEC] ?: 1
             )
         }
     }
@@ -38,20 +37,15 @@ object ThemeRepository {
         return getThemeSettingsFlow(context).first()
     }
 
-    suspend fun saveColorSchemeMode(context: Context, mode: Int) {
+    suspend fun saveDayNightMode(context: Context, mode: Int) {
         context.dataStore.edit { prefs ->
-            prefs[COLOR_SCHEME_MODE] = mode
+            prefs[DAY_NIGHT_MODE] = mode
         }
     }
 
-    suspend fun saveIsDark(context: Context, isDark: Boolean?) {
+    suspend fun saveIsDynamicColorMode(context: Context, enabled: Boolean) {
         context.dataStore.edit { prefs ->
-            if (isDark != null) {
-                prefs[HAS_IS_DARK] = true
-                prefs[IS_DARK] = isDark
-            } else {
-                prefs[HAS_IS_DARK] = false
-            }
+            prefs[IS_DYNAMIC_COLOR_MODE] = enabled
         }
     }
 
