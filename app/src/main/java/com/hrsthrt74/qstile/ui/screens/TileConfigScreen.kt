@@ -101,29 +101,31 @@ fun TileConfigScreen() {
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding(),
-                bottom = 16.dp
-            )
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
-            // ---- Tab 切换栏 ----
-            item {
-                TabRow(
-                    tabs = tabs,
-                    selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { selectedTabIndex = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                )
-            }
+            // ---- Tab 切换栏（固定不随列表滚动） ----
+            TabRow(
+                tabs = tabs,
+                selectedTabIndex = selectedTabIndex,
+                onTabSelected = { selectedTabIndex = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
 
             // ---- 磁贴列表卡片 ----
-            item {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    bottom = 16.dp
+                )
+            ) {
+                item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
@@ -221,7 +223,8 @@ fun TileConfigScreen() {
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
         }
     }
 
