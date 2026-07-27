@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.navigationevent.compose)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation(libs.miuix.ui)
