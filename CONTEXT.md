@@ -8,7 +8,7 @@
 |------|-----|
 | 包名 | `com.hrsthrt74.qstile` |
 | 语言 | Kotlin 2.4.0 |
-| UI | Jetpack Compose + Material 3 + MIUIX |
+| UI | Jetpack Compose + MIUIX (HyperOS 设计) |
 | 构建系统 | Gradle (Kotlin DSL) + AGP 9.3.0 |
 | 最低 SDK | Android 13 (API 33) |
 | 目标 SDK | Android 15 (API 36) |
@@ -101,7 +101,7 @@ exTile/
 1. **QS 磁贴一键切换**：通过 `ExTileService` 实现展开/收起两套布局间切换
 2. **磁贴编辑**：支持拖拽排序、添加系统/自定义磁贴
 3. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
-4. **配置备份/恢复**：JSON 格式导出导入，支持从系统当前配置导入
+4. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
 5. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等
 
 ---
@@ -114,17 +114,28 @@ exTile/
 | Kotlin Compose Plugin | 2.4.0 |
 | Compose BOM | 2026.02.01 |
 | Navigation Compose | 2.8.5 |
+| NavigationEvent Compose | 1.1.2 |
 | DataStore Preferences | 1.0.0 |
 | Shizuku API | 13.1.5 |
 | Shizuku Provider | 13.1.5 |
 | MIUIX UI | 0.9.3 |
+| MIUIX Preference | 0.9.3 |
+
+---
+
+## UI 设计规范
+
+- **导航**：使用 `navigation-compose`（NavHost/NavController），底部 `NavigationBar` 控制三个页面路由。通过 `CompositionLocalProvider` + `rememberNavigationEventDispatcherOwner` 注入 navigation event dispatcher，供 MIUIX Overlay 组件使用
+- **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口
+- **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`
+- **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
 
 ---
 
 ## 待办事项 (TODO)
 
-- **UX 易用性改进**：当前界面和交互流程仍有优化空间，需更直观的引导和操作反馈
 - **i18n 国际化**：目前所有字符串硬编码为中文，需抽离为字符串资源，支持多语言
+- **自定义图标**：当前使用 MIUIX 内置图标，可通过 Android Vector Drawable 添加自定义图标
 - **错误处理增强**：各场景下（权限拒绝、Shizuku 未启动、命令执行失败等）的错误提示和恢复机制不够完善
 - **无障碍适配**：缺少 TalkBack 等无障碍支持
 - **单元测试覆盖**：当前测试覆盖不足，需补充核心逻辑的单元测试
