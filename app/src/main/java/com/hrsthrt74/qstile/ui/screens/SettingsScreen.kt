@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,11 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,17 +36,21 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
 private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
@@ -68,6 +69,12 @@ fun SettingsScreen() {
     var config by remember { mutableStateOf(TileConfig()) }
     var currentSysuiTiles by remember { mutableStateOf("") }
     var backupText by remember { mutableStateOf("") }
+
+    var showSystemTilesSheet by remember { mutableStateOf(false) }
+    var showBackupSheet by remember { mutableStateOf(false) }
+    var showImportBackupSheet by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importBackupJson by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
@@ -192,86 +199,29 @@ fun SettingsScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "当前系统磁贴",
-                            style = MiuixTheme.textStyles.title2
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = currentSysuiTiles.ifEmpty { "无数据" },
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-            }
+                    ArrowPreference(
+                        title = "查看系统磁贴配置",
+                        summary = "查看当前系统的 QS 磁贴原始值",
+                        onClick = { showSystemTilesSheet = true }
+                    )
 
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "备份配置", style = MiuixTheme.textStyles.title2)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = "将当前配置导出为 JSON", style = MiuixTheme.textStyles.body2)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { backupText = generateBackupJson() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("生成备份")
+                    ArrowPreference(
+                        title = "生成备份",
+                        summary = "将当前配置导出为 JSON 格式",
+                        onClick = {
+                            backupText = generateBackupJson()
+                            showBackupSheet = true
                         }
-                    }
-                }
-            }
+                    )
 
-            if (backupText.isNotEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(text = "备份数据", style = MiuixTheme.textStyles.title2)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = backupText, style = MiuixTheme.textStyles.body2)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
-                                        Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("复制")
-                                }
-                                Button(
-                                    onClick = {
-                                        val restored = parseBackupJson(backupText)
-                                        if (restored != null) {
-                                            scope.launch {
-                                                ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
-                                                ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
-                                                config = restored
-                                                Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("恢复")
-                                }
-                            }
+                    ArrowPreference(
+                        title = "导入备份",
+                        summary = "从 JSON 文本恢复磁贴配置",
+                        onClick = {
+                            importBackupJson = ""
+                            showImportBackupSheet = true
                         }
-                    }
+                    )
                 }
             }
 
@@ -279,40 +229,154 @@ fun SettingsScreen() {
 
             // ===== 系统导入板块 =====
             item {
-                SmallTitle(text = "系统导入")
+                SmallTitle(text = "数据导入")
             }
 
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "从系统导入磁贴", style = MiuixTheme.textStyles.title2)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = "将当前系统磁贴配置保存为展开状态", style = MiuixTheme.textStyles.body2)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    val tiles = SecureSettingsHelper.getCurrentTiles(context)
-                                    if (tiles.isNotEmpty()) {
-                                        ConfigRepository.saveExpandedTiles(context, tiles)
-                                        config = config.copy(expandedTiles = tiles)
-                                        Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("从系统导入")
-                        }
-                    }
+                    ArrowPreference(
+                        title = "从系统导入磁贴",
+                        summary = "将当前系统磁贴配置保存为展开状态",
+                        onClick = { showImportDialog = true }
+                    )
                 }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
+    }
+
+    // ---- 系统磁贴查看 Sheet ----
+    WindowBottomSheet(
+        show = showSystemTilesSheet,
+        title = "系统磁贴配置",
+        onDismissRequest = { showSystemTilesSheet = false }
+    ) {
+        BackHandler { showSystemTilesSheet = false }
+        Text(
+            text = currentSysuiTiles.ifEmpty { "无数据" },
+            style = MiuixTheme.textStyles.body2,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+        )
+    }
+
+    // ---- 备份结果 Sheet ----
+    WindowBottomSheet(
+        show = showBackupSheet,
+        title = "备份数据",
+        onDismissRequest = { showBackupSheet = false }
+    ) {
+        BackHandler { showBackupSheet = false }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+        ) {
+            Text(
+                text = backupText,
+                style = MiuixTheme.textStyles.body2
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
+                        Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                        showBackupSheet = false
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("复制")
+                }
+        }
+    }
+
+    // ---- 导入备份 Sheet ----
+    WindowBottomSheet(
+        show = showImportBackupSheet,
+        title = "导入备份",
+        onDismissRequest = {
+            showImportBackupSheet = false
+            importBackupJson = ""
+        }
+    ) {
+        BackHandler {
+            showImportBackupSheet = false
+            importBackupJson = ""
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+        ) {
+            TextField(
+                value = importBackupJson,
+                onValueChange = { importBackupJson = it },
+                label = "粘贴 JSON 备份数据",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val restored = parseBackupJson(importBackupJson)
+                    if (restored != null) {
+                        scope.launch {
+                            ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
+                            ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
+                            config = restored
+                            Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
+                        }
+                        showImportBackupSheet = false
+                        importBackupJson = ""
+                    } else {
+                        Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("恢复")
+            }
+        }
+    }
+
+    // ---- 系统导入确认 Dialog ----
+    WindowDialog(
+        show = showImportDialog,
+        title = "从系统导入磁贴",
+        summary = "将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。",
+        onDismissRequest = { showImportDialog = false }
+    ) {
+        BackHandler { showImportDialog = false }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextButton(
+                text = "取消",
+                onClick = { showImportDialog = false },
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                text = "确认",
+                onClick = {
+                    scope.launch {
+                        val tiles = SecureSettingsHelper.getCurrentTiles(context)
+                        if (tiles.isNotEmpty()) {
+                            ConfigRepository.saveExpandedTiles(context, tiles)
+                            config = config.copy(expandedTiles = tiles)
+                            Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    showImportDialog = false
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }

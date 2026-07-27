@@ -76,6 +76,7 @@ fun TileConfigScreen() {
     var showCustomSheet by remember { mutableStateOf(false) }
     var customTileValue by remember { mutableStateOf("") }
     var showCopyConfirmDialog by remember { mutableStateOf(false) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
@@ -101,6 +102,10 @@ fun TileConfigScreen() {
                                 DropdownItem(
                                     text = "展开配置 → 收起",
                                     onClick = { showCopyConfirmDialog = true }
+                                ),
+                                DropdownItem(
+                                    text = "恢复默认设置",
+                                    onClick = { showResetConfirmDialog = true }
                                 )
                             )
                         )
@@ -385,6 +390,38 @@ fun TileConfigScreen() {
                     },
                     modifier = Modifier.weight(1f)
                 )
+            }
+    }
+
+        WindowDialog(
+            title = "恢复默认设置",
+            summary = "将展开和收起磁贴配置恢复为默认值，当前配置将丢失。",
+            show = showResetConfirmDialog,
+            onDismissRequest = { showResetConfirmDialog = false }
+        ) {
+            BackHandler { showResetConfirmDialog = false }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = "取消",
+                    onClick = { showResetConfirmDialog = false },
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        color = MiuixTheme.colorScheme.error,
+                        contentColor = MiuixTheme.colorScheme.onError,
+                    ),
+                    onClick = {
+                        updateConfig(TileConfig())
+                        showResetConfirmDialog = false
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("确认恢复")
+                }
             }
     }
 }
