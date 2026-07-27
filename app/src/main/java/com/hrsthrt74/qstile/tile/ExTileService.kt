@@ -60,7 +60,10 @@ class ExTileService : TileService() {
                 val tile = qsTile ?: return@launch
 
                 tile.state = if (config.isExpanded) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-                tile.label = if (config.isExpanded) "收起" else "展开"
+                // ↓ 这是源代码，备份
+                // tile.label = if (config.isExpanded) "收起" else "展开"
+                // ↓ 这是调试用的，最终要改的
+                tile.label = if (config.isExpanded) "更多磁贴" else "更多磁贴"
 
                 tile.updateTile()
             } catch (e: Exception) {

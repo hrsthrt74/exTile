@@ -43,6 +43,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -69,6 +70,10 @@ fun TileConfigScreen() {
     var config by remember { mutableStateOf(TileConfig()) }
     /** 添加磁贴对话框显示开关 */
     var showAddDialog by remember { mutableStateOf(false) }
+    /** 添加自定义磁贴对话框显示开关 */
+    var showCustomDialog by remember { mutableStateOf(false) }
+    /** 自定义磁贴输入值 */
+    var customTileValue by remember { mutableStateOf("") }
 
     // 首次加载从 DataStore 读取配置
     LaunchedEffect(Unit) {
@@ -189,6 +194,29 @@ fun TileConfigScreen() {
                             Icon(MiuixIcons.AddCircle, contentDescription = "添加")
                             Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 将展开时配置复制到收起时
+                        Button(
+                            onClick = {
+                                updateConfig(config.copy(collapsedTiles = config.expandedTiles))
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("展开配置 → 收起")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 添加自定义磁贴按钮 → 打开输入弹窗
+                        Button(
+                            onClick = { showCustomDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
+                            Text("添加自定义磁贴", modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }
@@ -218,6 +246,33 @@ fun TileConfigScreen() {
                 updateConfig(newConfig)
                 showAddDialog = false
             }
+        )
+    }
+
+    // ---- 添加自定义磁贴弹窗 ----
+    if (showCustomDialog) {
+        CustomTileDialog(
+            onDismiss = {
+                showCustomDialog = false
+                customTileValue = ""
+            },
+            onConfirm = { value ->
+                val currentTiles = if (selectedTabIndex == 0) {
+                    config.expandedTiles
+                } else {
+                    config.collapsedTiles
+                }
+                val newConfig = if (selectedTabIndex == 0) {
+                    config.copy(expandedTiles = currentTiles + value)
+                } else {
+                    config.copy(collapsedTiles = currentTiles + value)
+                }
+                updateConfig(newConfig)
+                showCustomDialog = false
+                customTileValue = ""
+            },
+            value = customTileValue,
+            onValueChange = { customTileValue = it }
         )
     }
 }
@@ -346,6 +401,68 @@ private fun AddTileDialog(
                             )
                         }
                         Icon(Icons.Default.Add, contentDescription = "添加")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 自定义磁贴输入弹窗。
+ * 让用户手动输入磁贴标识值（如 custom(包名/类名)），确认后添加到当前列表。
+ */
+@Composable
+private fun CustomTileDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(text = "添加自定义磁贴", style = MiuixTheme.textStyles.headline2)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "请输入磁贴标识值，如 custom(包名/类名)",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                TextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    label = "磁贴值",
+                    maxLines = 1
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("取消")
+                    }
+                    Button(
+                        onClick = { if (value.isNotBlank()) onConfirm(value.trim()) },
+                        modifier = Modifier.weight(1f),
+                        enabled = value.isNotBlank()
+                    ) {
+                        Text("添加")
                     }
                 }
             }
