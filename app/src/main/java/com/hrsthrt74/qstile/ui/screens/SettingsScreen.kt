@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 配色模式选项标签，索引对应 ColorSchemeMode 枚举值 */
 private val themeModeLabels = listOf("动态取色跟随系统", "跟随系统", "动态取色浅色", "动态取色深色", "浅色", "深色")
@@ -139,7 +141,10 @@ fun SettingsScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .scrollEndHaptic(
+                    hapticFeedbackType = HapticFeedbackType.TextHandleMove // 默认值
+                ),
             contentPadding = PaddingValues(
                 top = paddingValues.calculateTopPadding(),
                 bottom = 16.dp

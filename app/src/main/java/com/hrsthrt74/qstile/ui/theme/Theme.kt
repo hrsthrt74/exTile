@@ -24,7 +24,7 @@ private fun Int.toColorSchemeMode(): ColorSchemeMode = when (this) {
     3 -> ColorSchemeMode.MonetDark
     4 -> ColorSchemeMode.Light
     5 -> ColorSchemeMode.Dark
-    else -> ColorSchemeMode.MonetSystem
+    else -> ColorSchemeMode.System
 }
 
 /**
@@ -46,7 +46,7 @@ private fun Int.toPaletteStyle(): ThemePaletteStyle = when (this) {
 private fun Int.toColorSpec(): ThemeColorSpec = when (this) {
     0 -> ThemeColorSpec.Spec2021
     1 -> ThemeColorSpec.Spec2025
-    else -> ThemeColorSpec.Spec2021
+    else -> ThemeColorSpec.Spec2025
 }
 
 /**
