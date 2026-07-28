@@ -371,11 +371,15 @@ fun TileConfigScreen() {
             show = showCopyConfirmDialog,
             onDismissRequest = { showCopyConfirmDialog = false }
         ) {
+            // miuix 居然没这个间距，没了看起来很奇怪哎
+            Spacer(modifier = Modifier.height(8.dp))
+
+            BackHandler { showCopyConfirmDialog = false }
+
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                BackHandler { showCopyConfirmDialog = false }
                 TextButton(
                     text = "取消",
                     onClick = { showCopyConfirmDialog = false },
@@ -399,9 +403,13 @@ fun TileConfigScreen() {
             show = showResetConfirmDialog,
             onDismissRequest = { showResetConfirmDialog = false }
         ) {
+            // 同 Line 375
+            Spacer(modifier = Modifier.height(8.dp))
+
             BackHandler { showResetConfirmDialog = false }
+
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 TextButton(
