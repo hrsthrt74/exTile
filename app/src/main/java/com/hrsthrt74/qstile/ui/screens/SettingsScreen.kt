@@ -3,6 +3,7 @@ package com.hrsthrt74.qstile.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +34,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
@@ -250,6 +252,27 @@ fun SettingsScreen() {
                         title = "从系统导入磁贴",
                         summary = "将当前系统磁贴配置保存为展开状态",
                         onClick = { showImportDialog = true }
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            // ===== 关于板块 =====
+            item {
+                SmallTitle(text = "关于")
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) {
+                    ArrowPreference(
+                        title = "开源许可",
+                        summary = "查看本应用使用的开源库及许可证",
+                        onClick = {
+                            context.startActivity(Intent(context, LicensesActivity::class.java))
+                        }
                     )
                 }
             }

@@ -101,8 +101,15 @@ fun TileConfigScreen() {
     var showCopyConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
 
+    // 记录是否已加载过配置
+    var isConfigLoaded by remember { mutableStateOf(false) }
+
+    // 只在第一次组合时加载配置
     LaunchedEffect(Unit) {
-        config = ConfigRepository.getConfig(context)
+        if (!isConfigLoaded) {
+            config = ConfigRepository.getConfig(context)
+            isConfigLoaded = true
+        }
     }
 
     fun updateConfig(newConfig: TileConfig) {

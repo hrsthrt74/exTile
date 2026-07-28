@@ -6,27 +6,25 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
 import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
@@ -34,7 +32,6 @@ import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -111,27 +108,31 @@ class MainActivity : ComponentActivity() {
 
 /**
  * 导航路由封装类。
- * 每个 Screen 定义路由字符串（route）、展示文本（title）及底部导航图标（icon）。
+ * 每个 Screen 定义展示文本（title）及底部导航图标（icon）。
  */
-sealed class Screen(val route: String, val title: String) {
+sealed class Screen(val title: String) {
     @Composable abstract fun icon(): ImageVector
     /** 主页 Tab — drawable/home_outlined */
-    data object Home : Screen("home", "主页") {
+    data object Home : Screen("主页") {
         @Composable override fun icon() = ImageVector.vectorResource(R.drawable.home_outlined)
     }
     /** 磁贴编辑 Tab — MIUIX Edit 图标 */
-    data object Config : Screen("config", "编辑") {
+    data object Config : Screen("编辑") {
         @Composable override fun icon() = MiuixIcons.Edit
     }
     /** 设置 Tab — MIUIX Settings 图标 */
-    data object SettingPage : Screen("settings", "设置") {
+    data object SettingPage : Screen("设置") {
         @Composable override fun icon() = MiuixIcons.Settings
+    }
+
+    companion object {
+        val allPages = listOf(Home, Config, SettingPage)
     }
 }
 
 /**
  * 应用的 Compose 根组件。
- * 使用 MIUIX 风格的 Scaffold + 底部导航栏 + NavHost 构建三页导航结构。
+ * 使用 MIUIX 风格的 Scaffold + 底部导航栏 + HorizontalPager 构建三页导航结构。
  *
  * @param onRequestShizukuPermission Shizuku 权限请求的入口方法，接收一个结果回调
  */
@@ -139,14 +140,6 @@ sealed class Screen(val route: String, val title: String) {
 fun MainApp(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
-    // 导航控制器，管理页面栈
-    val navController = rememberNavController()
-    // 观察当前返回栈的顶部路由，用于高亮底部导航项
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    val screens = listOf(Screen.Home, Screen.Config, Screen.SettingPage)
-
     val navigationEventDispatcherOwner = rememberNavigationEventDispatcherOwner(parent = null)
 
     // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
@@ -155,7 +148,6 @@ fun MainApp(
     // 模糊色彩配置
     val navBarBlurColors = BlurDefaults.blurColors(
         blendColors = listOf(
-            // navbar 的【混色】部分                  ↓
             BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.7f), BlurBlendMode.SrcOver)
         ),
         brightness = 0.05f,
@@ -163,41 +155,38 @@ fun MainApp(
         saturation = 1.2f
     )
 
-    // MIUIX 风格 Scaffold，提供 MIUIX 弹窗宿主（MiuixPopupHost）支持
+    // Pager 状态管理
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { Screen.allPages.size }
+    )
+    val mainPagerState = rememberMainPagerState(pagerState)
+
+    // 同步页面状态
+    LaunchedEffect(pagerState.currentPage) {
+        mainPagerState.syncPage()
+    }
+
     CompositionLocalProvider(
         LocalNavigationEventDispatcherOwner provides navigationEventDispatcherOwner
     ) {
         MiuixScaffold(
             bottomBar = {
-                // 底部导航栏：根据 currentRoute 高亮对应项
                 NavigationBar(
-                    // 毛玻璃效果：对 backdrop 捕获的背景内容进行高斯模糊
                     modifier = Modifier.textureBlur(
                         backdrop = backdrop,
                         shape = RoundedCornerShape(0.dp),
                         blurRadius = 80f,
                         colors = navBarBlurColors
                     ),
-                    // navbar 的【非混色】颜色
                     color = MiuixTheme.colorScheme.surface.copy(alpha = 0.1f),
                     showDivider = true
                 ) {
-                    screens.forEach { screen ->
+                    Screen.allPages.forEachIndexed { index, screen ->
                         NavigationBarItem(
-                            selected = currentRoute == screen.route,
+                            selected = mainPagerState.selectedPage == index,
                             onClick = {
-                                if (currentRoute != screen.route) {
-                                    navController.navigate(screen.route) {
-                                        // 返回栈弹出到 Home，避免栈无限增长
-                                        popUpTo(Screen.Home.route) {
-                                            saveState = true
-                                        }
-                                        // 同一目标只保留一个实例
-                                        launchSingleTop = true
-                                        // 返回时恢复之前的状态
-                                        restoreState = true
-                                    }
-                                }
+                                mainPagerState.animateToPage(index)
                             },
                             icon = screen.icon(),
                             label = screen.title
@@ -205,31 +194,21 @@ fun MainApp(
                     }
                 }
             }
-        ) { paddingValues ->
-            // 导航主体，承载三个页面的路由
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Home.route,
+        ) {
+            // 内容区域使用 HorizontalPager 实现横滑切换
+            HorizontalPager(
+                state = pagerState,
+                beyondViewportPageCount = Screen.allPages.size,
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop) // 将此区域内绘制的内容捕获给 backdrop，供导航栏模糊使用
-                    // 只保留顶部边距（状态栏），底部不留边距 → 内容延伸到导航栏背后供模糊捕获
-                    .padding(top = paddingValues.calculateTopPadding())
-                    .consumeWindowInsets(paddingValues)
-            ) {
-                // 主页：展示 Shizuku 状态 + 当前磁贴配置概览
-                composable(Screen.Home.route) {
-                    HomeScreen(
+                    .layerBackdrop(backdrop)
+            ) { page ->
+                when (page) {
+                    0 -> HomeScreen(
                         onRequestShizukuPermission = onRequestShizukuPermission
                     )
-                }
-                // 编辑页：配置展开/收起时的磁贴列表
-                composable(Screen.Config.route) {
-                    TileConfigScreen()
-                }
-                // 设置页：主题配色 + 备份恢复 + 系统导入
-                composable(Screen.SettingPage.route) {
-                    SettingsScreen()
+                    1 -> TileConfigScreen()
+                    2 -> SettingsScreen()
                 }
             }
         }

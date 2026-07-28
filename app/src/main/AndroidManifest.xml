@@ -34,6 +34,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".LicensesActivity"
+            android:exported="false"
+            android:label="开源许可"
+            android:theme="@style/Theme.ExTile" />
+
         <service
             android:name=".tile.ExTileService"
             android:label="@string/tile_label"

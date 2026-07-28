@@ -39,7 +39,8 @@ exTile/
             ├── aidl/
             │   └── .../ICommandService.aidl
             ├── java/com/hrsthrt74/qstile/
-            │   ├── MainActivity.kt          # 主 Activity，底部导航 + 模糊
+            │   ├── MainActivity.kt          # 主 Activity，横滑导航 + 模糊
+            │   ├── LicensesActivity.kt      # 开源许可 Activity（独立页面）
             │   ├── tile/
             │   │   └── ExTileService.kt     # QS Tile Service
             │   ├── data/
@@ -55,10 +56,13 @@ exTile/
             │       ├── theme/
             │       │   ├── Color.kt         # 预定义颜色
             │       │   └── Theme.kt         # 动态主题控制器
+            │       ├── navigation/
+            │       │   └── MainPagerState.kt # 横滑翻页状态管理
             │       └── screens/
             │           ├── HomeScreen.kt     # 主页
             │           ├── TileConfigScreen.kt # 磁贴编辑页（拖拽网格）
-            │           └── SettingsScreen.kt # 设置页
+            │           ├── SettingsScreen.kt # 设置页
+            │           └── LicensesScreen.kt # 开源许可页
             └── res/
                 └── drawable/                # 磁贴图标（tile_*.xml）
 ```
@@ -70,7 +74,8 @@ exTile/
 ```
                     ┌─────────────────────────────┐
                     │        MainActivity          │
-                    │  (Shizuku 权限监听 + 导航)    │
+                    │  (Shizuku 权限监听 + 横滑导航) │
+                    │  HorizontalPager + NavigationBar │
                     │  NavigationBar 毛玻璃模糊     │
                     └──────┬──────────────────────┘
             ┌──────────────┼──────────────┐
@@ -94,6 +99,12 @@ exTile/
                 ┌──────────▼──────────┐
                 │   Runtime.exec()     │  ← shell 命令执行
                 └─────────────────────┘
+
+    ┌────────────────────────────────────┐
+    │         LicensesActivity           │
+    │  (独立 Activity，开源许可页面)       │
+    │  点击项目直接跳转浏览器              │
+    └────────────────────────────────────┘
 ```
 
 ---
@@ -106,6 +117,8 @@ exTile/
 4. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
 5. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等
 6. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾
+7. **横滑切换页面**：使用 `HorizontalPager` + `MainPagerState` 实现主页/编辑/设置之间的横滑切换，配合底部导航栏联动
+8. **开源许可页面**：独立 `LicensesActivity`，展示所有开源库信息，点击直接跳转浏览器查看项目地址
 
 ---
 
@@ -131,8 +144,11 @@ exTile/
 
 ## UI 设计规范
 
-- **导航**：使用 `navigation-compose`（NavHost/NavController），底部 `NavigationBar` 控制三个页面路由。通过 `CompositionLocalProvider` + `rememberNavigationEventDispatcherOwner` 注入 navigation event dispatcher，供 MIUIX Overlay 组件使用
-- **导航栏模糊**：`rememberLayerBackdrop()` + `Modifier.layerBackdrop(backdrop)` 在 NavHost 捕获内容，`Modifier.textureBlur(backdrop, ...)` 在 NavigationBar 上应用毛玻璃效果；底部 padding 只保留 `calculateTopPadding()`，让内容延伸到导航栏背后供模糊捕获
+- **导航**：使用 `HorizontalPager` + `MainPagerState` 实现横滑切换主页/编辑/设置，底部 `NavigationBar` 控制三个页面路由并联动。通过 `CompositionLocalProvider` + `rememberNavigationEventDispatcherOwner` 注入 navigation event dispatcher，供 MIUIX Overlay 组件使用
+- **横滑动画**：使用三次贝塞尔曲线 `CubicBezierEasing(0.25, 0.1, 0.25, 1.0)`，350ms 时长，iOS 风格手感
+- **页面保留**：`HorizontalPager` 设置 `beyondViewportPageCount = Screen.allPages.size`，保留所有页面状态，避免重新加载
+- **导航栏模糊**：`rememberLayerBackdrop()` + `Modifier.layerBackdrop(backdrop)` 在 HorizontalPager 捕获内容，`Modifier.textureBlur(backdrop, ...)` 在 NavigationBar 上应用毛玻璃效果；底部 padding 只保留 `calculateTopPadding()`，让内容延伸到导航栏背后供模糊捕获
+- **子页面导航**：开源许可等子页面使用独立 Activity，通过 `Intent` 跳转，有系统默认转场动画
 - **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口
 - **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色

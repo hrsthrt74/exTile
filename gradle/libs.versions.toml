@@ -9,6 +9,7 @@ activityCompose = "1.8.0"
 kotlin = "2.4.0"
 composeBom = "2026.02.01"
 navigationCompose = "2.8.5"
+navigation3 = "1.1.4"
 datastorePreferences = "1.0.0"
 shizukuApi = "13.1.5"
 shizukuProvider = "13.1.5"
@@ -45,6 +46,8 @@ miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", ver
 androidx-navigationevent-compose = { group = "androidx.navigationevent", name = "navigationevent-compose", version.ref = "navigationeventCompose" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
+androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
+miuix-navigation3-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuix" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
