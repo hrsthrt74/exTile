@@ -28,14 +28,15 @@ object TileMapping {
         TileInfo("airplane", "飞行模式", "网络"),
         TileInfo("hotspot", "热点", "网络"),
         TileInfo("nfc", "NFC", "网络"),
-        TileInfo("location", "位置信息", "网络"),
-        TileInfo("cast", "投屏", "网络"),
+        TileInfo("location", "位置信息", "网络", DeviceType.AOSP_ONLY),
+        TileInfo("cast", "投屏", "网络", DeviceType.AOSP_ONLY),
         TileInfo("vpn", "VPN", "网络"),
+        TileInfo("internet", "互联网", "网络", DeviceType.AOSP_ONLY),
 
         // ===== 工具 =====
         TileInfo("flashlight", "手电筒", "工具"),
         TileInfo("screenlock", "自动旋转", "工具"),
-        TileInfo("rotation", "旋转", "工具"),
+        TileInfo("rotation", "旋转", "工具", DeviceType.AOSP_ONLY),
         TileInfo("dnd", "勿扰模式", "工具", DeviceType.AOSP_ONLY),
         TileInfo("quietmode", "勿扰模式", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("mute", "静音", "工具"),
@@ -44,13 +45,23 @@ object TileMapping {
         TileInfo("freeformhang", "迷你小窗", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("scanner", "扫一扫", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("taskmanager", "运行中的应用", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("wallet", "钱包", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("alarm", "闹钟", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("controls", "控制", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("screenrecord", "屏幕录制", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("qr_code_scanner", "二维码扫描", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("font_scaling", "字体缩放", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("cameratoggle", "相机开关", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("mictoggle", "麦克风开关", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("hearing_devices", "助听设备", "工具", DeviceType.AOSP_ONLY),
 
         // ===== 系统（通用） =====
-        TileInfo("battery", "电池", "系统"),
-        TileInfo("dark", "深色模式", "系统"),
+        TileInfo("battery", "电池", "系统", DeviceType.AOSP_ONLY),
+        TileInfo("dark", "深色模式", "系统", DeviceType.AOSP_ONLY),
         TileInfo("sync", "自动同步", "系统"),
         TileInfo("adb", "USB调试", "系统"),
         TileInfo("night", "深色模式", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("color_correction", "色彩校正", "系统"),
 
         // ===== 系统（小米专用） =====
         TileInfo("batterysaver", "省电", "系统", DeviceType.XIAOMI_ONLY),
@@ -136,17 +147,31 @@ object TileMapping {
         "wifi" -> R.drawable.tile_wifi
         "bt" -> R.drawable.tile_bluetooth
         "cell" -> R.drawable.tile_data
+        "airplane" -> R.drawable.tile_airplane
         "flashlight" -> R.drawable.tile_flashlight
         "dnd" -> R.drawable.tile_dnd
         "quietmode" -> R.drawable.tile_dnd
+        "mute" -> R.drawable.tile_mute
         "vibrate" -> R.drawable.tile_vibrate
         "nfc" -> R.drawable.tile_nfc
         "hotspot" -> R.drawable.tile_hotspot
+        "location" -> R.drawable.tile_location
         "screenlock" -> R.drawable.tile_auto_rotate
         "auto_brightness" -> R.drawable.tile_auto_brightness
         "autobrightness" -> R.drawable.tile_auto_brightness
         "saver" -> R.drawable.tile_power_save
         "batterysaver" -> R.drawable.tile_power_save
+        "dark" -> R.drawable.tile_darkmode
+        "night" -> R.drawable.tile_darkmode
+        "carsickness" -> R.drawable.tile_carsickness
+        "aisubtitles" -> R.drawable.tile_aisubtitles
+        "aitranslate" -> R.drawable.tile_aitranslate
+        "voicetrans" -> R.drawable.tile_voice_trans
+        "papermode" -> R.drawable.tile_paper_mode
+        "dolbyatomssound" -> R.drawable.tile_dolby_atoms
+        "screenshot" -> R.drawable.tile_screenshot
+        "scanner" -> R.drawable.tile_scanner
+        "freeformhang" -> R.drawable.tile_freeformhang
         "settings" -> R.drawable.tile_settings
         EXTILE_CUSTOM -> R.drawable.ic_tile
         else -> null
