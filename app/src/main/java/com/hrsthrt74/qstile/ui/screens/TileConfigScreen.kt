@@ -50,6 +50,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
@@ -267,10 +268,15 @@ fun TileConfigScreen() {
 
                         gridItems(gridTiles, key = { it }) { tile ->
                             ReorderableItem(reorderableState, key = tile) { isDragging ->
+                                val scale by animateFloatAsState(
+                                    targetValue = if (isDragging) 1.1f else 1f,
+                                    label = "tileScale"
+                                )
                                 Column(
                                     modifier = Modifier
                                         .longPressDraggableHandle()
-                                        .padding(8.dp),
+                                        .scale(scale)
+                                        .padding(horizontal = 4.dp, vertical = 12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(
@@ -291,19 +297,23 @@ fun TileConfigScreen() {
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
                                     Text(
                                         text = TileMapping.getDisplayName(tile),
                                         style = MiuixTheme.textStyles.body2,
-                                        maxLines = 2
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
 
                                     Text(
                                         text = tile,
                                         style = MiuixTheme.textStyles.footnote2,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                        maxLines = 2
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
                             }
@@ -393,14 +403,14 @@ fun TileConfigScreen() {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 24.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
             ) {
                 tilesByCategory.forEach { (category, tiles) ->
                     // 分类标题
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = category,
-                            style = MiuixTheme.textStyles.body1,
+                            style = MiuixTheme.textStyles.subtitle,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
                         )
                     }
@@ -410,7 +420,8 @@ fun TileConfigScreen() {
                         val tile = tiles[index]
                         Column(
                             modifier = Modifier
-                                .padding(8.dp)
+                                // 竖向要比横向大一点
+                                .padding(horizontal = 4.dp, vertical = 12.dp)
                                 .clickable {
                                     // 添加到列表末尾，但如果存在 edit 则插入到 edit 前面
                                     val hasEdit = currentTiles.contains("edit")
@@ -434,9 +445,9 @@ fun TileConfigScreen() {
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(68.dp)
+                                    .size(64.dp)
                                     .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.surfaceVariant),
+                                    .background(MiuixTheme.colorScheme.secondaryVariant),
                                 contentAlignment = Alignment.Center
                             ) {
                                 val iconRes = TileMapping.iconRes(tile.value)
@@ -444,18 +455,29 @@ fun TileConfigScreen() {
                                     Icon(
                                         painter = painterResource(iconRes),
                                         contentDescription = tile.displayName,
-                                        tint = if (tile.value == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                        tint = MiuixTheme.colorScheme.primary,
                                         modifier = Modifier.size(36.dp)
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
                                 text = tile.displayName,
                                 style = MiuixTheme.textStyles.body2,
-                                maxLines = 2
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Text(
+                                text = tile.value,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }

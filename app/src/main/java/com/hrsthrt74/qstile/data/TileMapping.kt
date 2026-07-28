@@ -21,17 +21,16 @@ object TileMapping {
     const val EXTILE_CUSTOM = "custom(com.hrsthrt74.qstile/.tile.ExTileService)"
 
     val systemTiles = listOf(
-        // ===== 网络 =====
-        TileInfo("wifi", "WLAN", "网络"),
-        TileInfo("bt", "蓝牙", "网络"),
-        TileInfo("cell", "移动数据", "网络"),
-        TileInfo("airplane", "飞行模式", "网络"),
-        TileInfo("hotspot", "热点", "网络"),
-        TileInfo("nfc", "NFC", "网络"),
-        TileInfo("location", "位置信息", "网络", DeviceType.AOSP_ONLY),
-        TileInfo("cast", "投屏", "网络", DeviceType.AOSP_ONLY),
-        TileInfo("vpn", "VPN", "网络"),
-        TileInfo("internet", "互联网", "网络", DeviceType.AOSP_ONLY),
+        // ===== 网络与连接 =====
+        TileInfo("wifi", "WLAN", "网络与连接"),
+        TileInfo("bt", "蓝牙", "网络与连接"),
+        TileInfo("cell", "移动数据", "网络与连接"),
+        TileInfo("airplane", "飞行模式", "网络与连接"),
+        TileInfo("hotspot", "热点", "网络与连接"),
+        TileInfo("nfc", "NFC", "网络与连接"),
+        TileInfo("location", "位置信息", "网络与连接", DeviceType.AOSP_ONLY),
+        TileInfo("cast", "投屏", "网络与连接", DeviceType.AOSP_ONLY),
+        TileInfo("internet", "互联网", "网络与连接", DeviceType.AOSP_ONLY),
 
         // ===== 工具 =====
         TileInfo("flashlight", "手电筒", "工具"),
@@ -41,7 +40,6 @@ object TileMapping {
         TileInfo("quietmode", "勿扰模式", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("mute", "静音", "工具"),
         TileInfo("vibrate", "振动", "工具"),
-        TileInfo("volume", "音量", "工具"),
         TileInfo("freeformhang", "迷你小窗", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("scanner", "扫一扫", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("taskmanager", "运行中的应用", "工具", DeviceType.XIAOMI_ONLY),
@@ -58,10 +56,9 @@ object TileMapping {
         // ===== 系统（通用） =====
         TileInfo("battery", "电池", "系统", DeviceType.AOSP_ONLY),
         TileInfo("dark", "深色模式", "系统", DeviceType.AOSP_ONLY),
-        TileInfo("sync", "自动同步", "系统"),
-        TileInfo("adb", "USB调试", "系统"),
+        // TileInfo("adb", "USB调试", "系统"),
         TileInfo("night", "深色模式", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("color_correction", "色彩校正", "系统"),
+        TileInfo("reduce_brightness", "极暗", "系统"),
 
         // ===== 系统（小米专用） =====
         TileInfo("batterysaver", "省电", "系统", DeviceType.XIAOMI_ONLY),
@@ -75,6 +72,7 @@ object TileMapping {
         TileInfo("papermode", "护眼模式", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("dolbyatomssound", "杜比全景声", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("screenshot", "截屏", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("wirelesspower", "无线反向充电", "系统", DeviceType.XIAOMI_ONLY),
 
         // ===== 小米应用（custom 格式） =====
         TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "小米应用", DeviceType.XIAOMI_ONLY),
@@ -86,12 +84,25 @@ object TileMapping {
         TileInfo("custom(com.miui.screenrecorder/.service.QuickService)", "屏幕录制", "小米应用", DeviceType.XIAOMI_ONLY),
         TileInfo("custom(com.miui.securitycenter/com.miui.superpower.notification.SuperPowerTileService)", "超级省电", "小米应用", DeviceType.XIAOMI_ONLY),
         TileInfo("custom(com.miui.carlink/com.carwith.launcher.quick.start.QuickStartTileService)", "CarWith", "小米应用", DeviceType.XIAOMI_ONLY),
+        
+        // ===== 无障碍 =====
+        TileInfo("color_correction", "色彩校正", "无障碍"),
+
+        // ===== 开发者 =====
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowTaps)", "点按操作反馈", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$WirelessDebugging)", "无线调试", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$SensorsOff)", "传感器已关闭", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$AnimationSpeed)", "窗口动画缩放", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ForceRTL)", "强制从右到左", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$GPUProfiling)", "GPU 呈现模式分析", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowLayout)", "显示布局边界", "开发者"),
+        
 
         // ===== 系统（原生专用） =====
         TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
 
         // ===== 其他 =====
-        TileInfo("edit", "编辑磁贴", "其他"),
+        TileInfo("edit", "编辑", "其他"),
         TileInfo(EXTILE_CUSTOM, "exTile 收纳", "其他")
     )
 
@@ -143,6 +154,7 @@ object TileMapping {
         }
     }
 
+    // 图标绑定
     fun iconRes(value: String): Int? = when (value) {
         "wifi" -> R.drawable.tile_wifi
         "bt" -> R.drawable.tile_bluetooth
@@ -155,6 +167,7 @@ object TileMapping {
         "vibrate" -> R.drawable.tile_vibrate
         "nfc" -> R.drawable.tile_nfc
         "hotspot" -> R.drawable.tile_hotspot
+        "gps" -> R.drawable.tile_location
         "location" -> R.drawable.tile_location
         "screenlock" -> R.drawable.tile_auto_rotate
         "auto_brightness" -> R.drawable.tile_auto_brightness
@@ -163,6 +176,7 @@ object TileMapping {
         "batterysaver" -> R.drawable.tile_power_save
         "dark" -> R.drawable.tile_darkmode
         "night" -> R.drawable.tile_darkmode
+        "wirelesspower" -> R.drawable.tile_wireless_charge
         "carsickness" -> R.drawable.tile_carsickness
         "aisubtitles" -> R.drawable.tile_aisubtitles
         "aitranslate" -> R.drawable.tile_aitranslate
