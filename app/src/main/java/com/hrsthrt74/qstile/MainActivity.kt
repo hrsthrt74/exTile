@@ -9,14 +9,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -28,6 +32,13 @@ import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import rikka.shizuku.Shizuku
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurBlendMode
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
@@ -138,6 +149,20 @@ fun MainApp(
 
     val navigationEventDispatcherOwner = rememberNavigationEventDispatcherOwner(parent = null)
 
+    // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
+    val backdrop = rememberLayerBackdrop()
+
+    // 模糊色彩配置
+    val navBarBlurColors = BlurDefaults.blurColors(
+        blendColors = listOf(
+            // navbar 的【混色】部分                  ↓
+            BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.7f), BlurBlendMode.SrcOver)
+        ),
+        brightness = 0.05f,
+        contrast = 1.1f,
+        saturation = 1.2f
+    )
+
     // MIUIX 风格 Scaffold，提供 MIUIX 弹窗宿主（MiuixPopupHost）支持
     CompositionLocalProvider(
         LocalNavigationEventDispatcherOwner provides navigationEventDispatcherOwner
@@ -145,7 +170,18 @@ fun MainApp(
         MiuixScaffold(
             bottomBar = {
                 // 底部导航栏：根据 currentRoute 高亮对应项
-                NavigationBar {
+                NavigationBar(
+                    // 毛玻璃效果：对 backdrop 捕获的背景内容进行高斯模糊
+                    modifier = Modifier.textureBlur(
+                        backdrop = backdrop,
+                        shape = RoundedCornerShape(0.dp),
+                        blurRadius = 80f,
+                        colors = navBarBlurColors
+                    ),
+                    // navbar 的【非混色】颜色
+                    color = MiuixTheme.colorScheme.surface.copy(alpha = 0.1f),
+                    showDivider = true
+                ) {
                     screens.forEach { screen ->
                         NavigationBarItem(
                             selected = currentRoute == screen.route,
@@ -176,7 +212,9 @@ fun MainApp(
                 startDestination = Screen.Home.route,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .layerBackdrop(backdrop) // 将此区域内绘制的内容捕获给 backdrop，供导航栏模糊使用
+                    // 只保留顶部边距（状态栏），底部不留边距 → 内容延伸到导航栏背后供模糊捕获
+                    .padding(top = paddingValues.calculateTopPadding())
                     .consumeWindowInsets(paddingValues)
             ) {
                 // 主页：展示 Shizuku 状态 + 当前磁贴配置概览
