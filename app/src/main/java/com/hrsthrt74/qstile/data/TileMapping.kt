@@ -63,6 +63,17 @@ object TileMapping {
         TileInfo("voicetrans", "对话翻译", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("papermode", "护眼模式", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("dolbyatomssound", "杜比全景声", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("screenshot", "截屏", "系统", DeviceType.XIAOMI_ONLY),
+
+        // ===== 小米应用（custom 格式） =====
+        TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.milink.service/com.milink.ui.service.MiLinkTileService)", "投屏", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.permcenter.settings.InvisibleModeTileService)", "隐身模式", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.powercenter.powersaver.PerformanceModeTileService)", "性能模式", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.calculator/.service.QSTileService)", "计算器", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.android.quicksearchbox/.tile.QsbTileService)", "搜索", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.screenrecorder/.service.QuickService)", "屏幕录制", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.superpower.notification.SuperPowerTileService)", "超级省电", "小米应用", DeviceType.XIAOMI_ONLY),
 
         // ===== 系统（原生专用） =====
         TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
