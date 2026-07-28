@@ -24,7 +24,7 @@ exTile/
 ├── AGENTS.md                    # AI 助手指令
 ├── debug.ps1                    # 一键构建→安装→启动脚本
 ├── CONTEXT.md                   # 本文件（持久上下文）
-├── settings.gradle.kts          # 项目设置
+├── settings.gradle.kts          # 项目设置（含 JitPack 仓库）
 ├── build.gradle.kts             # 顶级构建脚本
 ├── gradle.properties            # Gradle 配置
 ├── local.properties             # 本地 SDK 路径
@@ -39,12 +39,12 @@ exTile/
             ├── aidl/
             │   └── .../ICommandService.aidl
             ├── java/com/hrsthrt74/qstile/
-            │   ├── MainActivity.kt          # 主 Activity，底部导航
+            │   ├── MainActivity.kt          # 主 Activity，底部导航 + 模糊
             │   ├── tile/
             │   │   └── ExTileService.kt     # QS Tile Service
             │   ├── data/
             │   │   ├── TileConfig.kt        # 磁贴配置数据模型
-            │   │   ├── TileMapping.kt       # 系统磁贴映射表（26种）
+            │   │   ├── TileMapping.kt       # 系统磁贴映射表 + 图标映射
             │   │   ├── ConfigRepository.kt  # 配置持久化（DataStore）
             │   │   └── ThemeSettings.kt     # 主题设置
             │   ├── shizuku/
@@ -57,9 +57,10 @@ exTile/
             │       │   └── Theme.kt         # 动态主题控制器
             │       └── screens/
             │           ├── HomeScreen.kt     # 主页
-            │           ├── TileConfigScreen.kt # 磁贴编辑页
+            │           ├── TileConfigScreen.kt # 磁贴编辑页（拖拽网格）
             │           └── SettingsScreen.kt # 设置页
-            └── res/                         # 资源文件
+            └── res/
+                └── drawable/                # 磁贴图标（tile_*.xml）
 ```
 
 ---
@@ -70,6 +71,7 @@ exTile/
                     ┌─────────────────────────────┐
                     │        MainActivity          │
                     │  (Shizuku 权限监听 + 导航)    │
+                    │  NavigationBar 毛玻璃模糊     │
                     └──────┬──────────────────────┘
             ┌──────────────┼──────────────┐
             v              v              v
@@ -99,10 +101,11 @@ exTile/
 ## 核心功能
 
 1. **QS 磁贴一键切换**：通过 `ExTileService` 实现展开/收起两套布局间切换
-2. **磁贴编辑**：支持拖拽排序、添加系统/自定义磁贴
+2. **磁贴编辑**：4 列网格拖拽排序（Calvin-LL/Reorderable），支持添加系统/自定义磁贴；小米设备特化固定卡片 + 编辑磁贴 badge
 3. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
 4. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
 5. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等
+6. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾
 
 ---
 
@@ -120,15 +123,21 @@ exTile/
 | Shizuku Provider | 13.1.5 |
 | MIUIX UI | 0.9.3 |
 | MIUIX Preference | 0.9.3 |
+| MIUIX Blur | 0.9.3 |
+| Calvin-LL/Reorderable | 3.1.0 |
+| DeviceCompat | 2.6 |
 
 ---
 
 ## UI 设计规范
 
 - **导航**：使用 `navigation-compose`（NavHost/NavController），底部 `NavigationBar` 控制三个页面路由。通过 `CompositionLocalProvider` + `rememberNavigationEventDispatcherOwner` 注入 navigation event dispatcher，供 MIUIX Overlay 组件使用
+- **导航栏模糊**：`rememberLayerBackdrop()` + `Modifier.layerBackdrop(backdrop)` 在 NavHost 捕获内容，`Modifier.textureBlur(backdrop, ...)` 在 NavigationBar 上应用毛玻璃效果；底部 padding 只保留 `calculateTopPadding()`，让内容延伸到导航栏背后供模糊捕获
 - **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口
-- **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`
+- **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
+- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）
+- **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支
 
 ---
 
@@ -139,6 +148,7 @@ exTile/
 - **错误处理增强**：各场景下（权限拒绝、Shizuku 未启动、命令执行失败等）的错误提示和恢复机制不够完善
 - **无障碍适配**：缺少 TalkBack 等无障碍支持
 - **单元测试覆盖**：当前测试覆盖不足，需补充核心逻辑的单元测试
+- **Github Actions 自动构建**: 公开后构建测试版
 
 ---
 
