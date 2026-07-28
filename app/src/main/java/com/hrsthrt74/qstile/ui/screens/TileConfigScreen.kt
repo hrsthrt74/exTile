@@ -35,12 +35,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -166,19 +168,16 @@ fun TileConfigScreen() {
                 }
 
                 // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局
-                key(selectedTabIndex) {
+                key(selectedTabIndex, isXiaomi, fixedTileValues) {
                     val currentTiles = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
-                    // edit 在小米设备上不可拖动（固定在末尾），其他设备保留在网格内
-                    val gridTiles = if (isXiaomi) {
-                        currentTiles.filter { it !in fixedTileValues && it != "edit" }
-                    } else {
-                        currentTiles.filter { it !in fixedTileValues }
-                    }
+                    val gridTiles = currentTiles.filter { it !in fixedTileValues && it != "edit" }
                     val lazyGridState = rememberLazyGridState()
                     val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
+                        // 库的索引是 LazyGrid 绝对位置，需减去前面固定卡片的偏移
+                        val indexOffset = if (isXiaomi && fixedTileValues.isNotEmpty()) 1 else 0
                         val newList = gridTiles.toMutableList().apply {
-                            this[to.index] = this[from.index].also {
-                                this[from.index] = this[to.index]
+                            this[to.index - indexOffset] = this[from.index - indexOffset].also {
+                                this[from.index - indexOffset] = this[to.index - indexOffset]
                             }
                         }
                         val fullList = if (isXiaomi) {
@@ -215,32 +214,29 @@ fun TileConfigScreen() {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        // 俩卡片的外边距
                                         .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    // 俩卡片中间的间距
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     fixedTileValues.forEach { tile ->
                                         Card(modifier = Modifier.weight(1f)) {
                                             Row(
-                                                modifier = Modifier.padding(12.dp),
+                                                // 卡片内边距
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MiuixTheme.colorScheme.surfaceVariant),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    if (tile == "wifi") {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.tile_wifi),
-                                                            contentDescription = "WLAN",
-                                                            tint = MiuixTheme.colorScheme.primary,
-                                                            modifier = Modifier.size(24.dp)
-                                                        )
-                    }
-                }
-                                                Spacer(modifier = Modifier.width(12.dp))
+                                                val iconRes = TileMapping.iconRes(tile)
+                                                if (iconRes != null) {
+                                                    Icon(
+                                                        painter = painterResource(iconRes),
+                                                        contentDescription = TileMapping.getDisplayName(tile),
+                                                        tint = if (tile == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(36.dp)
+                                                    )
+                                                }
+                                                // 图标与文字之间的间距
+                                                Spacer(modifier = Modifier.width(8.dp))
                                                 Column {
                                                     Text(
                                                         text = TileMapping.getDisplayName(tile),
@@ -248,10 +244,11 @@ fun TileConfigScreen() {
                                                     )
                                                     Text(
                                                         text = "固定磁贴",
-                                                        style = MiuixTheme.textStyles.body2,
+                                                        style = MiuixTheme.textStyles.footnote2,
                                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                                     )
-                                                }
+
+                                            }
                                             }
                                         }
                                     }
@@ -261,13 +258,8 @@ fun TileConfigScreen() {
 
                         gridItems(gridTiles, key = { it }) { tile ->
                             ReorderableItem(reorderableState, key = tile) { isDragging ->
-                                val scale by animateFloatAsState(
-                                    if (isDragging) 1.03f else 1f,
-                                    label = "dragScale"
-                                )
                                 Column(
                                     modifier = Modifier
-                                        .scale(scale)
                                         .longPressDraggableHandle()
                                         .padding(8.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -279,11 +271,12 @@ fun TileConfigScreen() {
                                             .background(MiuixTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (tile == "wifi") {
+                                        val iconRes = TileMapping.iconRes(tile)
+                                        if (iconRes != null) {
                                             Icon(
-                                                painter = painterResource(R.drawable.tile_wifi),
-                                                contentDescription = "WLAN",
-                                                tint = MiuixTheme.colorScheme.primary,
+                                                painter = painterResource(iconRes),
+                                                contentDescription = TileMapping.getDisplayName(tile),
+                                                tint = if (tile == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                 modifier = Modifier.size(36.dp)
                                             )
                                         }
