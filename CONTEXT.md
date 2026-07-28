@@ -112,7 +112,7 @@ exTile/
 ## 核心功能
 
 1. **QS 磁贴一键切换**：通过 `ExTileService` 实现展开/收起两套布局间切换
-2. **磁贴编辑**：4 列网格拖拽排序（Calvin-LL/Reorderable），支持添加系统/自定义磁贴；小米设备特化固定卡片 + 编辑磁贴 badge
+2. **磁贴编辑**：4 列网格拖拽排序（Calvin-LL/Reorderable），支持添加系统/自定义磁贴；长按放大 1.1 倍反馈；文本居中显示；小米设备特化固定卡片 + 编辑磁贴 badge；添加磁贴使用网格布局按分类分组
 3. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
 4. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
 5. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等
@@ -122,6 +122,7 @@ exTile/
 9. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性
    - **小米专属**：`batterysaver`（省电）、`aisubtitles`（实时字幕）、`aitranslate`（翻译）、`carsickness`（晕车缓解）、`gps`（GPS）、`autobrightness`（自动亮度）、`settings`（设置）、`voicetrans`（对话翻译）、`papermode`（护眼模式）、`dolbyatomssound`（杜比全景声）、`quietmode`（勿扰模式）、`freeformhang`（迷你小窗）、`scanner`（扫一扫）、`taskmanager`（运行中的应用）、`night`（深色模式）
    - **原生专属**：`saver`（省电模式）、`dnd`（勿扰模式）、`location`（位置信息）
+   - **开发者分类**：点按操作反馈、无线调试、传感器已关闭、窗口动画缩放、强制从右到左、GPU 呈现模式分析、显示布局边界
 
 ---
 
