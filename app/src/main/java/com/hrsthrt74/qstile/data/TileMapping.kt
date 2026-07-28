@@ -36,24 +36,33 @@ object TileMapping {
         TileInfo("flashlight", "手电筒", "工具"),
         TileInfo("screenlock", "自动旋转", "工具"),
         TileInfo("rotation", "旋转", "工具"),
-        TileInfo("dnd", "勿扰模式", "工具"),
+        TileInfo("dnd", "勿扰模式", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("quietmode", "勿扰模式", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("mute", "静音", "工具"),
         TileInfo("vibrate", "振动", "工具"),
         TileInfo("volume", "音量", "工具"),
+        TileInfo("freeformhang", "迷你小窗", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("scanner", "扫一扫", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("taskmanager", "运行中的应用", "工具", DeviceType.XIAOMI_ONLY),
 
         // ===== 系统（通用） =====
         TileInfo("battery", "电池", "系统"),
         TileInfo("dark", "深色模式", "系统"),
         TileInfo("sync", "自动同步", "系统"),
         TileInfo("adb", "USB调试", "系统"),
-        TileInfo("gps", "GPS", "系统"),
-        TileInfo("auto_brightness", "自动亮度", "系统"),
+        TileInfo("night", "深色模式", "系统", DeviceType.XIAOMI_ONLY),
 
         // ===== 系统（小米专用） =====
         TileInfo("batterysaver", "省电", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("aisubtitles", "实时字幕", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("aitranslate", "翻译", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("carsickness", "晕车缓解", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("gps", "GPS", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("autobrightness", "自动亮度", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("settings", "设置", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("voicetrans", "对话翻译", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("papermode", "护眼模式", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("dolbyatomssound", "杜比全景声", "系统", DeviceType.XIAOMI_ONLY),
 
         // ===== 系统（原生专用） =====
         TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
@@ -117,13 +126,16 @@ object TileMapping {
         "cell" -> R.drawable.tile_data
         "flashlight" -> R.drawable.tile_flashlight
         "dnd" -> R.drawable.tile_dnd
+        "quietmode" -> R.drawable.tile_dnd
         "vibrate" -> R.drawable.tile_vibrate
         "nfc" -> R.drawable.tile_nfc
         "hotspot" -> R.drawable.tile_hotspot
         "screenlock" -> R.drawable.tile_auto_rotate
         "auto_brightness" -> R.drawable.tile_auto_brightness
+        "autobrightness" -> R.drawable.tile_auto_brightness
         "saver" -> R.drawable.tile_power_save
         "batterysaver" -> R.drawable.tile_power_save
+        "settings" -> R.drawable.tile_settings
         EXTILE_CUSTOM -> R.drawable.ic_tile
         else -> null
     }
