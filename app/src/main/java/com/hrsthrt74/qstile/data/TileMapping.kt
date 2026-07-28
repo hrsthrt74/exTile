@@ -3,15 +3,25 @@ package com.hrsthrt74.qstile.data
 import com.hrsthrt74.qstile.R
 
 object TileMapping {
+
+    /** 设备类型枚举 */
+    enum class DeviceType {
+        UNIVERSAL,      // 所有设备可用
+        XIAOMI_ONLY,    // 仅小米设备（MIUI/HyperOS）
+        AOSP_ONLY       // 仅原生 Android
+    }
+
     data class TileInfo(
         val value: String,
         val displayName: String,
-        val category: String
+        val category: String,
+        val deviceType: DeviceType = DeviceType.UNIVERSAL
     )
 
     const val EXTILE_CUSTOM = "custom(com.hrsthrt74.qstile/.tile.ExTileService)"
 
     val systemTiles = listOf(
+        // ===== 网络 =====
         TileInfo("wifi", "WLAN", "网络"),
         TileInfo("bt", "蓝牙", "网络"),
         TileInfo("cell", "移动数据", "网络"),
@@ -22,6 +32,7 @@ object TileMapping {
         TileInfo("cast", "投屏", "网络"),
         TileInfo("vpn", "VPN", "网络"),
 
+        // ===== 工具 =====
         TileInfo("flashlight", "手电筒", "工具"),
         TileInfo("screenlock", "自动旋转", "工具"),
         TileInfo("rotation", "旋转", "工具"),
@@ -30,25 +41,43 @@ object TileMapping {
         TileInfo("vibrate", "振动", "工具"),
         TileInfo("volume", "音量", "工具"),
 
+        // ===== 系统（通用） =====
         TileInfo("battery", "电池", "系统"),
-        // for HyperOS / MIUI
-        TileInfo("batterysaver", "省电", "系统"),
-        // for other system
-        TileInfo("saver", "省电模式", "系统"),
         TileInfo("dark", "深色模式", "系统"),
         TileInfo("sync", "自动同步", "系统"),
         TileInfo("adb", "USB调试", "系统"),
         TileInfo("gps", "GPS", "系统"),
         TileInfo("auto_brightness", "自动亮度", "系统"),
 
-        // HyperOS 专区
-        TileInfo("aisubtitles", "实时字幕", "系统"),
-        TileInfo("aitranslate", "翻译", "系统"),
-        TileInfo("carsickness", "晕车缓解", "系统"),
+        // ===== 系统（小米专用） =====
+        TileInfo("batterysaver", "省电", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("aisubtitles", "实时字幕", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("aitranslate", "翻译", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("carsickness", "晕车缓解", "系统", DeviceType.XIAOMI_ONLY),
 
+        // ===== 系统（原生专用） =====
+        TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
+
+        // ===== 其他 =====
         TileInfo("edit", "编辑磁贴", "其他"),
         TileInfo(EXTILE_CUSTOM, "exTile 收纳", "其他")
     )
+
+    /** 获取当前设备可用的磁贴列表 */
+    fun getAvailableTiles(isXiaomi: Boolean): List<TileInfo> {
+        return systemTiles.filter { tile ->
+            when (tile.deviceType) {
+                DeviceType.UNIVERSAL -> true
+                DeviceType.XIAOMI_ONLY -> isXiaomi
+                DeviceType.AOSP_ONLY -> !isXiaomi
+            }
+        }
+    }
+
+    /** 获取当前设备可用的磁贴，按分类分组 */
+    fun getAvailableTilesByCategory(isXiaomi: Boolean): Map<String, List<TileInfo>> {
+        return getAvailableTiles(isXiaomi).groupBy { it.category }
+    }
 
     fun getDisplayName(value: String): String {
         return systemTiles.find { it.value == value }?.displayName
@@ -70,6 +99,16 @@ object TileMapping {
 
     fun isValidTile(value: String): Boolean {
         return systemTiles.any { it.value == value }
+    }
+
+    /** 检查指定磁贴是否在当前设备可用 */
+    fun isTileAvailable(value: String, isXiaomi: Boolean): Boolean {
+        val tile = systemTiles.find { it.value == value } ?: return false
+        return when (tile.deviceType) {
+            DeviceType.UNIVERSAL -> true
+            DeviceType.XIAOMI_ONLY -> isXiaomi
+            DeviceType.AOSP_ONLY -> !isXiaomi
+        }
     }
 
     fun iconRes(value: String): Int? = when (value) {

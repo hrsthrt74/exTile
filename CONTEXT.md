@@ -119,6 +119,7 @@ exTile/
 6. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾
 7. **横滑切换页面**：使用 `HorizontalPager` + `MainPagerState` 实现主页/编辑/设置之间的横滑切换，配合底部导航栏联动
 8. **开源许可页面**：独立 `LicensesActivity`，展示所有开源库信息，点击直接跳转浏览器查看项目地址
+9. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性，小米设备显示 `batterysaver`、`aisubtitles`、`aitranslate`、`carsickness` 等专属磁贴，原生设备显示 `saver`
 
 ---
 

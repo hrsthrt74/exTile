@@ -92,6 +92,9 @@ fun TileConfigScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
+    // 设备类型检测
+    val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
+
     val tabs = listOf("展开时", "收起时")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var config by remember { mutableStateOf(TileConfig()) }
@@ -161,7 +164,6 @@ fun TileConfigScreen() {
                 )
 
                 // 小米设备特化：固定卡片 + 编辑 Chip
-                val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
                 val isTablet = remember {
                     val screenSize = context.resources.configuration.screenLayout
                     val sizeMask = screenSize and Configuration.SCREENLAYOUT_SIZE_MASK
@@ -379,8 +381,8 @@ fun TileConfigScreen() {
                 config.collapsedTiles
             }
 
-            val availableTiles = remember(currentTiles) {
-                TileMapping.systemTiles.filter { it.value !in currentTiles }
+            val availableTiles = remember(currentTiles, isXiaomi) {
+                TileMapping.getAvailableTiles(isXiaomi).filter { it.value !in currentTiles }
             }
 
             LazyColumn(
