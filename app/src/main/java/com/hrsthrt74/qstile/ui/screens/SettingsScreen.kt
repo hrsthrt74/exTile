@@ -5,14 +5,19 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -34,9 +39,11 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -75,6 +82,8 @@ fun SettingsScreen() {
     var showImportBackupSheet by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importBackupJson by remember { mutableStateOf("") }
+
+    val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
@@ -129,7 +138,8 @@ fun SettingsScreen() {
                 ),
             contentPadding = PaddingValues(
                 top = paddingValues.calculateTopPadding(),
-                bottom = 16.dp
+                bottom = NavigationBarDefaults.ItemHeight +
+                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             )
         ) {
             // ===== 主题设置板块 =====
@@ -258,7 +268,7 @@ fun SettingsScreen() {
         Text(
             text = currentSysuiTiles.ifEmpty { "无数据" },
             style = MiuixTheme.textStyles.body2,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+            modifier = Modifier.padding(bottom = navBarBottomPadding)
         )
     }
 
@@ -272,11 +282,17 @@ fun SettingsScreen() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+                .padding(bottom = navBarBottomPadding)
         ) {
             Text(
                 text = backupText,
-                style = MiuixTheme.textStyles.body2
+                // 别问为什么是脚注2
+                style = MiuixTheme.textStyles.footnote2,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .padding(horizontal = 8.dp)
+                    .verticalScroll(rememberScrollState())
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -286,6 +302,7 @@ fun SettingsScreen() {
                         Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
                         showBackupSheet = false
                     },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("复制")
@@ -309,7 +326,7 @@ fun SettingsScreen() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+                .padding(bottom = navBarBottomPadding)
         ) {
             TextField(
                 value = importBackupJson,
@@ -336,6 +353,7 @@ fun SettingsScreen() {
                         Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
                     }
                 },
+                colors = ButtonDefaults.buttonColorsPrimary(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("恢复")
@@ -350,9 +368,12 @@ fun SettingsScreen() {
         summary = "将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。",
         onDismissRequest = { showImportDialog = false }
     ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
         BackHandler { showImportDialog = false }
+
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             TextButton(
@@ -362,6 +383,7 @@ fun SettingsScreen() {
             )
             TextButton(
                 text = "确认",
+                colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = {
                     scope.launch {
                         val tiles = SecureSettingsHelper.getCurrentTiles(context)
