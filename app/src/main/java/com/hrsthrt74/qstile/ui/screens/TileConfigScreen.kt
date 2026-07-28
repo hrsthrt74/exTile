@@ -385,41 +385,79 @@ fun TileConfigScreen() {
                 TileMapping.getAvailableTiles(isXiaomi).filter { it.value !in currentTiles }
             }
 
-            LazyColumn(
+            // 按分类分组
+            val tilesByCategory = remember(availableTiles) {
+                availableTiles.groupBy { it.category }
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp)
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 24.dp)
             ) {
-                items(availableTiles.size) { index ->
-                    val tile = availableTiles[index]
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val newTiles = currentTiles + tile.value
-                                val newConfig = if (selectedTabIndex == 0) {
-                                    config.copy(expandedTiles = newTiles)
-                                } else {
-                                    config.copy(collapsedTiles = newTiles)
+                tilesByCategory.forEach { (category, tiles) ->
+                    // 分类标题
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = category,
+                            style = MiuixTheme.textStyles.body1,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                        )
+                    }
+
+                    // 磁贴网格
+                    items(tiles.size) { index ->
+                        val tile = tiles[index]
+                        Column(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .clickable {
+                                    // 添加到列表末尾，但如果存在 edit 则插入到 edit 前面
+                                    val hasEdit = currentTiles.contains("edit")
+                                    val newTiles = if (hasEdit) {
+                                        val editIndex = currentTiles.indexOf("edit")
+                                        currentTiles.toMutableList().apply {
+                                            add(editIndex, tile.value)
+                                        }
+                                    } else {
+                                        currentTiles + tile.value
+                                    }
+                                    val newConfig = if (selectedTabIndex == 0) {
+                                        config.copy(expandedTiles = newTiles)
+                                    } else {
+                                        config.copy(collapsedTiles = newTiles)
+                                    }
+                                    updateConfig(newConfig)
+                                    showAddSheet = false
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(68.dp)
+                                    .clip(CircleShape)
+                                    .background(MiuixTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val iconRes = TileMapping.iconRes(tile.value)
+                                if (iconRes != null) {
+                                    Icon(
+                                        painter = painterResource(iconRes),
+                                        contentDescription = tile.displayName,
+                                        tint = if (tile.value == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
                                 }
-                                updateConfig(newConfig)
-                                showAddSheet = false
                             }
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
                             Text(
                                 text = tile.displayName,
-                                style = MiuixTheme.textStyles.body1
-                            )
-                            Text(
-                                text = tile.value,
                                 style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                maxLines = 2
                             )
                         }
-                        Icon(Icons.Default.Add, contentDescription = "添加")
                     }
                 }
             }
