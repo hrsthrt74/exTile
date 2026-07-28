@@ -1,8 +1,12 @@
 package com.hrsthrt74.qstile.ui.screens
 
 import androidx.activity.compose.BackHandler
+import android.content.res.Configuration
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,16 +18,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,14 +41,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
+import com.hjq.device.compat.DeviceOs
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -134,107 +151,217 @@ fun TileConfigScreen() {
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(scrollBehavior.nestedScrollConnection)
-                        .scrollEndHaptic(
-                            hapticFeedbackType = HapticFeedbackType.TextHandleMove
-                        ),
-                    contentPadding = PaddingValues(
-                        bottom = NavigationBarDefaults.ItemHeight +
-                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-                    )
-                ) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                val currentTiles = if (selectedTabIndex == 0) {
-                                    config.expandedTiles
-                                } else {
-                                    config.collapsedTiles
-                                }
+                // 小米设备特化：固定卡片 + 编辑 Chip
+                val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
+                val isTablet = remember {
+                    val screenSize = context.resources.configuration.screenLayout
+                    val sizeMask = screenSize and Configuration.SCREENLAYOUT_SIZE_MASK
+                    sizeMask >= Configuration.SCREENLAYOUT_SIZE_LARGE
+                }
+                // 需要从网格中抽出、放在上方固定卡片的磁贴
+                val fixedTileValues = remember(isXiaomi, isTablet) {
+                    if (isXiaomi) {
+                        if (isTablet) listOf("wifi", "bt") else listOf("wifi", "cell")
+                    } else emptyList()
+                }
 
-                                currentTiles.forEachIndexed { index, tile ->
-                                    TileItem(
-                                        tileValue = tile,
-                                        index = index,
-                                        isFirst = index == 0,
-                                        isLast = index == currentTiles.size - 1,
-                                        onMoveUp = {
-                                            if (index > 0) {
-                                                val newList = currentTiles.toMutableList()
-                                                val tmp = newList[index]
-                                                newList[index] = newList[index - 1]
-                                                newList[index - 1] = tmp
-                                                val newConfig = if (selectedTabIndex == 0) {
-                                                    config.copy(expandedTiles = newList)
-                                                } else {
-                                                    config.copy(collapsedTiles = newList)
-                                                }
-                                                updateConfig(newConfig)
-                                            }
-                                        },
-                                        onMoveDown = {
-                                            if (index < currentTiles.size - 1) {
-                                                val newList = currentTiles.toMutableList()
-                                                val tmp = newList[index]
-                                                newList[index] = newList[index + 1]
-                                                newList[index + 1] = tmp
-                                                val newConfig = if (selectedTabIndex == 0) {
-                                                    config.copy(expandedTiles = newList)
-                                                } else {
-                                                    config.copy(collapsedTiles = newList)
-                                                }
-                                                updateConfig(newConfig)
-                                            }
-                                        },
-                                        onRemove = {
-                                            val newConfig = if (selectedTabIndex == 0) {
-                                                config.copy(expandedTiles = currentTiles.filter { it != tile })
-                                            } else {
-                                                config.copy(collapsedTiles = currentTiles.filter { it != tile })
-                                            }
-                                            updateConfig(newConfig)
-                                        }
-                                    )
-                                }
+                // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局
+                key(selectedTabIndex) {
+                    val currentTiles = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
+                    // edit 在小米设备上不可拖动（固定在末尾），其他设备保留在网格内
+                    val gridTiles = if (isXiaomi) {
+                        currentTiles.filter { it !in fixedTileValues && it != "edit" }
+                    } else {
+                        currentTiles.filter { it !in fixedTileValues }
+                    }
+                    val lazyGridState = rememberLazyGridState()
+                    val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
+                        val newList = gridTiles.toMutableList().apply {
+                            this[to.index] = this[from.index].also {
+                                this[from.index] = this[to.index]
+                            }
+                        }
+                        val fullList = if (isXiaomi) {
+                            fixedTileValues + newList + listOf("edit")
+                        } else {
+                            newList
+                        }
+                        val newConfig = if (selectedTabIndex == 0) {
+                            config.copy(expandedTiles = fullList)
+                        } else {
+                            config.copy(collapsedTiles = fullList)
+                        }
+                        updateConfig(newConfig)
+                    }
 
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                Button(
-                                    onClick = { showAddSheet = true },
-                                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        state = lazyGridState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection)
+                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                        contentPadding = PaddingValues(
+                            start = 8.dp,
+                            end = 8.dp,
+                            bottom = NavigationBarDefaults.ItemHeight +
+                                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                        )
+                    ) {
+                        // 固定卡片（小米特化，不参与拖拽）
+                        if (isXiaomi && fixedTileValues.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .pressable(
-                                            interactionSource = null,
-                                            indication = SinkFeedback()
-                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(MiuixIcons.AddCircle, contentDescription = "添加")
-                                    Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                                    fixedTileValues.forEach { tile ->
+                                        Card(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MiuixTheme.colorScheme.surfaceVariant),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    if (tile == "wifi") {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.tile_wifi),
+                                                            contentDescription = "WLAN",
+                                                            tint = MiuixTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                    }
+                }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        text = TileMapping.getDisplayName(tile),
+                                                        style = MiuixTheme.textStyles.body1
+                                                    )
+                                                    Text(
+                                                        text = "固定磁贴",
+                                                        style = MiuixTheme.textStyles.body2,
+                                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
+                            }
+                        }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Button(
-                                    onClick = { showCustomSheet = true },
-                                    modifier = Modifier.fillMaxWidth()
+                        gridItems(gridTiles, key = { it }) { tile ->
+                            ReorderableItem(reorderableState, key = tile) { isDragging ->
+                                val scale by animateFloatAsState(
+                                    if (isDragging) 1.03f else 1f,
+                                    label = "dragScale"
+                                )
+                                Column(
+                                    modifier = Modifier
+                                        .scale(scale)
+                                        .longPressDraggableHandle()
+                                        .padding(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
+                                    Box(
+                                        modifier = Modifier
+                                            .size(68.dp)
+                                            .clip(CircleShape)
+                                            .background(MiuixTheme.colorScheme.surfaceVariant),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (tile == "wifi") {
+                                            Icon(
+                                                painter = painterResource(R.drawable.tile_wifi),
+                                                contentDescription = "WLAN",
+                                                tint = MiuixTheme.colorScheme.primary,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
                                     Text(
-                                        "添加自定义磁贴",
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        text = TileMapping.getDisplayName(tile),
+                                        style = MiuixTheme.textStyles.body2,
+                                        maxLines = 2
+                                    )
+
+                                    Text(
+                                        text = tile,
+                                        style = MiuixTheme.textStyles.footnote2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                        maxLines = 2
                                     )
                                 }
                             }
                         }
-                    }
 
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                        // 编辑磁贴（小米设备：不可拖动，badge 样式）
+                        if (isXiaomi) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Card {
+                                        Text(
+                                            text = "编辑磁贴",
+                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                                            style = MiuixTheme.textStyles.body2
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 添加按钮区域，占满整行
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Button(
+                                        onClick = { showAddSheet = true },
+                                        colors = ButtonDefaults.buttonColorsPrimary(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pressable(
+                                                interactionSource = null,
+                                                indication = SinkFeedback()
+                                            )
+                                    ) {
+                                        Icon(MiuixIcons.AddCircle, contentDescription = "添加")
+                                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Button(
+                                        onClick = { showCustomSheet = true },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
+                                        Text("添加自定义磁贴", modifier = Modifier.padding(start = 8.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -436,55 +563,5 @@ fun TileConfigScreen() {
                     Text("确认恢复")
                 }
             }
-    }
-}
-
-@Composable
-private fun TileItem(
-    tileValue: String,
-    index: Int,
-    isFirst: Boolean,
-    isLast: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onRemove: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "${index + 1}",
-            style = MiuixTheme.textStyles.body2,
-            modifier = Modifier.width(24.dp)
-        )
-
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = TileMapping.getDisplayName(tileValue),
-                style = MiuixTheme.textStyles.body1
-            )
-            Text(
-                text = tileValue,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-            )
-        }
-
-        IconButton(onClick = onMoveUp, enabled = !isFirst) {
-            Icon(Icons.Default.ExpandLess, contentDescription = "上移")
-        }
-
-        IconButton(onClick = onMoveDown, enabled = !isLast) {
-            Icon(Icons.Default.ExpandMore, contentDescription = "下移")
-        }
-
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Default.Remove, contentDescription = "移除")
-        }
     }
 }
