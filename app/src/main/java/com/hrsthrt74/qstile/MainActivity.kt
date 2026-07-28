@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -31,7 +32,6 @@ import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -102,13 +102,20 @@ class MainActivity : ComponentActivity() {
  * 导航路由封装类。
  * 每个 Screen 定义路由字符串（route）、展示文本（title）及底部导航图标（icon）。
  */
-sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    /** 主页 Tab — MIUIX Home 图标 */
-    data object Home : Screen("home", "主页", MiuixIcons.Home)
+sealed class Screen(val route: String, val title: String) {
+    @Composable abstract fun icon(): ImageVector
+    /** 主页 Tab — drawable/home_outlined */
+    data object Home : Screen("home", "主页") {
+        @Composable override fun icon() = ImageVector.vectorResource(R.drawable.home_outlined)
+    }
     /** 磁贴编辑 Tab — MIUIX Edit 图标 */
-    data object Config : Screen("config", "编辑", MiuixIcons.Edit)
+    data object Config : Screen("config", "编辑") {
+        @Composable override fun icon() = MiuixIcons.Edit
+    }
     /** 设置 Tab — MIUIX Settings 图标 */
-    data object SettingPage : Screen("settings", "设置", MiuixIcons.Settings)
+    data object SettingPage : Screen("settings", "设置") {
+        @Composable override fun icon() = MiuixIcons.Settings
+    }
 }
 
 /**
@@ -156,7 +163,7 @@ fun MainApp(
                                     }
                                 }
                             },
-                            icon = screen.icon,
+                            icon = screen.icon(),
                             label = screen.title
                         )
                     }
