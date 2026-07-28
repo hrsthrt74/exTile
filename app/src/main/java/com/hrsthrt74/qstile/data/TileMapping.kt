@@ -74,6 +74,7 @@ object TileMapping {
         TileInfo("custom(com.android.quicksearchbox/.tile.QsbTileService)", "搜索", "小米应用", DeviceType.XIAOMI_ONLY),
         TileInfo("custom(com.miui.screenrecorder/.service.QuickService)", "屏幕录制", "小米应用", DeviceType.XIAOMI_ONLY),
         TileInfo("custom(com.miui.securitycenter/com.miui.superpower.notification.SuperPowerTileService)", "超级省电", "小米应用", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.carlink/com.carwith.launcher.quick.start.QuickStartTileService)", "CarWith", "小米应用", DeviceType.XIAOMI_ONLY),
 
         // ===== 系统（原生专用） =====
         TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
