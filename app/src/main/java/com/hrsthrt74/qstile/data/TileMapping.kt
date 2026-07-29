@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.service.quicksettings.TileService
 import com.hrsthrt74.qstile.R
 
@@ -27,89 +28,86 @@ object TileMapping {
     const val EXTILE_CUSTOM = "custom(com.hrsthrt74.qstile/.tile.ExTileService)"
 
     val systemTiles = listOf(
+
+        // exTile
+        TileInfo(EXTILE_CUSTOM, "exTile", "exTile"),
+
         // ===== 网络与连接 =====
+        TileInfo("internet", "互联网", "网络与连接", DeviceType.AOSP_ONLY),
         TileInfo("wifi", "WLAN", "网络与连接"),
         TileInfo("bt", "蓝牙", "网络与连接"),
         TileInfo("cell", "移动数据", "网络与连接"),
-        TileInfo("airplane", "飞行模式", "网络与连接"),
         TileInfo("hotspot", "热点", "网络与连接"),
-        TileInfo("nfc", "NFC", "网络与连接"),
+        TileInfo("airplane", "飞行模式", "网络与连接"),
         TileInfo("location", "位置信息", "网络与连接", DeviceType.AOSP_ONLY),
+        TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "网络与连接", DeviceType.XIAOMI_ONLY),
+        TileInfo("gps", "定位服务", "网络与连接", DeviceType.XIAOMI_ONLY),
         TileInfo("cast", "投屏", "网络与连接", DeviceType.AOSP_ONLY),
-        TileInfo("internet", "互联网", "网络与连接", DeviceType.AOSP_ONLY),
+        TileInfo("custom(com.milink.service/com.milink.ui.service.MiLinkTileService)", "投屏", "网络与连接", DeviceType.XIAOMI_ONLY),
+        TileInfo("nfc", "NFC", "网络与连接"),
+
+        // ===== 显示 =====
+        TileInfo("autobrightness", "自动亮度", "显示", DeviceType.XIAOMI_ONLY),
+        TileInfo("rotation", "自动屏幕旋转", "显示", DeviceType.AOSP_ONLY),
+        TileInfo("dark", "深色模式", "显示", DeviceType.AOSP_ONLY),
+        TileInfo("night", "深色模式", "显示", DeviceType.XIAOMI_ONLY),
+        TileInfo("papermode", "护眼模式", "显示", DeviceType.XIAOMI_ONLY),
+        TileInfo("reduce_brightness", "极暗", "显示"),
+        TileInfo("font_scaling", "字体缩放", "显示", DeviceType.AOSP_ONLY),
 
         // ===== 工具 =====
         TileInfo("flashlight", "手电筒", "工具"),
-        TileInfo("screenlock", "自动旋转", "工具"),
-        TileInfo("rotation", "旋转", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("dnd", "勿扰模式", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("quietmode", "勿扰模式", "工具", DeviceType.XIAOMI_ONLY),
-        TileInfo("mute", "静音", "工具"),
-        TileInfo("vibrate", "振动", "工具"),
+        TileInfo("aitranslate", "翻译", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("aisubtitles", "实时字幕", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("voicetrans", "对话翻译", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("screenlock", "锁屏", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.screenrecorder/.service.QuickService)", "屏幕录制", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("freeformhang", "迷你小窗", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.calculator/.service.QSTileService)", "计算器", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("scanner", "扫一扫", "工具", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.android.quicksearchbox/.tile.QsbTileService)", "搜索", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("taskmanager", "运行中的应用", "工具", DeviceType.XIAOMI_ONLY),
         TileInfo("wallet", "钱包", "工具", DeviceType.AOSP_ONLY),
         TileInfo("alarm", "闹钟", "工具", DeviceType.AOSP_ONLY),
         TileInfo("controls", "控制", "工具", DeviceType.AOSP_ONLY),
         TileInfo("screenrecord", "屏幕录制", "工具", DeviceType.AOSP_ONLY),
         TileInfo("qr_code_scanner", "二维码扫描", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("font_scaling", "字体缩放", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("cameratoggle", "相机开关", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("mictoggle", "麦克风开关", "工具", DeviceType.AOSP_ONLY),
-        TileInfo("hearing_devices", "助听设备", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("cameratoggle", "相机权限", "工具", DeviceType.AOSP_ONLY),
+        TileInfo("mictoggle", "麦克风权限", "工具", DeviceType.AOSP_ONLY),
 
-        // ===== 系统（通用） =====
+        // ===== 系统 =====
+        TileInfo("dnd", "勿扰模式", "系统", DeviceType.AOSP_ONLY),
+        TileInfo("quietmode", "勿扰模式", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("mute", "静音", "系统"),
+        TileInfo("vibrate", "振动", "系统"),
         TileInfo("battery", "电池", "系统", DeviceType.AOSP_ONLY),
-        TileInfo("dark", "深色模式", "系统", DeviceType.AOSP_ONLY),
-        // TileInfo("adb", "USB调试", "系统"),
-        TileInfo("night", "深色模式", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("reduce_brightness", "极暗", "系统"),
-
-        // ===== 系统（小米专用） =====
+        TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
         TileInfo("batterysaver", "省电", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("aisubtitles", "实时字幕", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("aitranslate", "翻译", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("carsickness", "晕车缓解", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("gps", "GPS", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("autobrightness", "自动亮度", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("settings", "设置", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("voicetrans", "对话翻译", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("papermode", "护眼模式", "系统", DeviceType.XIAOMI_ONLY),
-        TileInfo("dolbyatomssound", "杜比全景声", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.superpower.notification.SuperPowerTileService)", "超级省电", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.powercenter.powersaver.PerformanceModeTileService)", "性能模式", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("screenshot", "截屏", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("dolbyatomssound", "杜比全景声", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.securitycenter/com.miui.permcenter.settings.InvisibleModeTileService)", "隐身模式", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.carlink/com.carwith.launcher.quick.start.QuickStartTileService)", "CarWith", "系统", DeviceType.XIAOMI_ONLY),
         TileInfo("wirelesspower", "无线反向充电", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("carsickness", "晕车缓解", "系统", DeviceType.XIAOMI_ONLY),
+        TileInfo("settings", "设置", "系统", DeviceType.XIAOMI_ONLY),
 
-        // ===== 小米应用（custom 格式） =====
-        TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.milink.service/com.milink.ui.service.MiLinkTileService)", "投屏", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.securitycenter/com.miui.permcenter.settings.InvisibleModeTileService)", "隐身模式", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.securitycenter/com.miui.powercenter.powersaver.PerformanceModeTileService)", "性能模式", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.calculator/.service.QSTileService)", "计算器", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.android.quicksearchbox/.tile.QsbTileService)", "搜索", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.screenrecorder/.service.QuickService)", "屏幕录制", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.securitycenter/com.miui.superpower.notification.SuperPowerTileService)", "超级省电", "小米应用", DeviceType.XIAOMI_ONLY),
-        TileInfo("custom(com.miui.carlink/com.carwith.launcher.quick.start.QuickStartTileService)", "CarWith", "小米应用", DeviceType.XIAOMI_ONLY),
-        
         // ===== 无障碍 =====
         TileInfo("color_correction", "色彩校正", "无障碍"),
+        TileInfo("hearing_devices", "助听设备", "无障碍", DeviceType.AOSP_ONLY),
 
         // ===== 开发者 =====
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowTaps)", "显示点按操作反馈", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$WirelessDebugging)", "无线调试", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$SensorsOff)", "传感器已关闭", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$AnimationSpeed)", "窗口动画缩放", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ForceRTL)", "强制从右到左布局方向", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$GPUProfiling)", "HWUI 呈现模式分析", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowLayout)", "显示布局边界", "开发者"),
-        
-
-        // ===== 系统（原生专用） =====
-        TileInfo("saver", "省电模式", "系统", DeviceType.AOSP_ONLY),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$AnimationSpeed)", "窗口动画缩放", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$GPUProfiling)", "HWUI 呈现模式分析", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$SensorsOff)", "传感器已关闭", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ForceRTL)", "强制从右到左布局方向", "开发者"),
 
         // ===== 其他 =====
-        TileInfo("edit", "编辑", "其他"),
-        TileInfo(EXTILE_CUSTOM, "exTile 收纳", "其他")
+        TileInfo("edit", "编辑", "其他", DeviceType.XIAOMI_ONLY)
     )
 
     /** 获取当前设备可用的磁贴列表 */
@@ -118,7 +116,14 @@ object TileMapping {
             when (tile.deviceType) {
                 DeviceType.UNIVERSAL -> true
                 DeviceType.XIAOMI_ONLY -> isXiaomi
-                DeviceType.AOSP_ONLY -> !isXiaomi
+                DeviceType.AOSP_ONLY -> {
+                    // internet 磁贴仅在 SDK < 37 且是 AOSP 设备时显示
+                    if (tile.value == "internet") {
+                        !isXiaomi && Build.VERSION.SDK_INT < 37
+                    } else {
+                        !isXiaomi
+                    }
+                }
             }
         }
     }
@@ -184,7 +189,7 @@ object TileMapping {
         "hotspot" -> R.drawable.tile_hotspot
         "gps" -> R.drawable.tile_location
         "location" -> R.drawable.tile_location
-        "screenlock" -> R.drawable.tile_auto_rotate
+        "screenlock" -> R.drawable.tile_screen_lock
         "auto_brightness" -> R.drawable.tile_auto_brightness
         "autobrightness" -> R.drawable.tile_auto_brightness
         "saver" -> R.drawable.tile_power_save
