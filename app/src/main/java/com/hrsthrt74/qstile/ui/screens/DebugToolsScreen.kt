@@ -36,6 +36,7 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -68,16 +69,25 @@ fun DebugToolsScreen() {
     var shizukuRunning by remember { mutableStateOf(false) }
     var hasWriteSecureSettings by remember { mutableStateOf(false) }
     var hasQueryAllPackages by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
 
     fun refreshDebugInfo() {
         scope.launch {
+            isLoading = true
             config = ConfigRepository.getConfig(context)
+            // 确保 Shizuku 服务已绑定
+            if (!SecureSettingsHelper.isBound) {
+                SecureSettingsHelper.bindService()
+                // 等待服务绑定
+                kotlinx.coroutines.delay(500)
+            }
             currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: "无法获取"
             currentTiles = SecureSettingsHelper.getCurrentTiles(context)
             shizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
             shizukuRunning = ShizukuHelper.isShizukuRunning()
             hasWriteSecureSettings = ShizukuHelper.hasWriteSecureSettingsPermission(context)
             hasQueryAllPackages = context.checkSelfPermission(android.Manifest.permission.QUERY_ALL_PACKAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            isLoading = false
         }
     }
 
@@ -124,13 +134,21 @@ fun DebugToolsScreen() {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        DebugInfoRow("Shizuku 已安装", if (shizukuInstalled) "是" else "否")
-                        DebugInfoRow("Shizuku 运行中", if (shizukuRunning) "是" else "否")
-                        DebugInfoRow("WRITE_SECURE_SETTINGS", if (hasWriteSecureSettings) "已授权" else "未授权")
-                        DebugInfoRow("QUERY_ALL_PACKAGES", if (hasQueryAllPackages) "已授权" else "未授权")
-                        DebugInfoRow("展开磁贴数", config.expandedTiles.size.toString())
-                        DebugInfoRow("收起磁贴数", config.collapsedTiles.size.toString())
-                        DebugInfoRow("系统磁贴数", currentTiles.size.toString())
+                        if (isLoading) {
+                            Text(
+                                text = "加载中...",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
+                        } else {
+                            DebugInfoRow("Shizuku 已安装", if (shizukuInstalled) "是" else "否")
+                            DebugInfoRow("Shizuku 运行中", if (shizukuRunning) "是" else "否")
+                            DebugInfoRow("WRITE_SECURE_SETTINGS", if (hasWriteSecureSettings) "已授权" else "未授权")
+                            DebugInfoRow("QUERY_ALL_PACKAGES", if (hasQueryAllPackages) "已授权" else "未授权")
+                            DebugInfoRow("展开磁贴数", config.expandedTiles.size.toString())
+                            DebugInfoRow("收起磁贴数", config.collapsedTiles.size.toString())
+                            DebugInfoRow("系统磁贴数", currentTiles.size.toString())
+                        }
                     }
                 }
             }
