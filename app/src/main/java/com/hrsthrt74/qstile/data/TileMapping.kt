@@ -138,6 +138,15 @@ object TileMapping {
             }
     }
 
+    fun getCategory(value: String): String {
+        return systemTiles.find { it.value == value }?.category
+            ?: if (value.startsWith("custom(")) {
+                "自定义"
+            } else {
+                "其他"
+            }
+    }
+
     fun getTilesByCategory(): Map<String, List<TileInfo>> {
         return systemTiles.groupBy { it.category }
     }

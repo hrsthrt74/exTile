@@ -81,8 +81,12 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -96,6 +100,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
+import top.yukonga.miuix.kmp.window.WindowListPopup
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
@@ -126,6 +132,23 @@ fun TileConfigScreen() {
     var customTileValue by remember { mutableStateOf("") }
     var showCopyConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+    // 磁贴菜单状态
+    var showTileMenu by remember { mutableStateOf(false) }
+    var selectedTileForMenu by remember { mutableStateOf<String?>(null) }
+
+    // 小米设备特化：固定卡片
+    val isTablet = remember {
+        val screenSize = context.resources.configuration.screenLayout
+        val sizeMask = screenSize and Configuration.SCREENLAYOUT_SIZE_MASK
+        sizeMask >= Configuration.SCREENLAYOUT_SIZE_LARGE
+    }
+    // 需要从网格中抽出、放在上方固定卡片的磁贴
+    val fixedTileValues = remember(isXiaomi, isTablet) {
+        if (isXiaomi) {
+            if (isTablet) listOf("wifi", "bt") else listOf("wifi", "cell")
+        } else emptyList()
+    }
 
     // 记录是否已加载过配置
     var isConfigLoaded by remember { mutableStateOf(false) }
@@ -203,19 +226,6 @@ fun TileConfigScreen() {
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
-
-                // 小米设备特化：固定卡片 + 编辑 Chip
-                val isTablet = remember {
-                    val screenSize = context.resources.configuration.screenLayout
-                    val sizeMask = screenSize and Configuration.SCREENLAYOUT_SIZE_MASK
-                    sizeMask >= Configuration.SCREENLAYOUT_SIZE_LARGE
-                }
-                // 需要从网格中抽出、放在上方固定卡片的磁贴
-                val fixedTileValues = remember(isXiaomi, isTablet) {
-                    if (isXiaomi) {
-                        if (isTablet) listOf("wifi", "bt") else listOf("wifi", "cell")
-                    } else emptyList()
-                }
 
                 // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局
                 key(selectedTabIndex, isXiaomi, fixedTileValues) {
@@ -300,8 +310,7 @@ fun TileConfigScreen() {
                                                         style = MiuixTheme.textStyles.footnote2,
                                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                                     )
-
-                                            }
+                                                }
                                             }
                                         }
                                     }
@@ -319,23 +328,29 @@ fun TileConfigScreen() {
                                     targetValue = if (isDragging) 12.dp else 0.dp,
                                     label = "tileElevation"
                                 )
-                                Column(
-                                    modifier = Modifier
-                                        .longPressDraggableHandle(
-                                            onDragStarted = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            }
-                                        )
-                                        .scale(scale)
-                                        .padding(horizontal = 4.dp, vertical = 12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
+                                Box {
+                                    Column(
+                                        modifier = Modifier
+                                            .longPressDraggableHandle(
+                                                onDragStarted = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                            )
+                                            .scale(scale)
+                                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
                                     Box(
                                         modifier = Modifier
                                             .size(68.dp)
                                             .shadow(elevation, CircleShape)
                                             .clip(CircleShape)
-                                            .background(MiuixTheme.colorScheme.surfaceVariant),
+                                            .background(MiuixTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                selectedTileForMenu = tile
+                                                showTileMenu = true
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         val icon = rememberTileIcon(tile)
@@ -368,8 +383,120 @@ fun TileConfigScreen() {
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
+
+                                // 磁贴操作弹出菜单
+                                if (showTileMenu && selectedTileForMenu == tile) {
+                                    val currentTilesForMenu = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
+                                    val gridTilesForMenu = currentTilesForMenu.filter { it !in fixedTileValues && it != "edit" }
+                                    val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
+
+                                    // 删除按钮的错误颜色
+                                    val errorColors = DropdownDefaults.dropdownColors(
+                                        contentColor = MiuixTheme.colorScheme.error,
+                                        selectedContentColor = MiuixTheme.colorScheme.error
+                                    )
+
+                                    WindowListPopup(
+                                        show = showTileMenu,
+                                        popupPositionProvider = ListPopupDefaults.dropdownPositionProvider(verticalMargin = 0.dp),
+                                        onDismissRequest = { showTileMenu = false }
+                                    ) {
+                                        BackHandler { showTileMenu = false }
+                                        ListPopupColumn {
+                                            // 磁贴名称（不可点击）
+                                            DropdownImpl(
+                                                text = TileMapping.getDisplayName(tile),
+                                                optionSize = 1,
+                                                isSelected = false,
+                                                index = 0,
+                                                enabled = false,
+                                                onSelectedIndexChange = {}
+                                            )
+                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                            // 移动到顶端
+                                            DropdownImpl(
+                                                text = "移动到顶端",
+                                                optionSize = 2,
+                                                isSelected = false,
+                                                index = 0,
+                                                enabled = tileIndexForMenu > 0,
+                                                onSelectedIndexChange = {
+                                                    val newList = gridTilesForMenu.toMutableList().apply {
+                                                        removeAt(tileIndexForMenu)
+                                                        add(0, tile)
+                                                    }
+                                                    val fullList = if (isXiaomi) {
+                                                        fixedTileValues + newList + listOf("edit")
+                                                    } else {
+                                                        newList
+                                                    }
+                                                    val newConfig = if (selectedTabIndex == 0) {
+                                                        config.copy(expandedTiles = fullList)
+                                                    } else {
+                                                        config.copy(collapsedTiles = fullList)
+                                                    }
+                                                    updateConfig(newConfig)
+                                                    showTileMenu = false
+                                                }
+                                            )
+                                            // 移动到底端
+                                            DropdownImpl(
+                                                text = "移动到底端",
+                                                optionSize = 2,
+                                                isSelected = false,
+                                                index = 1,
+                                                enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
+                                                onSelectedIndexChange = {
+                                                    val newList = gridTilesForMenu.toMutableList().apply {
+                                                        removeAt(tileIndexForMenu)
+                                                        add(gridTilesForMenu.size - 1, tile)
+                                                    }
+                                                    val fullList = if (isXiaomi) {
+                                                        fixedTileValues + newList + listOf("edit")
+                                                    } else {
+                                                        newList
+                                                    }
+                                                    val newConfig = if (selectedTabIndex == 0) {
+                                                        config.copy(expandedTiles = fullList)
+                                                    } else {
+                                                        config.copy(collapsedTiles = fullList)
+                                                    }
+                                                    updateConfig(newConfig)
+                                                    showTileMenu = false
+                                                }
+                                            )
+                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                            // 删除（错误颜色）
+                                            DropdownImpl(
+                                                text = "删除",
+                                                optionSize = 1,
+                                                isSelected = false,
+                                                index = 0,
+                                                dropdownColors = errorColors,
+                                                onSelectedIndexChange = {
+                                                    val newList = gridTilesForMenu.toMutableList().apply {
+                                                        remove(tile)
+                                                    }
+                                                    val fullList = if (isXiaomi) {
+                                                        fixedTileValues + newList + listOf("edit")
+                                                    } else {
+                                                        newList
+                                                    }
+                                                    val newConfig = if (selectedTabIndex == 0) {
+                                                        config.copy(expandedTiles = fullList)
+                                                    } else {
+                                                        config.copy(collapsedTiles = fullList)
+                                                    }
+                                                    updateConfig(newConfig)
+                                                    showTileMenu = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
 
                         // 编辑磁贴（小米设备：不可拖动，badge 样式）
                         if (isXiaomi) {
