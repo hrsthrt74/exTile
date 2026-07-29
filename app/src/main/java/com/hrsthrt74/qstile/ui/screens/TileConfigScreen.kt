@@ -416,7 +416,7 @@ fun TileConfigScreen() {
                                             // 移动到顶端
                                             DropdownImpl(
                                                 text = "移动到顶端",
-                                                optionSize = 2,
+                                                optionSize = 3,
                                                 isSelected = false,
                                                 index = 0,
                                                 enabled = tileIndexForMenu > 0,
@@ -442,7 +442,7 @@ fun TileConfigScreen() {
                                             // 移动到底端
                                             DropdownImpl(
                                                 text = "移动到底端",
-                                                optionSize = 2,
+                                                optionSize = 3,
                                                 isSelected = false,
                                                 index = 1,
                                                 enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
@@ -465,13 +465,12 @@ fun TileConfigScreen() {
                                                     showTileMenu = false
                                                 }
                                             )
-                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                                             // 删除（错误颜色）
                                             DropdownImpl(
                                                 text = "删除",
-                                                optionSize = 1,
+                                                optionSize = 3,
                                                 isSelected = false,
-                                                index = 0,
+                                                index = 2,
                                                 dropdownColors = errorColors,
                                                 onSelectedIndexChange = {
                                                     val newList = gridTilesForMenu.toMutableList().apply {
