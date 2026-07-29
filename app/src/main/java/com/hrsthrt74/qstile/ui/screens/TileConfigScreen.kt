@@ -603,33 +603,33 @@ fun TileConfigScreen() {
                         Column(
                             modifier = Modifier
                                 // 竖向要比横向大一点
-                                .padding(horizontal = 4.dp, vertical = 12.dp)
-                                .clickable {
-                                    // 添加到列表末尾，但如果存在 edit 则插入到 edit 前面
-                                    val hasEdit = currentTiles.contains("edit")
-                                    val newTiles = if (hasEdit) {
-                                        val editIndex = currentTiles.indexOf("edit")
-                                        currentTiles.toMutableList().apply {
-                                            add(editIndex, tile.value)
-                                        }
-                                    } else {
-                                        currentTiles + tile.value
-                                    }
-                                    val newConfig = if (selectedTabIndex == 0) {
-                                        config.copy(expandedTiles = newTiles)
-                                    } else {
-                                        config.copy(collapsedTiles = newTiles)
-                                    }
-                                    updateConfig(newConfig)
-                                    showAddSheet = false
-                                },
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
                                     .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.secondaryVariant),
+                                    .background(MiuixTheme.colorScheme.secondaryVariant)
+                                    .clickable {
+                                        // 添加到列表末尾，但如果存在 edit 则插入到 edit 前面
+                                        val hasEdit = currentTiles.contains("edit")
+                                        val newTiles = if (hasEdit) {
+                                            val editIndex = currentTiles.indexOf("edit")
+                                            currentTiles.toMutableList().apply {
+                                                add(editIndex, tile.value)
+                                            }
+                                        } else {
+                                            currentTiles + tile.value
+                                        }
+                                        val newConfig = if (selectedTabIndex == 0) {
+                                            config.copy(expandedTiles = newTiles)
+                                        } else {
+                                            config.copy(collapsedTiles = newTiles)
+                                        }
+                                        updateConfig(newConfig)
+                                        showAddSheet = false
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 val icon = rememberTileIcon(tile.value)
