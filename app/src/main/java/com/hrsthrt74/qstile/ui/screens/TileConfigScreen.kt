@@ -95,7 +95,12 @@ import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TooltipBox
+import top.yukonga.miuix.kmp.basic.TooltipDefaults
+import top.yukonga.miuix.kmp.basic.TooltipState
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.PlainTooltip
+import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
@@ -288,34 +293,60 @@ fun TileConfigScreen() {
                                     // 俩卡片中间的间距
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
+                                    val scope = rememberCoroutineScope()
                                     fixedTileValues.forEach { tile ->
-                                        Card(modifier = Modifier.weight(1f)) {
-                                            Row(
-                                                // 卡片内边距
-                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val icon = rememberTileIcon(tile)
-                                                if (icon != null) {
-                                                    Icon(
-                                                        painter = icon,
-                                                        contentDescription = TileMapping.getDisplayName(tile),
-                                                        tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(36.dp)
+                                        val tooltipState = rememberTooltipState(isPersistent = true)
+
+                                        TooltipBox(
+                                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                                            tooltip = {
+                                                PlainTooltip {
+                                                    Text(
+                                                        text = "系统限制此磁贴无法移动",
+                                                        style = MiuixTheme.textStyles.footnote1
                                                     )
                                                 }
-                                                // 图标与文字之间的间距
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Column {
-                                                    Text(
-                                                        text = TileMapping.getDisplayName(tile),
-                                                        style = MiuixTheme.textStyles.body1
-                                                    )
-                                                    Text(
-                                                        text = "固定磁贴",
-                                                        style = MiuixTheme.textStyles.footnote2,
-                                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                                    )
+                                            },
+                                            state = tooltipState,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Card {
+                                                Row(
+                                                    // 卡片内边距
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                            scope.launch { tooltipState.show() }
+                                                        }
+                                                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    val icon = rememberTileIcon(tile)
+                                                    if (icon != null) {
+                                                        Icon(
+                                                            painter = icon,
+                                                            contentDescription = TileMapping.getDisplayName(tile),
+                                                            tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(36.dp)
+                                                        )
+                                                    }
+
+                                                    // 图标与文字之间的间距
+                                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                                    // 磁贴名 和 “固定磁贴”
+                                                    Column {
+                                                        Text(
+                                                            text = TileMapping.getDisplayName(tile),
+                                                            style = MiuixTheme.textStyles.body1
+                                                        )
+                                                        Text(
+                                                            text = "固定磁贴",
+                                                            style = MiuixTheme.textStyles.footnote2,
+                                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -510,18 +541,42 @@ fun TileConfigScreen() {
                         // 编辑磁贴（小米设备：不可拖动，badge 样式）
                         if (isXiaomi) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
+                                val editTooltipState = rememberTooltipState(isPersistent = true)
+                                val editScope = rememberCoroutineScope()
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Card {
-                                        Text(
-                                            text = "编辑磁贴",
-                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                                            style = MiuixTheme.textStyles.body2
-                                        )
+                                    TooltipBox(
+                                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                                        tooltip = {
+                                            PlainTooltip {
+                                                Text(
+                                                    text = "系统限制此磁贴无法移动",
+                                                    style = MiuixTheme.textStyles.footnote1
+                                                )
+                                            }
+                                        },
+                                        state = editTooltipState
+                                    ) {
+                                        Card {
+                                            Row(
+                                                modifier = Modifier
+                                                    .clickable {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        editScope.launch { editTooltipState.show() }
+                                                    }
+                                                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "编辑磁贴",
+                                                    style = MiuixTheme.textStyles.body2
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

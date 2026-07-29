@@ -113,16 +113,17 @@ exTile/
 
 1. **QS 磁贴一键切换**：通过 `ExTileService` 实现展开/收起两套布局间切换
 2. **磁贴编辑**：4 列网格拖拽排序（Calvin-LL/Reorderable），支持添加系统/自定义磁贴；长按放大 1.1 倍反馈；文本居中显示；小米设备特化固定卡片 + 编辑磁贴 badge；添加磁贴使用网格布局按分类分组
-3. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
-4. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
-5. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等
-6. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾
-7. **横滑切换页面**：使用 `HorizontalPager` + `MainPagerState` 实现主页/编辑/设置之间的横滑切换，配合底部导航栏联动
-8. **开源许可页面**：独立 `LicensesActivity`，展示所有开源库信息，点击直接跳转浏览器查看项目地址
-9. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性
-   - **小米专属**：`batterysaver`（省电）、`aisubtitles`（实时字幕）、`aitranslate`（翻译）、`carsickness`（晕车缓解）、`gps`（GPS）、`autobrightness`（自动亮度）、`settings`（设置）、`voicetrans`（对话翻译）、`papermode`（护眼模式）、`dolbyatomssound`（杜比全景声）、`quietmode`（勿扰模式）、`freeformhang`（迷你小窗）、`scanner`（扫一扫）、`taskmanager`（运行中的应用）、`night`（深色模式）
-   - **原生专属**：`saver`（省电模式）、`dnd`（勿扰模式）、`location`（位置信息）
-   - **开发者分类**：点按操作反馈、无线调试、传感器已关闭、窗口动画缩放、强制从右到左、GPU 呈现模式分析、显示布局边界
+3. **磁贴操作菜单**：点击普通磁贴弹出 `WindowListPopup` 菜单，支持移动到顶端/底端、删除操作；菜单分三组（磁贴名、移动、删除），使用 `DropdownImpl` + `HorizontalDivider` 实现
+4. **自定义磁贴图标**：通过 `PackageManager` 获取其他应用的 TileService 图标，支持 `QUERY_ALL_PACKAGES` 权限引导
+5. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
+6. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
+7. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等；动态取色启用时禁用移动数据绿色特殊取色
+8. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾；固定磁贴和编辑磁贴支持 Tooltip 提示
+9. **横滑切换页面**：使用 `HorizontalPager` + `MainPagerState` 实现主页/编辑/设置之间的横滑切换，配合底部导航栏联动
+10. **开源许可页面**：独立 `LicensesActivity`，展示所有开源库信息，点击直接跳转浏览器查看项目地址
+11. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性；`internet` 磁贴仅在 SDK < 37 且 AOSP 设备时显示
+12. **触觉反馈**：各处点击添加震动反馈（LongPress/TextHandleMove）；滚动到边界触觉反馈（`scrollEndHaptic`）
+13. **按压特效**：磁贴配置页面磁贴使用 `pressable` + `SinkFeedback` 实现按压缩放效果；添加磁贴 sheet 的磁贴点击特效限定在圆圈内
 
 ---
 
@@ -156,8 +157,10 @@ exTile/
 - **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口
 - **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
-- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）
-- **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支
+- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴和编辑磁贴支持 `TooltipBox` 提示
+- **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支；custom 磁贴通过 `getCustomTileIcon()` 获取其他应用图标
+- **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
+- **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
 
 ---
 
