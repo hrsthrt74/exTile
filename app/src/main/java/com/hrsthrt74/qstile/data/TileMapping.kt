@@ -2,8 +2,10 @@ package com.hrsthrt74.qstile.data
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.service.quicksettings.TileService
 import com.hrsthrt74.qstile.R
 
 object TileMapping {
@@ -93,12 +95,12 @@ object TileMapping {
         TileInfo("color_correction", "色彩校正", "无障碍"),
 
         // ===== 开发者 =====
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowTaps)", "点按操作反馈", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowTaps)", "显示点按操作反馈", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$WirelessDebugging)", "无线调试", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$SensorsOff)", "传感器已关闭", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$AnimationSpeed)", "窗口动画缩放", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ForceRTL)", "强制从右到左", "开发者"),
-        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$GPUProfiling)", "GPU 呈现模式分析", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ForceRTL)", "强制从右到左布局方向", "开发者"),
+        TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$GPUProfiling)", "HWUI 呈现模式分析", "开发者"),
         TileInfo("custom(com.android.settings/.development.qstile.DevelopmentTiles\$ShowLayout)", "显示布局边界", "开发者"),
         
 
@@ -217,20 +219,46 @@ object TileMapping {
     fun getCustomTileIcon(context: Context, value: String): Drawable? {
         val component = parseCustomComponent(value) ?: return null
         val pm = context.packageManager
-        // 通过 resolveService 获取 Service 信息
-        try {
-            val intent = android.content.Intent().setComponent(component)
-            val resolveInfo = pm.resolveService(intent, PackageManager.GET_META_DATA)
-            if (resolveInfo != null) {
-                val icon = resolveInfo.loadIcon(pm)
-                if (icon != null) return icon
-            }
-        } catch (_: Exception) {}
-        // 尝试直接获取 ServiceInfo
+        // 优先通过 getServiceInfo 获取（包括禁用的组件）
         try {
             val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
-            val icon = serviceInfo.loadIcon(pm)
-            if (icon != null) return icon
+            // 尝试通过 Resources 获取 Service 的图标
+            if (serviceInfo.icon != 0) {
+                try {
+                    val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
+                    val drawable = resources.getDrawable(serviceInfo.icon, null)
+                    if (drawable != null) return drawable
+                } catch (_: Exception) {}
+            }
+            // 回退到应用图标
+            try {
+                val icon = serviceInfo.applicationInfo.loadIcon(pm)
+                if (icon != null) return icon
+            } catch (_: Exception) {}
+        } catch (_: Exception) {}
+        // 通过 queryIntentServices 查询已启用的 QS_TILE 服务
+        try {
+            val intent = Intent(TileService.ACTION_QS_TILE)
+            val resolveInfos = pm.queryIntentServices(intent, PackageManager.GET_META_DATA)
+            for (info in resolveInfos) {
+                val serviceInfo = info.serviceInfo ?: continue
+                if (serviceInfo.packageName == component.packageName &&
+                    serviceInfo.name == component.className) {
+                    // 尝试通过 Resources 获取 Service 的图标
+                    if (serviceInfo.icon != 0) {
+                        try {
+                            val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
+                            val drawable = resources.getDrawable(serviceInfo.icon, null)
+                            if (drawable != null) return drawable
+                        } catch (_: Exception) {}
+                    }
+                    // 回退到应用图标
+                    try {
+                        val icon = serviceInfo.applicationInfo.loadIcon(pm)
+                        if (icon != null) return icon
+                    } catch (_: Exception) {}
+                }
+            }
         } catch (_: Exception) {}
         // 最后尝试获取应用图标
         try {

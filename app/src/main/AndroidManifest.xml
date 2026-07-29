@@ -4,6 +4,13 @@
 
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
+    <!-- 声明查询其他应用的 Quick Settings Tile 服务 -->
+    <queries>
+        <intent>
+            <action android:name="android.service.quicksettings.action.QS_TILE" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
