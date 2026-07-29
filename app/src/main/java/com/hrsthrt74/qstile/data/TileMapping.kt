@@ -217,13 +217,22 @@ object TileMapping {
     fun getCustomTileIcon(context: Context, value: String): Drawable? {
         val component = parseCustomComponent(value) ?: return null
         val pm = context.packageManager
-        // 尝试获取 Service 的图标
+        // 通过 resolveService 获取 Service 信息
+        try {
+            val intent = android.content.Intent().setComponent(component)
+            val resolveInfo = pm.resolveService(intent, PackageManager.GET_META_DATA)
+            if (resolveInfo != null) {
+                val icon = resolveInfo.loadIcon(pm)
+                if (icon != null) return icon
+            }
+        } catch (_: Exception) {}
+        // 尝试直接获取 ServiceInfo
         try {
             val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
             val icon = serviceInfo.loadIcon(pm)
             if (icon != null) return icon
         } catch (_: Exception) {}
-        // 尝试获取应用图标
+        // 最后尝试获取应用图标
         try {
             val appInfo = pm.getApplicationInfo(component.packageName, 0)
             val icon = appInfo.loadIcon(pm)
