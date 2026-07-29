@@ -176,6 +176,7 @@ object TileMapping {
         "batterysaver" -> R.drawable.tile_power_save
         "dark" -> R.drawable.tile_darkmode
         "night" -> R.drawable.tile_darkmode
+        "taskmanager" -> R.drawable.tile_taskmanager
         "wirelesspower" -> R.drawable.tile_wireless_charge
         "carsickness" -> R.drawable.tile_carsickness
         "aisubtitles" -> R.drawable.tile_aisubtitles
@@ -186,6 +187,7 @@ object TileMapping {
         "screenshot" -> R.drawable.tile_screenshot
         "scanner" -> R.drawable.tile_scanner
         "freeformhang" -> R.drawable.tile_freeformhang
+        "color_correction" -> R.drawable.tile_color_correction
         "settings" -> R.drawable.tile_settings
         EXTILE_CUSTOM -> R.drawable.ic_tile
         else -> null

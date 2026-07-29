@@ -2,6 +2,7 @@ package com.hrsthrt74.qstile.ui.screens
 
 import androidx.activity.compose.BackHandler
 import android.content.res.Configuration
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,7 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -179,6 +182,7 @@ fun TileConfigScreen() {
 
                 // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局
                 key(selectedTabIndex, isXiaomi, fixedTileValues) {
+                    val haptic = LocalHapticFeedback.current
                     val currentTiles = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
                     val gridTiles = currentTiles.filter { it !in fixedTileValues && it != "edit" }
                     val lazyGridState = rememberLazyGridState()
@@ -201,6 +205,8 @@ fun TileConfigScreen() {
                             config.copy(collapsedTiles = fullList)
                         }
                         updateConfig(newConfig)
+                        // 每次调换位置触发震动
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
 
                     LazyVerticalGrid(
@@ -272,9 +278,17 @@ fun TileConfigScreen() {
                                     targetValue = if (isDragging) 1.1f else 1f,
                                     label = "tileScale"
                                 )
+                                val elevation by animateDpAsState(
+                                    targetValue = if (isDragging) 12.dp else 0.dp,
+                                    label = "tileElevation"
+                                )
                                 Column(
                                     modifier = Modifier
-                                        .longPressDraggableHandle()
+                                        .longPressDraggableHandle(
+                                            onDragStarted = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        )
                                         .scale(scale)
                                         .padding(horizontal = 4.dp, vertical = 12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -282,6 +296,7 @@ fun TileConfigScreen() {
                                     Box(
                                         modifier = Modifier
                                             .size(68.dp)
+                                            .shadow(elevation, CircleShape)
                                             .clip(CircleShape)
                                             .background(MiuixTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center
