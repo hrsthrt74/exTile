@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +59,8 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
+import com.hrsthrt74.qstile.data.ThemeRepository
+import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
@@ -98,6 +101,11 @@ fun TileConfigScreen() {
 
     // 设备类型检测
     val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
+
+    // 主题设置（用于判断动态取色是否启用）
+    val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
+        .collectAsState(initial = ThemeSettings())
+    val isDynamicColor = themeSettings.isDynamicColorMode
 
     val tabs = listOf("展开时", "收起时")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -247,7 +255,7 @@ fun TileConfigScreen() {
                                                     Icon(
                                                         painter = painterResource(iconRes),
                                                         contentDescription = TileMapping.getDisplayName(tile),
-                                                        tint = if (tile == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                                        tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                         modifier = Modifier.size(36.dp)
                                                     )
                                                 }
@@ -306,7 +314,7 @@ fun TileConfigScreen() {
                                             Icon(
                                                 painter = painterResource(iconRes),
                                                 contentDescription = TileMapping.getDisplayName(tile),
-                                                tint = if (tile == "cell") Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                                tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                 modifier = Modifier.size(36.dp)
                                             )
                                         }
