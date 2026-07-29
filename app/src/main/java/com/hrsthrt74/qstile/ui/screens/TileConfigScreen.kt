@@ -139,6 +139,7 @@ fun TileConfigScreen() {
     var showCustomSheet by remember { mutableStateOf(false) }
     var customTileValue by remember { mutableStateOf("") }
     var showCopyConfirmDialog by remember { mutableStateOf(false) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     // 磁贴菜单状态
@@ -208,6 +209,10 @@ fun TileConfigScreen() {
                                 DropdownItem(
                                     text = "展开配置 → 收起",
                                     onClick = { showCopyConfirmDialog = true }
+                                ),
+                                DropdownItem(
+                                    text = "清除当前配置的磁贴",
+                                    onClick = { showClearConfirmDialog = true }
                                 ),
                                 DropdownItem(
                                     text = "恢复默认设置",
@@ -617,7 +622,7 @@ fun TileConfigScreen() {
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
-                                        Text("添加自定义磁贴", modifier = Modifier.padding(start = 8.dp))
+                                        Text("添加第三方磁贴", modifier = Modifier.padding(start = 8.dp))
                                     }
                                 }
                             }
@@ -744,7 +749,7 @@ fun TileConfigScreen() {
 
         WindowBottomSheet(
             show = showCustomSheet,
-            title = "添加自定义磁贴",
+            title = "添加第三方磁贴",
             onDismissRequest = {
                 showCustomSheet = false
                 customTileValue = ""
@@ -947,6 +952,46 @@ fun TileConfigScreen() {
                     },
                     modifier = Modifier.weight(1f)
                 )
+            }
+    }
+
+        WindowDialog(
+            title = "清除当前配置的磁贴",
+            summary = "将清空当前展开/收起状态的所有磁贴配置，此操作不可撤销。",
+            show = showClearConfirmDialog,
+            onDismissRequest = { showClearConfirmDialog = false }
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            BackHandler { showClearConfirmDialog = false }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    text = "取消",
+                    onClick = { showClearConfirmDialog = false },
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        color = MiuixTheme.colorScheme.error,
+                        contentColor = MiuixTheme.colorScheme.onError,
+                    ),
+                    onClick = {
+                        val newConfig = if (selectedTabIndex == 0) {
+                            config.copy(expandedTiles = emptyList())
+                        } else {
+                            config.copy(collapsedTiles = emptyList())
+                        }
+                        updateConfig(newConfig)
+                        showClearConfirmDialog = false
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("确认清除")
+                }
             }
     }
 
