@@ -910,7 +910,14 @@ fun TileConfigScreen() {
                             )
 
                             Text(
-                                text = cls.substringAfterLast('.').substringBefore('$'),
+                                text = remember(pkg) {
+                                    try {
+                                        val appInfo = context.packageManager.getApplicationInfo(pkg, 0)
+                                        context.packageManager.getApplicationLabel(appInfo).toString()
+                                    } catch (e: Exception) {
+                                        pkg.substringAfterLast('.')
+                                    }
+                                },
                                 style = MiuixTheme.textStyles.footnote2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 maxLines = 2,
