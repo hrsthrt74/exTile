@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import com.hrsthrt74.qstile.ICommandService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
@@ -67,8 +68,29 @@ object SecureSettingsHelper {
         }
     }
 
+    /**
+     * 获取 sysui_qs_tiles 的值
+     * @return 磁贴字符串，如果 shizuku 未运行则返回 null
+     */
     suspend fun getSysuiQsTiles(context: Context): String? = withContext(Dispatchers.IO) {
         try {
+            // 检查 Shizuku 是否可用
+            if (!ShizukuHelper.isShizukuRunning()) {
+                Log.w(TAG, "Shizuku is not running")
+                return@withContext null
+            }
+
+            // 确保服务已绑定
+            if (!isBound || commandService == null) {
+                bindService()
+                // 等待服务连接
+                var waitCount = 0
+                while (!isBound && waitCount < 10) {
+                    delay(100)
+                    waitCount++
+                }
+            }
+
             // 优先使用 Shizuku UserService
             if (isBound && commandService != null) {
                 val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")

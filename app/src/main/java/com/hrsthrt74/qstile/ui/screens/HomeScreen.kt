@@ -69,14 +69,12 @@ fun HomeScreen(
     // ---- 状态声明 ----
     /** 是否已获得 WRITE_SECURE_SETTINGS 权限 */
     var hasPermission by remember { mutableStateOf(false) }
-    /** Shizuku 应用是否已安装 */
-    var isShizukuInstalled by remember { mutableStateOf(false) }
-    /** Shizuku 服务是否正在运行 */
-    var isShizukuRunning by remember { mutableStateOf(false) }
     /** 当前磁贴配置（展开/收起列表 + 开关状态） */
     var config by remember { mutableStateOf(TileConfig()) }
     /** 系统当前磁贴数量 */
     var currentTilesCount by remember { mutableStateOf(0) }
+    /** 是否正在加载 */
+    var isLoading by remember { mutableStateOf(true) }
 
     /**
      * 刷新所有状态。
@@ -84,11 +82,10 @@ fun HomeScreen(
      */
     fun refreshStatus() {
         hasPermission = ShizukuHelper.hasWriteSecureSettingsPermission(context)
-        isShizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
-        isShizukuRunning = ShizukuHelper.isShizukuRunning()
         scope.launch {
             config = ConfigRepository.getConfig(context)
             currentTilesCount = SecureSettingsHelper.getCurrentTiles(context).size
+            isLoading = false
         }
     }
 
@@ -118,12 +115,11 @@ fun HomeScreen(
                     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             )
         ) {
-            // 权限状态卡片：展示 Shizuku 安装/运行/授权状态，提供授权入口
+            // 权限状态卡片：展示权限状态，提供授权入口
             item {
                 PermissionStatusCard(
                     hasPermission = hasPermission,
-                    isShizukuInstalled = isShizukuInstalled,
-                    isShizukuRunning = isShizukuRunning,
+                    isLoading = isLoading,
                     onRequestPermission = {
                         // 点击"获取权限"按钮时 → 先请求 Shizuku 权限 → 再通过 Shizuku 执行 pm grant
                         onRequestShizukuPermission { granted ->
@@ -161,13 +157,12 @@ fun HomeScreen(
 
 /**
  * 权限状态卡片组件。
- * 根据 Shizuku 的安装、运行、权限状态展示不同的提示信息和操作按钮。
+ * 根据 WRITE_SECURE_SETTINGS 权限状态展示不同的提示信息和操作按钮。
  */
 @Composable
 private fun PermissionStatusCard(
     hasPermission: Boolean,
-    isShizukuInstalled: Boolean,
-    isShizukuRunning: Boolean,
+    isLoading: Boolean,
     onRequestPermission: () -> Unit
 ) {
     Card(
@@ -179,27 +174,38 @@ private fun PermissionStatusCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 权限状态图标：已授权=绿色对勾，未授权=红色叉号
+                // 权限状态图标：已授权=绿色对勾，未授权=红色叉号，加载中=灰色圆圈
                 Icon(
-                    imageVector = if (hasPermission) Icons.Default.CheckCircle else Icons.Default.Close,
+                    imageVector = when {
+                        isLoading -> Icons.Default.CheckCircle
+                        hasPermission -> Icons.Default.CheckCircle
+                        else -> Icons.Default.Close
+                    },
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
-                    tint = if (hasPermission) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error
+                    tint = when {
+                        isLoading -> MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f)
+                        hasPermission -> MiuixTheme.colorScheme.primary
+                        else -> MiuixTheme.colorScheme.error
+                    }
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = if (hasPermission) "已获得权限" else "未获得权限",
+                        text = when {
+                            isLoading -> "正在检查权限..."
+                            hasPermission -> "已获得权限"
+                            else -> "未获得权限"
+                        },
                         style = MiuixTheme.textStyles.title2,
                         color = MiuixTheme.colorScheme.onSurface
                     )
                     // 根据状态组合展现不同的引导文案
                     Text(
                         text = when {
+                            isLoading -> "请稍候"
                             hasPermission -> "WRITE_SECURE_SETTINGS 已授权"
-                            !isShizukuInstalled -> "请先安装 Shizuku 应用"
-                            !isShizukuRunning -> "请先启动 Shizuku 服务"
-                            else -> "点击下方按钮获取权限"
+                            else -> "需要授权才能使用磁贴切换功能"
                         },
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -207,12 +213,11 @@ private fun PermissionStatusCard(
                 }
             }
 
-            // 未授权时显示授权按钮，按钮在 Shizuku 安装且运行时才可用
-            if (!hasPermission) {
+            // 未授权时显示授权按钮
+            if (!hasPermission && !isLoading) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onRequestPermission,
-                    enabled = isShizukuInstalled && isShizukuRunning,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("获取权限")
