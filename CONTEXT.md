@@ -24,6 +24,7 @@ exTile/
 ├── AGENTS.md                    # AI 助手指令
 ├── debug.ps1                    # 一键构建→安装→启动脚本
 ├── CONTEXT.md                   # 本文件（持久上下文）
+├── TODO.md                      # 待办事项
 ├── settings.gradle.kts          # 项目设置（含 JitPack 仓库）
 ├── build.gradle.kts             # 顶级构建脚本
 ├── gradle.properties            # Gradle 配置
@@ -41,6 +42,7 @@ exTile/
             ├── java/com/hrsthrt74/qstile/
             │   ├── MainActivity.kt          # 主 Activity，横滑导航 + 模糊
             │   ├── LicensesActivity.kt      # 开源许可 Activity（独立页面）
+            │   ├── DebugToolsActivity.kt    # 调试工具 Activity（独立页面）
             │   ├── tile/
             │   │   └── ExTileService.kt     # QS Tile Service
             │   ├── data/
@@ -62,7 +64,8 @@ exTile/
             │           ├── HomeScreen.kt     # 主页
             │           ├── TileConfigScreen.kt # 磁贴编辑页（拖拽网格）
             │           ├── SettingsScreen.kt # 设置页
-            │           └── LicensesScreen.kt # 开源许可页
+            │           ├── LicensesScreen.kt # 开源许可页
+            │           └── DebugToolsScreen.kt # 调试工具页
             └── res/
                 └── drawable/                # 磁贴图标（tile_*.xml）
 ```
@@ -81,29 +84,35 @@ exTile/
             ┌──────────────┼──────────────┐
             v              v              v
        HomeScreen    TileConfigScreen  SettingsScreen
-            │              │              │
-            └──────────────┼──────────────┘
-                           │
-                ┌──────────▼──────────┐
-                │   ConfigRepository   │  ← DataStore Preferences
-                └─────────────────────┘
-                           │
-                ┌──────────▼──────────┐
-                │ SecureSettingsHelper │  ← 读写 sysui_qs_tiles
-                └──────────┬──────────┘
-                           │
-                ┌──────────▼──────────┐
-                │   CommandService     │  ← Shizuku UserService (AIDL)
-                └──────────┬──────────┘
-                           │
-                ┌──────────▼──────────┐
-                │   Runtime.exec()     │  ← shell 命令执行
-                └─────────────────────┘
+             │              │              │
+             └──────────────┼──────────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │   ConfigRepository   │  ← DataStore Preferences
+                 └─────────────────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ SecureSettingsHelper │  ← 读写 sysui_qs_tiles
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │   CommandService     │  ← Shizuku UserService (AIDL)
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │   Runtime.exec()     │  ← shell 命令执行
+                 └─────────────────────┘
 
     ┌────────────────────────────────────┐
     │         LicensesActivity           │
     │  (独立 Activity，开源许可页面)       │
     │  点击项目直接跳转浏览器              │
+    └────────────────────────────────────┘
+
+    ┌────────────────────────────────────┐
+    │        DebugToolsActivity          │
+    │  (独立 Activity，调试工具页面)       │
+    │  查看状态/调试信息/添加磁贴          │
     └────────────────────────────────────┘
 ```
 
@@ -124,6 +133,8 @@ exTile/
 11. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性；`internet` 磁贴仅在 SDK < 37 且 AOSP 设备时显示
 12. **触觉反馈**：各处点击添加震动反馈（LongPress/TextHandleMove）；滚动到边界触觉反馈（`scrollEndHaptic`）
 13. **按压特效**：磁贴配置页面磁贴使用 `pressable` + `SinkFeedback` 实现按压缩放效果；添加磁贴 sheet 的磁贴点击特效限定在圆圈内
+14. **加载状态**：首页权限卡片和调试工具页面支持加载状态显示，避免权限状态闪烁
+15. **调试工具**：独立 `DebugToolsActivity`，提供详细调试信息（权限状态、磁贴配置、系统信息）、复制调试信息、添加磁贴到末尾等功能
 
 ---
 
@@ -153,14 +164,15 @@ exTile/
 - **横滑动画**：使用三次贝塞尔曲线 `CubicBezierEasing(0.25, 0.1, 0.25, 1.0)`，350ms 时长，iOS 风格手感
 - **页面保留**：`HorizontalPager` 设置 `beyondViewportPageCount = Screen.allPages.size`，保留所有页面状态，避免重新加载
 - **导航栏模糊**：`rememberLayerBackdrop()` + `Modifier.layerBackdrop(backdrop)` 在 HorizontalPager 捕获内容，`Modifier.textureBlur(backdrop, ...)` 在 NavigationBar 上应用毛玻璃效果；底部 padding 只保留 `calculateTopPadding()`，让内容延伸到导航栏背后供模糊捕获
-- **子页面导航**：开源许可等子页面使用独立 Activity，通过 `Intent` 跳转，有系统默认转场动画
-- **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口
+- **子页面导航**：开源许可、调试工具等子页面使用独立 Activity，通过 `Intent` 跳转，有系统默认转场动画；独立 Activity 需要提供 `LocalNavigationEventDispatcherOwner`
+- **设置页**：使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口；调试工具入口放在最前面
 - **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
-- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴和编辑磁贴支持 `TooltipBox` 提示
+- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴支持 `TooltipBox` 提示（无箭头）
 - **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支；custom 磁贴通过 `getCustomTileIcon()` 获取其他应用图标
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
+- **加载状态**：涉及异步操作（如 Shizuku 服务绑定、权限检查）的 UI 需要添加加载状态，使用 `isLoading` 变量控制显示"加载中..."，避免状态闪烁
 
 ---
 
