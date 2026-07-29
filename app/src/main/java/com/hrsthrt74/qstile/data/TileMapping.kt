@@ -2,6 +2,7 @@ package com.hrsthrt74.qstile.data
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import com.hrsthrt74.qstile.R
 
@@ -215,20 +216,19 @@ object TileMapping {
      */
     fun getCustomTileIcon(context: Context, value: String): Drawable? {
         val component = parseCustomComponent(value) ?: return null
-        return try {
-            val pm = context.packageManager
-            // 先尝试获取 Service 的图标
-            val serviceInfo = pm.getServiceInfo(component, 0)
-            serviceInfo.loadIcon(pm)
-        } catch (e: Exception) {
-            // 如果获取 Service 图标失败，尝试获取应用图标
-            try {
-                val pm = context.packageManager
-                val appInfo = pm.getApplicationInfo(component.packageName, 0)
-                appInfo.loadIcon(pm)
-            } catch (e: Exception) {
-                null
-            }
-        }
+        val pm = context.packageManager
+        // 尝试获取 Service 的图标
+        try {
+            val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
+            val icon = serviceInfo.loadIcon(pm)
+            if (icon != null) return icon
+        } catch (_: Exception) {}
+        // 尝试获取应用图标
+        try {
+            val appInfo = pm.getApplicationInfo(component.packageName, 0)
+            val icon = appInfo.loadIcon(pm)
+            if (icon != null) return icon
+        } catch (_: Exception) {}
+        return null
     }
 }
