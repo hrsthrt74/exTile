@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -138,8 +139,9 @@ fun TileConfigScreen() {
     var selectedTileForMenu by remember { mutableStateOf<String?>(null) }
 
     // 小米设备特化：固定卡片
+    val configuration = LocalConfiguration.current
     val isTablet = remember {
-        val screenSize = context.resources.configuration.screenLayout
+        val screenSize = configuration.screenLayout
         val sizeMask = screenSize and Configuration.SCREENLAYOUT_SIZE_MASK
         sizeMask >= Configuration.SCREENLAYOUT_SIZE_LARGE
     }
@@ -660,6 +662,11 @@ fun TileConfigScreen() {
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
+                    }
+
+                    // 分类结束分割线
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     }
                 }
             }
