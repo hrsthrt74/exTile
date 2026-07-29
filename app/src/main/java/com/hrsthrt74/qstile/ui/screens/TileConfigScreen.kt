@@ -349,6 +349,10 @@ fun TileConfigScreen() {
                                     Box(
                                         modifier = Modifier
                                             .size(68.dp)
+                                            .pressable(
+                                                interactionSource = null,
+                                                indication = SinkFeedback()
+                                            )
                                             .shadow(elevation, CircleShape)
                                             .clip(CircleShape)
                                             .background(MiuixTheme.colorScheme.surfaceVariant)
