@@ -20,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
@@ -170,6 +172,7 @@ fun MainApp(
     CompositionLocalProvider(
         LocalNavigationEventDispatcherOwner provides navigationEventDispatcherOwner
     ) {
+        val haptic = LocalHapticFeedback.current
         MiuixScaffold(
             bottomBar = {
                 NavigationBar(
@@ -186,6 +189,7 @@ fun MainApp(
                         NavigationBarItem(
                             selected = mainPagerState.selectedPage == index,
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 mainPagerState.animateToPage(index)
                             },
                             icon = screen.icon(),

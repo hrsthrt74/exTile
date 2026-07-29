@@ -125,6 +125,8 @@ fun TileConfigScreen() {
         .collectAsState(initial = ThemeSettings())
     val isDynamicColor = themeSettings.isDynamicColorMode
 
+    val haptic = LocalHapticFeedback.current
+
     val tabs = listOf("展开时", "收起时")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var config by remember { mutableStateOf(TileConfig()) }
@@ -223,7 +225,10 @@ fun TileConfigScreen() {
                 TabRow(
                     tabs = tabs,
                     selectedTabIndex = selectedTabIndex,
-                    onTabSelected = { selectedTabIndex = it },
+                    onTabSelected = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        selectedTabIndex = it
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -231,7 +236,6 @@ fun TileConfigScreen() {
 
                 // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局
                 key(selectedTabIndex, isXiaomi, fixedTileValues) {
-                    val haptic = LocalHapticFeedback.current
                     val currentTiles = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
                     val gridTiles = currentTiles.filter { it !in fixedTileValues && it != "edit" }
                     val lazyGridState = rememberLazyGridState()
@@ -528,7 +532,10 @@ fun TileConfigScreen() {
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Button(
-                                        onClick = { showAddSheet = true },
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showAddSheet = true
+                                        },
                                         colors = ButtonDefaults.buttonColorsPrimary(),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -544,7 +551,10 @@ fun TileConfigScreen() {
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Button(
-                                        onClick = { showCustomSheet = true },
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showCustomSheet = true
+                                        },
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
@@ -612,6 +622,7 @@ fun TileConfigScreen() {
                                     .clip(CircleShape)
                                     .background(MiuixTheme.colorScheme.secondaryVariant)
                                     .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         // 添加到列表末尾，但如果存在 edit 则插入到 edit 前面
                                         val hasEdit = currentTiles.contains("edit")
                                         val newTiles = if (hasEdit) {
@@ -794,6 +805,7 @@ fun TileConfigScreen() {
                             modifier = Modifier
                                 .padding(horizontal = 4.dp, vertical = 12.dp)
                                 .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val newTiles = currentTiles + tileValue
                                     val newConfig = if (selectedTabIndex == 0) {
                                         config.copy(expandedTiles = newTiles)
