@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 data class LicenseItem(
     val name: String,
@@ -120,7 +122,8 @@ fun LicensesScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
             contentPadding = PaddingValues(
                 top = paddingValues.calculateTopPadding() + 12.dp,
                 start = 16.dp,

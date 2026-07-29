@@ -417,7 +417,9 @@ fun TileConfigScreen() {
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
             ) {
                 tilesByCategory.forEach { (category, tiles) ->
