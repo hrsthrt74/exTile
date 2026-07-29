@@ -1,5 +1,8 @@
 package com.hrsthrt74.qstile.data
 
+import android.content.ComponentName
+import android.content.Context
+import android.graphics.drawable.Drawable
 import com.hrsthrt74.qstile.R
 
 object TileMapping {
@@ -191,5 +194,41 @@ object TileMapping {
         "settings" -> R.drawable.tile_settings
         EXTILE_CUSTOM -> R.drawable.ic_tile
         else -> null
+    }
+
+    /**
+     * 解析 custom 磁贴的 ComponentName
+     * @param value 磁贴值，格式为 "custom(包名/类名)"
+     * @return ComponentName 或 null（如果不是 custom 格式）
+     */
+    fun parseCustomComponent(value: String): ComponentName? {
+        if (!value.startsWith("custom(")) return null
+        val componentStr = value.removePrefix("custom(").removeSuffix(")")
+        return ComponentName.unflattenFromString(componentStr)
+    }
+
+    /**
+     * 获取 custom 磁贴的图标 Drawable
+     * @param context Context
+     * @param value 磁贴值，格式为 "custom(包名/类名)"
+     * @return 图标 Drawable 或 null（如果无法获取）
+     */
+    fun getCustomTileIcon(context: Context, value: String): Drawable? {
+        val component = parseCustomComponent(value) ?: return null
+        return try {
+            val pm = context.packageManager
+            // 先尝试获取 Service 的图标
+            val serviceInfo = pm.getServiceInfo(component, 0)
+            serviceInfo.loadIcon(pm)
+        } catch (e: Exception) {
+            // 如果获取 Service 图标失败，尝试获取应用图标
+            try {
+                val pm = context.packageManager
+                val appInfo = pm.getApplicationInfo(component.packageName, 0)
+                appInfo.loadIcon(pm)
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 }

@@ -48,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -55,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
@@ -133,6 +137,24 @@ fun TileConfigScreen() {
             ConfigRepository.saveExpandedTiles(context, newConfig.expandedTiles)
             ConfigRepository.saveCollapsedTiles(context, newConfig.collapsedTiles)
         }
+    }
+
+    // 获取磁贴图标的辅助函数
+    @Composable
+    fun rememberTileIcon(tile: String): Painter? {
+        val iconRes = TileMapping.iconRes(tile)
+        if (iconRes != null) {
+            return painterResource(iconRes)
+        }
+        // 尝试获取 custom 磁贴的图标
+        if (tile.startsWith("custom(")) {
+            val drawable = remember(tile) { TileMapping.getCustomTileIcon(context, tile) }
+            if (drawable != null) {
+                val bitmap = remember(drawable) { drawable.toBitmap() }
+                return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
+            }
+        }
+        return null
     }
 
     Scaffold(
@@ -250,10 +272,10 @@ fun TileConfigScreen() {
                                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                val iconRes = TileMapping.iconRes(tile)
-                                                if (iconRes != null) {
+                                                val icon = rememberTileIcon(tile)
+                                                if (icon != null) {
                                                     Icon(
-                                                        painter = painterResource(iconRes),
+                                                        painter = icon,
                                                         contentDescription = TileMapping.getDisplayName(tile),
                                                         tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                         modifier = Modifier.size(36.dp)
@@ -309,10 +331,10 @@ fun TileConfigScreen() {
                                             .background(MiuixTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val iconRes = TileMapping.iconRes(tile)
-                                        if (iconRes != null) {
+                                        val icon = rememberTileIcon(tile)
+                                        if (icon != null) {
                                             Icon(
-                                                painter = painterResource(iconRes),
+                                                painter = icon,
                                                 contentDescription = TileMapping.getDisplayName(tile),
                                                 tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                 modifier = Modifier.size(36.dp)
@@ -475,10 +497,10 @@ fun TileConfigScreen() {
                                     .background(MiuixTheme.colorScheme.secondaryVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val iconRes = TileMapping.iconRes(tile.value)
-                                if (iconRes != null) {
+                                val icon = rememberTileIcon(tile.value)
+                                if (icon != null) {
                                     Icon(
-                                        painter = painterResource(iconRes),
+                                        painter = icon,
                                         contentDescription = tile.displayName,
                                         tint = MiuixTheme.colorScheme.primary,
                                         modifier = Modifier.size(36.dp)
