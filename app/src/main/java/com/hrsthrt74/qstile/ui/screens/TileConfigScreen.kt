@@ -543,50 +543,6 @@ fun TileConfigScreen() {
                         }
                     }
 
-                        // 编辑磁贴（小米设备：不可拖动，badge 样式）
-                        if (isXiaomi) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                val editTooltipState = rememberTooltipState(isPersistent = true)
-                                val editScope = rememberCoroutineScope()
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    TooltipBox(
-                                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
-                                        tooltip = {
-                                            PlainTooltip {
-                                                Text(
-                                                    text = "系统限制此磁贴无法移动",
-                                                    style = MiuixTheme.textStyles.footnote1
-                                                )
-                                            }
-                                        },
-                                        state = editTooltipState
-                                    ) {
-                                        Card {
-                                            Row(
-                                                modifier = Modifier
-                                                    .clickable {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        editScope.launch { editTooltipState.show() }
-                                                    }
-                                                    .padding(horizontal = 24.dp, vertical = 8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = "编辑磁贴",
-                                                    style = MiuixTheme.textStyles.body2
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
                         // 添加按钮区域，占满整行
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             Card(
