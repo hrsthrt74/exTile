@@ -101,6 +101,12 @@ fun LicensesScreen() {
                 author = "wxxsfxyzm",
                 license = "GPL-3.0",
                 url = "https://github.com/wxxsfxyzm/InstallerX-Revived"
+            ),
+            LicenseItem(
+                name = "miuix-skill",
+                author = "limczhh",
+                license = "MIT",
+                url = "https://github.com/limczhh/miuix-skill"
             )
         )
     }

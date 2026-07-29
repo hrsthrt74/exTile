@@ -34,6 +34,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
@@ -144,6 +145,27 @@ fun SettingsScreen() {
                     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             )
         ) {
+            // ===== 调试工具板块 =====
+            item {
+                SmallTitle(text = "调试工具")
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) {
+                    ArrowPreference(
+                        title = "调试工具",
+                        summary = "查看详细调试信息和执行调试操作",
+                        onClick = {
+                            context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                        }
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
             // ===== 主题设置板块 =====
             item {
                 SmallTitle(text = "主题")
@@ -267,6 +289,24 @@ fun SettingsScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
+                    ArrowPreference(
+                        title = "版本",
+                        summary = try {
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "未知"
+                        } catch (e: Exception) {
+                            "未知"
+                        },
+                        onClick = {}
+                    )
+
+                    ArrowPreference(
+                        title = "GitHub",
+                        summary = "hrsthrt74/exTile",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/hrsthrt74/exTile")))
+                        }
+                    )
+
                     ArrowPreference(
                         title = "开源许可",
                         summary = "查看本应用使用的开源库及许可证",
@@ -423,5 +463,30 @@ fun SettingsScreen() {
                 modifier = Modifier.weight(1f)
             )
         }
+    }
+}
+
+/**
+ * 调试信息行组件。
+ * 左对齐显示标签文字，右对齐显示对应的数值。
+ */
+@Composable
+private fun DebugInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+        )
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurface
+        )
     }
 }

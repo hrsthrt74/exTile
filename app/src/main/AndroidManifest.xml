@@ -48,6 +48,12 @@
             android:label="开源许可"
             android:theme="@style/Theme.ExTile" />
 
+        <activity
+            android:name=".DebugToolsActivity"
+            android:exported="false"
+            android:label="调试工具"
+            android:theme="@style/Theme.ExTile" />
+
         <service
             android:name=".tile.ExTileService"
             android:label="@string/tile_label"
