@@ -1,5 +1,11 @@
 package com.hrsthrt74.qstile.ui.screens
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
@@ -58,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -545,62 +552,163 @@ fun TileConfigScreen() {
                 customTileValue = ""
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                Text(
-                    text = "请输入磁贴标识值，如 custom(包名/类名)",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            // 检查是否有 QUERY_ALL_PACKAGES 权限
+            val hasQueryPermission = remember {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.QUERY_ALL_PACKAGES
+                ) == PackageManager.PERMISSION_GRANTED
+            }
 
-                TextField(
-                    value = customTileValue,
-                    onValueChange = { customTileValue = it },
-                    label = "磁贴值",
-                    maxLines = 1
-                )
+            // 获取所有 QS Tile 服务
+            val allTileServices = remember(hasQueryPermission) {
+                if (hasQueryPermission) {
+                    TileMapping.getAllQSTileServices(context)
+                } else {
+                    emptyList()
+                }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            // 获取当前已添加的磁贴
+            val currentTiles = if (selectedTabIndex == 0) {
+                config.expandedTiles
+            } else {
+                config.collapsedTiles
+            }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+            // 获取系统预定义的磁贴 ComponentName 集合（用于过滤）
+            val systemTileComponents = remember {
+                TileMapping.getAllValues()
+                    .filter { it.startsWith("custom(") }
+                    .mapNotNull { TileMapping.parseCustomComponent(it) }
+                    .toSet()
+            }
+
+            // 获取已添加的磁贴 ComponentName 集合（用于过滤）
+            val currentTileComponents = remember(currentTiles) {
+                currentTiles
+                    .filter { it.startsWith("custom(") }
+                    .mapNotNull { TileMapping.parseCustomComponent(it) }
+                    .toSet()
+            }
+
+            // 过滤掉已添加的磁贴和系统预定义的磁贴
+            val availableTileServices = remember(allTileServices, currentTileComponents, systemTileComponents) {
+                allTileServices.filter { (pkg, cls, _) ->
+                    val component = ComponentName(pkg, cls)
+                    // 过滤掉已添加的磁贴
+                    if (component in currentTileComponents) return@filter false
+                    // 过滤掉系统预定义的磁贴
+                    component !in systemTileComponents
+                }
+            }
+
+            if (!hasQueryPermission) {
+                // 无权限时显示引导页面
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        text = "需要读取应用列表权限才能获取其他应用的磁贴",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
-                            showCustomSheet = false
-                            customTileValue = ""
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("取消")
-                    }
-                    Button(
-                        onClick = {
-                            if (customTileValue.isNotBlank()) {
-                                val currentTiles = if (selectedTabIndex == 0) {
-                                    config.expandedTiles
-                                } else {
-                                    config.collapsedTiles
-                                }
-                                val newConfig = if (selectedTabIndex == 0) {
-                                    config.copy(expandedTiles = currentTiles + customTileValue.trim())
-                                } else {
-                                    config.copy(collapsedTiles = currentTiles + customTileValue.trim())
-                                }
-                                updateConfig(newConfig)
-                                showCustomSheet = false
-                                customTileValue = ""
+                            // 跳转到应用详情设置页面
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
                             }
+                            context.startActivity(intent)
                         },
-                        modifier = Modifier.weight(1f),
-                        enabled = customTileValue.isNotBlank()
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("添加")
+                        Text("前往授权")
+                    }
+                }
+            } else if (availableTileServices.isEmpty()) {
+                // 有权限但没有可用的磁贴
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "没有可用的自定义磁贴",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                // 显示磁贴网格
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
+                ) {
+                    gridItems(availableTileServices) { (pkg, cls, label) ->
+                        val tileValue = "custom($pkg/$cls)"
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 12.dp)
+                                .clickable {
+                                    val newTiles = currentTiles + tileValue
+                                    val newConfig = if (selectedTabIndex == 0) {
+                                        config.copy(expandedTiles = newTiles)
+                                    } else {
+                                        config.copy(collapsedTiles = newTiles)
+                                    }
+                                    updateConfig(newConfig)
+                                    showCustomSheet = false
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(MiuixTheme.colorScheme.secondaryVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val icon = rememberTileIcon(tileValue)
+                                if (icon != null) {
+                                    Icon(
+                                        painter = icon,
+                                        contentDescription = label,
+                                        tint = MiuixTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = label,
+                                style = MiuixTheme.textStyles.body2,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Text(
+                                text = cls.substringAfterLast('.').substringBefore('$'),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }

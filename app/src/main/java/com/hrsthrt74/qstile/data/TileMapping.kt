@@ -211,6 +211,28 @@ object TileMapping {
     }
 
     /**
+     * 获取所有可用的 Quick Settings Tile 服务
+     * @param context Context
+     * @return List<Triple<包名, 类名, 显示名称>>
+     */
+    fun getAllQSTileServices(context: Context): List<Triple<String, String, String>> {
+        val pm = context.packageManager
+        val result = mutableListOf<Triple<String, String, String>>()
+        // 通过 queryIntentServices 查询已启用的 QS_TILE 服务
+        try {
+            val intent = Intent(TileService.ACTION_QS_TILE)
+            val resolveInfos = pm.queryIntentServices(intent, PackageManager.GET_META_DATA)
+            for (info in resolveInfos) {
+                val serviceInfo = info.serviceInfo ?: continue
+                val componentName = "${serviceInfo.packageName}/${serviceInfo.name}"
+                val label = serviceInfo.loadLabel(pm).toString()
+                result.add(Triple(serviceInfo.packageName, serviceInfo.name, label))
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    /**
      * 获取 custom 磁贴的图标 Drawable
      * @param context Context
      * @param value 磁贴值，格式为 "custom(包名/类名)"
