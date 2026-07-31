@@ -174,6 +174,7 @@ exTile/
 - **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支；custom 磁贴通过 `getCustomTileIcon()` 获取其他应用图标
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
+- **添加第三方磁贴**：使用 `getAllQSTileServicesWithIcon()` 一次 `queryIntentServices` 批量取回全部 QS Tile 服务的 label/应用名/图标（避免渲染时逐个 `getCustomTileIcon` 反复全量扫描导致卡顿）；在 `Dispatchers.IO` 后台加载并缓存，加载态显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」并用 `fillMaxHeight` 撑满防高度突变；网格 item 用 `key = 包名/类名` 复用；图标统一 `tint = primary`（第三方图标多为白色单色，浅色模式下不可用 `Color.Unspecified` 保留原色）
 - **加载状态**：涉及异步操作（如 Shizuku 服务绑定、权限检查）的 UI 需要添加加载状态，使用 `isLoading` 变量控制显示"加载中..."，避免状态闪烁
 - **长按行为**：设置页「磁贴行为」板块使用 `WindowSpinnerPreference` 选择长按行为；选择「跳转自定义应用」时显示 `ArrowPreference` 进入应用选择器；应用选择器 Sheet 的应用列表在 `Dispatchers.IO` 后台加载（缓存，避免重复查询），加载中显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」文本并用 `fillMaxHeight` 撑满避免 sheet 高度突变；应用列表行不加左右边距（Sheet 自带边距）
 - **主页权限卡片**：按 `PermissionStatus` 状态机渲染引导文案和按钮（安装 Shizuku / 启动 Shizuku / 授予权限 / 自动授权 / 重试）；未授权标题显示「未获得必须权限」；始终提供「使用 adb 手动授权」入口，弹窗含「复制命令」按钮；通过 `DisposableEffect` + `LifecycleEventObserver` 监听 `ON_RESUME` 自动刷新权限状态，从「启动 Shizuku」跳转返回时自动衔接请求授权（`autoRequestAfterResume` 标记，避免反复弹窗）
