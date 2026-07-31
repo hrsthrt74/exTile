@@ -54,6 +54,21 @@
             android:label="调试工具"
             android:theme="@style/Theme.ExTile" />
 
+        <!-- 幽灵桥接 Activity：长按 exTile 磁贴时由系统通过 ACTION_QS_TILE_PREFERENCES 启动，
+             读取配置分发到目标后立即关闭，实现长按行为自定义 -->
+        <activity
+            android:name=".TileLongClickActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ExTile.Transparent"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".tile.ExTileService"
             android:label="@string/tile_label"

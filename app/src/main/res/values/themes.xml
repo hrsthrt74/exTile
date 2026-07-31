@@ -2,4 +2,12 @@
 <resources>
 
     <style name="Theme.ExTile" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- 幽灵桥接 Activity 使用的透明主题：不显示任何界面，避免闪烁 -->
+    <style name="Theme.ExTile.Transparent" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

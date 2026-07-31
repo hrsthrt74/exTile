@@ -4,8 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,35 +18,50 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -65,6 +82,39 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
 private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 private val colorSpecLabels = listOf("Spec2021", "Spec2025")
+private val longPressBehaviorLabels = listOf("跳转到 exTile", "跳转到系统设置", "跳转到自定义应用")
+
+/** 应用选择器数据模型：包名 + 显示名 + 图标 */
+private data class LaunchableApp(
+    val packageName: String,
+    val label: String,
+    val icon: Drawable
+)
+
+/**
+ * 获取所有可启动的应用（有 LAUNCHER intent 的应用）
+ * @param context Context
+ * @return 可启动应用列表
+ */
+private fun getLaunchableApps(context: Context): List<LaunchableApp> {
+    val pm = context.packageManager
+    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+    return pm.queryIntentActivities(intent, 0).mapNotNull { resolveInfo ->
+        val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+        val packageName = activityInfo.packageName
+        val label = try {
+            activityInfo.loadLabel(pm).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+        val icon = try {
+            activityInfo.loadIcon(pm)
+        } catch (e: Exception) {
+            null
+        }
+        if (icon != null) LaunchableApp(packageName, label, icon) else null
+    }.distinctBy { it.packageName }.sortedBy { it.label }
+}
 
 @Composable
 fun SettingsScreen() {
@@ -80,6 +130,13 @@ fun SettingsScreen() {
     var currentSysuiTiles by remember { mutableStateOf("") }
     var backupText by remember { mutableStateOf("") }
 
+    // 长按 exTile 磁贴行为设置
+    var longPressBehavior by remember { mutableIntStateOf(ConfigRepository.LongPressBehavior.OPEN_EXTILE) }
+    var customAppPackage by remember { mutableStateOf("") }
+    var showAppPickerSheet by remember { mutableStateOf(false) }
+    // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
+    var launchableApps by remember { mutableStateOf<List<LaunchableApp>?>(null) }
+
     var showSystemTilesSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
     var showImportBackupSheet by remember { mutableStateOf(false) }
@@ -91,6 +148,17 @@ fun SettingsScreen() {
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
         currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
+        longPressBehavior = ConfigRepository.getLongPressBehavior(context)
+        customAppPackage = ConfigRepository.getLongPressCustomApp(context)
+    }
+
+    // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
+    LaunchedEffect(showAppPickerSheet) {
+        if (showAppPickerSheet && launchableApps == null) {
+            launchableApps = withContext(Dispatchers.IO) {
+                getLaunchableApps(context)
+            }
+        }
     }
 
     fun generateBackupJson(): String {
@@ -122,6 +190,21 @@ fun SettingsScreen() {
     val dayNightModeOptions = remember { dayNightModeLabels.map { DropdownItem(text = it) } }
     val paletteStyleOptions = remember { paletteStyleLabels.map { DropdownItem(text = it) } }
     val colorSpecOptions = remember { colorSpecLabels.map { DropdownItem(text = it) } }
+    val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
+
+    // 已选自定义应用的显示名（包名 → 应用名）
+    val customAppLabel = remember(customAppPackage) {
+        if (customAppPackage.isBlank()) {
+            "未选择"
+        } else {
+            try {
+                context.packageManager.getApplicationInfo(customAppPackage, 0)
+                    .loadLabel(context.packageManager).toString()
+            } catch (e: Exception) {
+                customAppPackage
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -161,6 +244,41 @@ fun SettingsScreen() {
                             context.startActivity(Intent(context, DebugToolsActivity::class.java))
                         }
                     )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            // ===== 磁贴行为板块 =====
+            item {
+                SmallTitle(text = "磁贴行为")
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ) {
+                    WindowSpinnerPreference(
+                        title = "长按 exTile 磁贴行为",
+                        summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
+                        items = longPressBehaviorOptions,
+                        selectedIndex = longPressBehavior,
+                        onSelectedIndexChange = { index ->
+                            longPressBehavior = index
+                            scope.launch {
+                                ConfigRepository.saveLongPressBehavior(context, index)
+                            }
+                        }
+                    )
+
+                    // 仅当选择了「跳转到自定义应用」时显示应用选择入口
+                    if (longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP) {
+                        ArrowPreference(
+                            title = "自定义应用",
+                            summary = customAppLabel,
+                            onClick = { showAppPickerSheet = true }
+                        )
+                    }
                 }
             }
 
@@ -462,6 +580,103 @@ fun SettingsScreen() {
                 },
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+
+    // ---- 自定义应用选择器 Sheet ----
+    WindowBottomSheet(
+        show = showAppPickerSheet,
+        title = "选择应用",
+        onDismissRequest = { showAppPickerSheet = false }
+    ) {
+        BackHandler { showAppPickerSheet = false }
+
+        val haptic = LocalHapticFeedback.current
+        // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
+        val apps = launchableApps
+        val isLoading = apps == null
+
+        when {
+            isLoading -> {
+                // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
+                // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    InfiniteProgressIndicator()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "加载中...",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+            }
+            apps.isEmpty() -> {
+                Text(
+                    text = "没有可用的应用",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp)
+                )
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                    contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                ) {
+                    items(apps, key = { it.packageName }) { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    customAppPackage = app.packageName
+                                    scope.launch {
+                                        ConfigRepository.saveLongPressCustomApp(context, app.packageName)
+                                    }
+                                    showAppPickerSheet = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 应用图标
+                            val icon = app.icon
+                            if (icon != null) {
+                                val bitmap = remember(icon) { icon.toBitmap() }
+                                Icon(
+                                    painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                    contentDescription = app.label,
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = app.label,
+                                    style = MiuixTheme.textStyles.body1
+                                )
+                                Text(
+                                    text = app.packageName,
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

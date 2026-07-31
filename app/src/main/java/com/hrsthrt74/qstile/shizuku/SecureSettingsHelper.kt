@@ -69,6 +69,26 @@ object SecureSettingsHelper {
     }
 
     /**
+     * 确保 Shizuku UserService 已绑定。
+     * 若未绑定则尝试绑定并等待连接成功。
+     * @return 是否绑定成功
+     */
+    suspend fun ensureBound(): Boolean = withContext(Dispatchers.IO) {
+        // 已绑定则直接返回成功
+        if (isBound && commandService != null) {
+            return@withContext true
+        }
+        // 尝试绑定并等待连接
+        bindService()
+        var waitCount = 0
+        while (!isBound && waitCount < 10) {
+            delay(100)
+            waitCount++
+        }
+        isBound && commandService != null
+    }
+
+    /**
      * 获取 sysui_qs_tiles 的值
      * @return 磁贴字符串，如果 shizuku 未运行则返回 null
      */
@@ -120,6 +140,9 @@ object SecureSettingsHelper {
 
     suspend fun setSysuiQsTiles(context: Context, value: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            // 确保服务已绑定（优先走 Shizuku UserService 路径）
+            ensureBound()
+
             // 优先使用 Shizuku UserService
             if (isBound && commandService != null) {
                 val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")

@@ -1,10 +1,8 @@
 package com.hrsthrt74.qstile.tile
 
-import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
-import com.hrsthrt74.qstile.MainActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.CoroutineScope
