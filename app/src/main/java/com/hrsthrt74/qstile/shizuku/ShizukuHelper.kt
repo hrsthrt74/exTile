@@ -3,11 +3,33 @@ package com.hrsthrt74.qstile.shizuku
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
 object ShizukuHelper {
     private const val TAG = "ShizukuHelper"
     private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+
+    /**
+     * WRITE_SECURE_SETTINGS 权限状态机。
+     * 设计原则：Shizuku 是可选权限，仅用于首次/失效时自动授权；
+     * 一旦应用持有 WRITE_SECURE_SETTINGS（pm grant 或 adb 授权），Shizuku 即不再必需。
+     */
+    enum class PermissionStatus {
+        /** 已持有 WRITE_SECURE_SETTINGS，可直接使用，Shizuku 完全可选 */
+        GRANTED,
+        /** Shizuku 未安装 */
+        SHIZUKU_NOT_INSTALLED,
+        /** Shizuku 已安装但未运行 */
+        SHIZUKU_NOT_RUNNING,
+        /** Shizuku 已运行但未授予本应用权限 */
+        SHIZUKU_NOT_GRANTED,
+        /** Shizuku 权限已授予，可自动执行 pm grant */
+        NEEDS_PM_GRANT,
+        /** pm grant 执行失败 */
+        GRANT_FAILED
+    }
 
     fun isShizukuInstalled(context: Context): Boolean {
         return try {
@@ -52,18 +74,43 @@ object ShizukuHelper {
         }
     }
 
-    suspend fun grantWriteSecureSettings(context: Context): Boolean {
-        return try {
-            if (!SecureSettingsHelper.isBound) {
-                SecureSettingsHelper.bindService()
-                Thread.sleep(500)
+    /**
+     * 检查 WRITE_SECURE_SETTINGS 权限状态。
+     * 应用已持有权限时直接返回 [PermissionStatus.GRANTED]（Shizuku 完全可选）；
+     * 否则根据 Shizuku 的安装/运行/授权情况返回对应的引导状态。
+     * @param context Context
+     * @return 当前权限状态
+     */
+    fun checkPermissionStatus(context: Context): PermissionStatus {
+        // 已持有 WRITE_SECURE_SETTINGS：核心功能可用，Shizuku 无关紧要
+        if (hasWriteSecureSettingsPermission(context)) return PermissionStatus.GRANTED
+        // 未持有：需要引导用户通过 Shizuku 或 adb 授权
+        if (!isShizukuInstalled(context)) return PermissionStatus.SHIZUKU_NOT_INSTALLED
+        if (!isShizukuRunning()) return PermissionStatus.SHIZUKU_NOT_RUNNING
+        if (!checkPermission()) return PermissionStatus.SHIZUKU_NOT_GRANTED
+        return PermissionStatus.NEEDS_PM_GRANT
+    }
+
+    /**
+     * 利用已授权的 Shizuku 执行 pm grant，为应用授予 WRITE_SECURE_SETTINGS。
+     * 需在 Shizuku 已运行且已授予本应用权限的前提下调用。
+     * @param context Context
+     * @return true 表示授权成功
+     */
+    suspend fun grantWriteSecureSettings(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // 确保 UserService 已绑定（协程友好，不再阻塞主线程）
+            if (!SecureSettingsHelper.ensureBound()) {
+                Log.e(TAG, "grantWriteSecureSettings failed: cannot bind UserService")
+                return@withContext false
             }
 
             val command = "pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
             val result = SecureSettingsHelper.executeCommand(command)
             Log.d(TAG, "grantWriteSecureSettings result: $result")
 
-            !result.isNullOrEmpty() && !result.startsWith("ERROR")
+            // pm grant 成功时 shell 无输出（空串也算成功），失败时以 "ERROR" 开头
+            result != null && !result.startsWith("ERROR")
         } catch (e: Exception) {
             Log.e(TAG, "grantWriteSecureSettings failed", e)
             false

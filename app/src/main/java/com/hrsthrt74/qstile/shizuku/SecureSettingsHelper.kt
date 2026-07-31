@@ -89,38 +89,14 @@ object SecureSettingsHelper {
     }
 
     /**
-     * 获取 sysui_qs_tiles 的值
-     * @return 磁贴字符串，如果 shizuku 未运行则返回 null
+     * 获取 sysui_qs_tiles 的值。
+     * 优先使用直接 API 读取（应用持有 WRITE_SECURE_SETTINGS 时可用，Shizuku 完全可选），
+     * 失败或无值时兜底到 Shizuku UserService。
+     * @return 磁贴字符串，读取失败则返回 null
      */
     suspend fun getSysuiQsTiles(context: Context): String? = withContext(Dispatchers.IO) {
         try {
-            // 检查 Shizuku 是否可用
-            if (!ShizukuHelper.isShizukuRunning()) {
-                Log.w(TAG, "Shizuku is not running")
-                return@withContext null
-            }
-
-            // 确保服务已绑定
-            if (!isBound || commandService == null) {
-                bindService()
-                // 等待服务连接
-                var waitCount = 0
-                while (!isBound && waitCount < 10) {
-                    delay(100)
-                    waitCount++
-                }
-            }
-
-            // 优先使用 Shizuku UserService
-            if (isBound && commandService != null) {
-                val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")
-                Log.d(TAG, "getSysuiQsTiles via UserService: $result")
-                if (result != null && !result.startsWith("ERROR") && result != "null") {
-                    return@withContext result
-                }
-            }
-
-            // 尝试直接读取（可能因 targetSdkVersion 限制失败）
+            // 1. 优先直接读取（不需要 Shizuku）
             try {
                 val directResult = Settings.Secure.getString(context.contentResolver, SYSUI_QS_TILES)
                 if (directResult != null) {
@@ -128,7 +104,25 @@ object SecureSettingsHelper {
                     return@withContext directResult
                 }
             } catch (e: SecurityException) {
-                Log.w(TAG, "Direct read failed (targetSdkVersion restriction)")
+                Log.w(TAG, "Direct read failed, fallback to Shizuku")
+            }
+
+            // 2. 兜底：Shizuku 不可用时放弃
+            if (!ShizukuHelper.isShizukuRunning()) {
+                Log.w(TAG, "Shizuku is not running")
+                return@withContext null
+            }
+            // 确保服务已绑定
+            if (!ensureBound()) {
+                Log.w(TAG, "Shizuku service not bound")
+                return@withContext null
+            }
+
+            // 使用 Shizuku UserService 读取
+            val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")
+            Log.d(TAG, "getSysuiQsTiles via UserService: $result")
+            if (result != null && !result.startsWith("ERROR") && result != "null") {
+                return@withContext result
             }
 
             null
@@ -138,30 +132,40 @@ object SecureSettingsHelper {
         }
     }
 
+    /**
+     * 写入 sysui_qs_tiles。
+     * 优先使用直接 API（应用持有 WRITE_SECURE_SETTINGS 时可用，Shizuku 完全可选），
+     * 权限不足抛 SecurityException 时兜底到 Shizuku UserService。
+     * @return 是否写入成功
+     */
     suspend fun setSysuiQsTiles(context: Context, value: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            // 确保服务已绑定（优先走 Shizuku UserService 路径）
-            ensureBound()
-
-            // 优先使用 Shizuku UserService
-            if (isBound && commandService != null) {
-                val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")
-                Log.d(TAG, "setSysuiQsTiles via UserService: $result")
-                if (result == null || !result.startsWith("ERROR")) {
-                    return@withContext true
-                }
-            }
-
-            // 尝试直接写入
+            // 1. 优先直接写入（需要 WRITE_SECURE_SETTINGS；已授权则直接成功，无需 Shizuku）
             try {
                 val success = Settings.Secure.putString(context.contentResolver, SYSUI_QS_TILES, value)
                 Log.d(TAG, "setSysuiQsTiles via API: $success")
-                return@withContext success
+                if (success) {
+                    return@withContext true
+                }
             } catch (e: SecurityException) {
-                Log.e(TAG, "Direct write failed", e)
+                Log.w(TAG, "Direct write failed, fallback to Shizuku")
             }
 
-            false
+            // 2. 兜底：Shizuku 不可用时放弃
+            if (!ShizukuHelper.isShizukuRunning()) {
+                Log.w(TAG, "Shizuku is not running")
+                return@withContext false
+            }
+            // 确保服务已绑定
+            if (!ensureBound()) {
+                Log.w(TAG, "Shizuku service not bound")
+                return@withContext false
+            }
+
+            // 使用 Shizuku UserService 写入
+            val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")
+            Log.d(TAG, "setSysuiQsTiles via UserService: $result")
+            result == null || !result.startsWith("ERROR")
         } catch (e: Exception) {
             Log.e(TAG, "setSysuiQsTiles failed", e)
             false
@@ -170,9 +174,10 @@ object SecureSettingsHelper {
 
     suspend fun executeCommand(command: String): String? = withContext(Dispatchers.IO) {
         try {
-            if (!isBound || commandService == null) {
-                bindService()
-                Thread.sleep(500)
+            // 统一使用协程友好的绑定逻辑
+            if (!ensureBound()) {
+                Log.w(TAG, "Shizuku service not bound")
+                return@withContext null
             }
 
             commandService?.executeCommand(command)
