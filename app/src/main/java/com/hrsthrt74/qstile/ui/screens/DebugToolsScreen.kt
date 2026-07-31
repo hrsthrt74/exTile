@@ -383,22 +383,7 @@ fun DebugToolsScreen() {
                                     .clickable {
                                         scope.launch {
                                             try {
-                                                // 确保 Shizuku 服务已绑定
-                                                if (!SecureSettingsHelper.isBound) {
-                                                    SecureSettingsHelper.bindService()
-                                                    // 等待服务绑定
-                                                    var waitCount = 0
-                                                    while (!SecureSettingsHelper.isBound && waitCount < 20) {
-                                                        kotlinx.coroutines.delay(100)
-                                                        waitCount++
-                                                    }
-                                                }
-                                                // 检查 Shizuku 是否可用
-                                                if (!ShizukuHelper.isShizukuRunning()) {
-                                                    Toast.makeText(context, "Shizuku 未运行，请先启动 Shizuku", Toast.LENGTH_SHORT).show()
-                                                    return@launch
-                                                }
-                                                // 获取当前磁贴列表
+                                                // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
                                                 val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
                                                 if (currentTileList.isEmpty()) {
                                                     Toast.makeText(context, "无法获取当前磁贴列表", Toast.LENGTH_SHORT).show()
