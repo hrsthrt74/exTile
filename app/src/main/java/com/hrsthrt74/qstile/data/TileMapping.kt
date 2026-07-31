@@ -247,6 +247,70 @@ object TileMapping {
     }
 
     /**
+     * 第三方磁贴服务信息（含图标）。
+     * 用于「添加第三方磁贴」列表：一次批量查询，避免渲染时逐个 IPC。
+     */
+    data class QSTileServiceInfo(
+        val packageName: String,
+        val className: String,
+        val label: String,
+        val appName: String,
+        val icon: Drawable?
+    )
+
+    /**
+     * 获取所有可用的 Quick Settings Tile 服务及其图标。
+     * 一次 [queryIntentServices] 批量取回全部信息，避免每个磁贴单独 IPC 查询；
+     * 应放到后台线程执行。
+     * @param context Context
+     * @return 磁贴服务信息列表（含图标 Drawable）
+     */
+    fun getAllQSTileServicesWithIcon(context: Context): List<QSTileServiceInfo> {
+        val pm = context.packageManager
+        val result = mutableListOf<QSTileServiceInfo>()
+        try {
+            val intent = Intent(TileService.ACTION_QS_TILE)
+            val resolveInfos = pm.queryIntentServices(intent, PackageManager.GET_META_DATA)
+            for (info in resolveInfos) {
+                val serviceInfo = info.serviceInfo ?: continue
+                val label = try {
+                    serviceInfo.loadLabel(pm).toString()
+                } catch (e: Exception) {
+                    serviceInfo.name.substringAfterLast('.')
+                }
+                val appName = try {
+                    pm.getApplicationLabel(serviceInfo.applicationInfo).toString()
+                } catch (e: Exception) {
+                    serviceInfo.packageName.substringAfterLast('.')
+                }
+                // 优先 Service 图标，回退到应用图标
+                var icon: Drawable? = null
+                if (serviceInfo.icon != 0) {
+                    try {
+                        val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
+                        icon = resources.getDrawable(serviceInfo.icon, null)
+                    } catch (_: Exception) {}
+                }
+                if (icon == null) {
+                    try {
+                        icon = serviceInfo.applicationInfo.loadIcon(pm)
+                    } catch (_: Exception) {}
+                }
+                result.add(
+                    QSTileServiceInfo(
+                        packageName = serviceInfo.packageName,
+                        className = serviceInfo.name,
+                        label = label,
+                        appName = appName,
+                        icon = icon
+                    )
+                )
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    /**
      * 获取 custom 磁贴的图标 Drawable
      * @param context Context
      * @param value 磁贴值，格式为 "custom(包名/类名)"

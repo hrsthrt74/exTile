@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -74,7 +75,9 @@ import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Button
@@ -87,6 +90,7 @@ import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
@@ -142,6 +146,9 @@ fun TileConfigScreen() {
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
 
+    // 第三方磁贴服务列表（含图标）：null 表示尚未加载，在后台线程批量查询避免阻塞主线程
+    var allTileServices by remember { mutableStateOf<List<TileMapping.QSTileServiceInfo>?>(null) }
+
     // 磁贴菜单状态
     var showTileMenu by remember { mutableStateOf(false) }
     var selectedTileForMenu by remember { mutableStateOf<String?>(null) }
@@ -168,6 +175,15 @@ fun TileConfigScreen() {
         if (!isConfigLoaded) {
             config = ConfigRepository.getConfig(context)
             isConfigLoaded = true
+        }
+    }
+
+    // 打开「添加第三方磁贴」sheet 时，在后台线程批量查询所有 QS Tile 服务及其图标（扫描应用较耗时）
+    LaunchedEffect(showCustomSheet) {
+        if (showCustomSheet && allTileServices == null) {
+            allTileServices = withContext(Dispatchers.IO) {
+                TileMapping.getAllQSTileServicesWithIcon(context)
+            }
         }
     }
 
@@ -724,14 +740,8 @@ fun TileConfigScreen() {
                 ) == PackageManager.PERMISSION_GRANTED
             }
 
-            // 获取所有 QS Tile 服务
-            val allTileServices = remember(hasQueryPermission) {
-                if (hasQueryPermission) {
-                    TileMapping.getAllQSTileServices(context)
-                } else {
-                    emptyList()
-                }
-            }
+            // 获取所有 QS Tile 服务（后台线程已加载，见顶部 LaunchedEffect）
+            val services = allTileServices
 
             // 获取当前已添加的磁贴
             val currentTiles = if (selectedTabIndex == 0) {
@@ -757,129 +767,149 @@ fun TileConfigScreen() {
             }
 
             // 过滤掉已添加的磁贴和系统预定义的磁贴
-            val availableTileServices = remember(allTileServices, currentTileComponents, systemTileComponents) {
-                allTileServices.filter { (pkg, cls, _) ->
-                    val component = ComponentName(pkg, cls)
-                    // 过滤掉已添加的磁贴
-                    if (component in currentTileComponents) return@filter false
-                    // 过滤掉系统预定义的磁贴
-                    component !in systemTileComponents
-                }
+            val availableTileServices = remember(services, currentTileComponents, systemTileComponents) {
+                services
+                    ?.filter { service ->
+                        val component = ComponentName(service.packageName, service.className)
+                        // 过滤掉已添加的磁贴
+                        if (component in currentTileComponents) return@filter false
+                        // 过滤掉系统预定义的磁贴
+                        component !in systemTileComponents
+                    }
+                    ?: emptyList()
             }
 
-            if (!hasQueryPermission) {
+            when {
                 // 无权限时显示引导页面
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "需要读取应用列表权限才能获取其他应用的磁贴",
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            // 跳转到应用详情设置页面
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                !hasQueryPermission -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("前往授权")
+                        Text(
+                            text = "需要读取应用列表权限才能获取其他应用的磁贴",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                // 跳转到应用详情设置页面
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("前往授权")
+                        }
                     }
                 }
-            } else if (availableTileServices.isEmpty()) {
-                // 有权限但没有可用的磁贴
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "没有可用的自定义磁贴",
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        textAlign = TextAlign.Center
-                    )
+                // 加载中：显示 Miuix 无限进度指示器
+                services == null -> {
+                    // 用 fillMaxHeight 撑满，与加载完成后的 sheet 高度一致，避免高度突变
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        InfiniteProgressIndicator()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "加载中...",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
                 }
-            } else {
+                // 有权限但过滤后没有可用的磁贴
+                availableTileServices.isEmpty() -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "没有可用的自定义磁贴",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
                 // 显示磁贴网格
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
-                ) {
-                    gridItems(availableTileServices) { (pkg, cls, label) ->
-                        val tileValue = "custom($pkg/$cls)"
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 12.dp)
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val newTiles = currentTiles + tileValue
-                                    val newConfig = if (selectedTabIndex == 0) {
-                                        config.copy(expandedTiles = newTiles)
-                                    } else {
-                                        config.copy(collapsedTiles = newTiles)
-                                    }
-                                    updateConfig(newConfig)
-                                    showCustomSheet = false
-                                },
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
+                else -> {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
+                    ) {
+                        gridItems(availableTileServices, key = { it.packageName + "/" + it.className }) { service ->
+                            val tileValue = "custom(${service.packageName}/${service.className})"
+                            Column(
                                 modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.secondaryVariant),
-                                contentAlignment = Alignment.Center
+                                    .padding(horizontal = 4.dp, vertical = 12.dp)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        val newTiles = currentTiles + tileValue
+                                        val newConfig = if (selectedTabIndex == 0) {
+                                            config.copy(expandedTiles = newTiles)
+                                        } else {
+                                            config.copy(collapsedTiles = newTiles)
+                                        }
+                                        updateConfig(newConfig)
+                                        showCustomSheet = false
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                val icon = rememberTileIcon(tileValue)
-                                if (icon != null) {
-                                    Icon(
-                                        painter = icon,
-                                        contentDescription = label,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = label,
-                                style = MiuixTheme.textStyles.body2,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Text(
-                                text = remember(pkg) {
-                                    try {
-                                        val appInfo = context.packageManager.getApplicationInfo(pkg, 0)
-                                        context.packageManager.getApplicationLabel(appInfo).toString()
-                                    } catch (e: Exception) {
-                                        pkg.substringAfterLast('.')
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.secondaryVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // 图标已在后台批量预取，渲染时不再触发 IPC
+                                    val drawable = service.icon
+                                    if (drawable != null) {
+                                        val bitmap = remember(drawable) { drawable.toBitmap() }
+                                        Icon(
+                                            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                            contentDescription = service.label,
+                                            tint = MiuixTheme.colorScheme.primary,
+                                            modifier = Modifier.size(36.dp)
+                                        )
                                     }
-                                },
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = service.label,
+                                    style = MiuixTheme.textStyles.body2,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Text(
+                                    text = service.appName,
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
