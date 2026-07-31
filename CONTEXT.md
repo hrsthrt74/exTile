@@ -125,7 +125,7 @@ exTile/
 2. **磁贴编辑**：4 列网格拖拽排序（Calvin-LL/Reorderable），支持添加系统/自定义磁贴；长按放大 1.1 倍反馈；文本居中显示；小米设备特化固定卡片 + 编辑磁贴 badge；添加磁贴使用网格布局按分类分组
 3. **磁贴操作菜单**：点击普通磁贴弹出 `WindowListPopup` 菜单，支持移动到顶端/底端、删除操作；菜单分三组（磁贴名、移动、删除），使用 `DropdownImpl` + `HorizontalDivider` 实现
 4. **自定义磁贴图标**：通过 `PackageManager` 获取其他应用的 TileService 图标，支持 `QUERY_ALL_PACKAGES` 权限引导
-5. **Shizuku 权限**：通过 Shizuku UserService + AIDL 获取 WRITE_SECURE_SETTINGS
+5. **权限架构（Shizuku 可选）**：核心权限是 `WRITE_SECURE_SETTINGS`（写入 sysui_qs_tiles 切换展开/收起）；Shizuku 仅用于首次/失效时通过 `pm grant` 自动授权，一旦应用持有该权限即可完全脱离 Shizuku。`ShizukuHelper.PermissionStatus` 状态机（GRANTED / SHIZUKU_NOT_INSTALLED / SHIZUKU_NOT_RUNNING / SHIZUKU_NOT_GRANTED / NEEDS_PM_GRANT / GRANT_FAILED）驱动主页权限卡片引导；`SecureSettingsHelper` 读写**直接 API 优先、Shizuku 兜底**；不装 Shizuku 时可通过 adb 手动授权（主页提供命令复制弹窗）；`grantWriteSecureSettings` 成功判据为「非 ERROR 前缀」（pm grant 成功时输出为空串）
 6. **配置备份/恢复**：JSON 格式导出/导入，支持从系统当前配置导入
 7. **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式等；动态取色启用时禁用移动数据绿色特殊取色
 8. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾；固定磁贴和编辑磁贴支持 Tooltip 提示
@@ -176,6 +176,7 @@ exTile/
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
 - **加载状态**：涉及异步操作（如 Shizuku 服务绑定、权限检查）的 UI 需要添加加载状态，使用 `isLoading` 变量控制显示"加载中..."，避免状态闪烁
 - **长按行为**：设置页「磁贴行为」板块使用 `WindowSpinnerPreference` 选择长按行为；选择「跳转自定义应用」时显示 `ArrowPreference` 进入应用选择器；应用选择器 Sheet 的应用列表在 `Dispatchers.IO` 后台加载（缓存，避免重复查询），加载中显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」文本并用 `fillMaxHeight` 撑满避免 sheet 高度突变；应用列表行不加左右边距（Sheet 自带边距）
+- **主页权限卡片**：按 `PermissionStatus` 状态机渲染引导文案和按钮（安装 Shizuku / 启动 Shizuku / 授予权限 / 自动授权 / 重试）；未授权标题显示「未获得必须权限」；始终提供「使用 adb 手动授权」入口，弹窗含「复制命令」按钮；通过 `DisposableEffect` + `LifecycleEventObserver` 监听 `ON_RESUME` 自动刷新权限状态，从「启动 Shizuku」跳转返回时自动衔接请求授权（`autoRequestAfterResume` 标记，避免反复弹窗）
 
 ---
 
