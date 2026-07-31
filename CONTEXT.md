@@ -43,6 +43,7 @@ exTile/
             │   ├── MainActivity.kt          # 主 Activity，横滑导航 + 模糊
             │   ├── LicensesActivity.kt      # 开源许可 Activity（独立页面）
             │   ├── DebugToolsActivity.kt    # 调试工具 Activity（独立页面）
+            │   ├── TileLongClickActivity.kt # 幽灵桥接 Activity（长按磁贴行为分发）
             │   ├── tile/
             │   │   └── ExTileService.kt     # QS Tile Service
             │   ├── data/
@@ -135,6 +136,7 @@ exTile/
 13. **按压特效**：磁贴配置页面磁贴使用 `pressable` + `SinkFeedback` 实现按压缩放效果；添加磁贴 sheet 的磁贴点击特效限定在圆圈内
 14. **加载状态**：首页权限卡片和调试工具页面支持加载状态显示，避免权限状态闪烁
 15. **调试工具**：独立 `DebugToolsActivity`，提供详细调试信息（权限状态、磁贴配置、系统信息）、复制调试信息、添加磁贴到末尾等功能
+16. **长按 exTile 磁贴行为**：通过幽灵桥接 Activity（`TileLongClickActivity`）实现；系统长按第三方磁贴时会启动 `ACTION_QS_TILE_PREFERENCES` 对应的 Activity，该 Activity 不显示界面，读取「长按 exTile 磁贴行为」配置（跳转 exTile / 跳转系统设置 / 跳转自定义应用）分发后立即 `finish()`；`ConfigRepository` 提供 `LongPressBehavior` 常量 + 行为/自定义应用包名存储；应用选择器使用后台线程加载应用列表 + `InfiniteProgressIndicator` 加载状态避免卡顿
 
 ---
 
@@ -173,6 +175,7 @@ exTile/
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
 - **加载状态**：涉及异步操作（如 Shizuku 服务绑定、权限检查）的 UI 需要添加加载状态，使用 `isLoading` 变量控制显示"加载中..."，避免状态闪烁
+- **长按行为**：设置页「磁贴行为」板块使用 `WindowSpinnerPreference` 选择长按行为；选择「跳转自定义应用」时显示 `ArrowPreference` 进入应用选择器；应用选择器 Sheet 的应用列表在 `Dispatchers.IO` 后台加载（缓存，避免重复查询），加载中显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」文本并用 `fillMaxHeight` 撑满避免 sheet 高度突变；应用列表行不加左右边距（Sheet 自带边距）
 
 ---
 
