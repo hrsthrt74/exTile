@@ -29,19 +29,24 @@ object TileMapping {
 
     val systemTiles = listOf(
 
+        // ===== 设备特定 =====
+        TileInfo("satellite", "卫星通信", "设备特定", DeviceType.XIAOMI_ONLY),
+        TileInfo("dtmdtm", "工作台", "设备特定", DeviceType.XIAOMI_ONLY),
+        TileInfo("coolingfan", "散热风扇", "设备特定", DeviceType.XIAOMI_ONLY),
+
         // exTile
         TileInfo(EXTILE_CUSTOM, "exTile", "exTile"),
 
         // ===== 网络与连接 =====
         TileInfo("internet", "互联网", "网络与连接", DeviceType.AOSP_ONLY),
         TileInfo("wifi", "WLAN", "网络与连接"),
-        TileInfo("bt", "蓝牙", "网络与连接"),
         TileInfo("cell", "移动数据", "网络与连接"),
+        TileInfo("bt", "蓝牙", "网络与连接"),
         TileInfo("hotspot", "热点", "网络与连接"),
         TileInfo("airplane", "飞行模式", "网络与连接"),
         TileInfo("location", "位置信息", "网络与连接", DeviceType.AOSP_ONLY),
-        TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "网络与连接", DeviceType.XIAOMI_ONLY),
         TileInfo("gps", "定位服务", "网络与连接", DeviceType.XIAOMI_ONLY),
+        TileInfo("custom(com.miui.mishare.connectivity/.tile.MiShareTileService)", "小米互传", "网络与连接", DeviceType.XIAOMI_ONLY),
         TileInfo("cast", "投屏", "网络与连接", DeviceType.AOSP_ONLY),
         TileInfo("custom(com.milink.service/com.milink.ui.service.MiLinkTileService)", "投屏", "网络与连接", DeviceType.XIAOMI_ONLY),
         TileInfo("nfc", "NFC", "网络与连接"),
@@ -49,6 +54,7 @@ object TileMapping {
         // ===== 显示 =====
         TileInfo("autobrightness", "自动亮度", "显示", DeviceType.XIAOMI_ONLY),
         TileInfo("rotation", "自动屏幕旋转", "显示", DeviceType.AOSP_ONLY),
+        TileInfo("rotation", "方向锁定", "显示", DeviceType.XIAOMI_ONLY),
         TileInfo("dark", "深色模式", "显示", DeviceType.AOSP_ONLY),
         TileInfo("night", "深色模式", "显示", DeviceType.XIAOMI_ONLY),
         TileInfo("papermode", "护眼模式", "显示", DeviceType.XIAOMI_ONLY),
@@ -94,6 +100,8 @@ object TileMapping {
         TileInfo("settings", "设置", "系统", DeviceType.XIAOMI_ONLY),
 
         // ===== 无障碍 =====
+        TileInfo("inversion", "颜色反转", "无障碍"),
+        TileInfo("onehanded", "单手模式", "无障碍"),
         TileInfo("color_correction", "色彩校正", "无障碍"),
         TileInfo("hearing_devices", "助听设备", "无障碍", DeviceType.AOSP_ONLY),
 
@@ -187,6 +195,7 @@ object TileMapping {
         "vibrate" -> R.drawable.tile_vibrate
         "nfc" -> R.drawable.tile_nfc
         "hotspot" -> R.drawable.tile_hotspot
+        "rotation" -> R.drawable.tile_auto_rotate
         "gps" -> R.drawable.tile_location
         "location" -> R.drawable.tile_location
         "screenlock" -> R.drawable.tile_screen_lock
@@ -209,6 +218,12 @@ object TileMapping {
         "freeformhang" -> R.drawable.tile_freeformhang
         "color_correction" -> R.drawable.tile_color_correction
         "settings" -> R.drawable.tile_settings
+        "satellite" -> R.drawable.tile_satellite
+        "dtmdtm" -> R.drawable.tile_desktop
+        "inversion" -> R.drawable.tile_color_inversion
+        "onehanded" -> R.drawable.tile_one_handed
+        "reduce_brightness" -> R.drawable.tile_reduce_brightness
+        "coolingfan" -> R.drawable.tile_cooling_fan
         EXTILE_CUSTOM -> R.drawable.ic_tile
         else -> null
     }
