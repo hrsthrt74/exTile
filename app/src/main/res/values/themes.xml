@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ExTile" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 使用跟随系统的 DayNight 主题，避免深色模式下冷启动时先显示白色启动背景；
+         自定义 windowBackground（splash_background，浅/深各有变体），避免默认浅灰背景 -->
+    <style name="Theme.ExTile" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
 
     <!-- 幽灵桥接 Activity 使用的透明主题：不显示任何界面，避免闪烁 -->
-    <style name="Theme.ExTile.Transparent" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.ExTile.Transparent" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>

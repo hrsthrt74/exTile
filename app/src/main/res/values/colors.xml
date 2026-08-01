@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- 启动窗口背景色（浅色模式）：与 app 浅色 surface 一致，避免灰屏 -->
+    <color name="splash_background">#FFFFFFFF</color>
 </resources>
