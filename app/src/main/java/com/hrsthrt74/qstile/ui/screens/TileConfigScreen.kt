@@ -144,7 +144,8 @@ fun TileConfigScreen() {
 
     val tabs = listOf("展开时", "收起时")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var config by remember { mutableStateOf(TileConfig()) }
+    // 通过 DataStore Flow 监听配置变化：备份导入/恢复后 UI 自动刷新
+    val config by ConfigRepository.getConfigFlow(context).collectAsState(initial = TileConfig())
     var showAddSheet by remember { mutableStateOf(false) }
     var showCustomSheet by remember { mutableStateOf(false) }
     var customTileValue by remember { mutableStateOf("") }
@@ -173,17 +174,6 @@ fun TileConfigScreen() {
         } else emptyList()
     }
 
-    // 记录是否已加载过配置
-    var isConfigLoaded by remember { mutableStateOf(false) }
-
-    // 只在第一次组合时加载配置
-    LaunchedEffect(Unit) {
-        if (!isConfigLoaded) {
-            config = ConfigRepository.getConfig(context)
-            isConfigLoaded = true
-        }
-    }
-
     // 打开「添加第三方磁贴」sheet 时，在后台线程批量查询所有 QS Tile 服务及其图标（扫描应用较耗时）
     LaunchedEffect(showCustomSheet) {
         if (showCustomSheet && allTileServices == null) {
@@ -194,7 +184,7 @@ fun TileConfigScreen() {
     }
 
     fun updateConfig(newConfig: TileConfig) {
-        config = newConfig
+        // 写入 DataStore 后，getConfigFlow 会自动更新 config，无需手动赋值
         scope.launch {
             ConfigRepository.saveExpandedTiles(context, newConfig.expandedTiles)
             ConfigRepository.saveCollapsedTiles(context, newConfig.collapsedTiles)
