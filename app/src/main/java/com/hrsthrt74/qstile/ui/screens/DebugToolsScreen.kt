@@ -65,6 +65,7 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -89,6 +90,8 @@ fun DebugToolsScreen() {
     var hasQueryAllPackages by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var showAddTileSheet by remember { mutableStateOf(false) }
+    var showAddCustomTileSheet by remember { mutableStateOf(false) }
+    var customTileInput by remember { mutableStateOf("") }
 
     // 获取可用的系统磁贴（排除已添加的和第三方磁贴）
     val availableTiles = remember(currentTiles) {
@@ -291,6 +294,18 @@ fun DebugToolsScreen() {
 
                         Button(
                             onClick = {
+                                customTileInput = ""
+                                showAddCustomTileSheet = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("添加自定义磁贴到末尾")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
                                 val debugInfo = buildString {
                                     appendLine("=== exTile 调试信息 ===")
                                     appendLine("Shizuku 已安装: ${if (shizukuInstalled) "是" else "否"}")
@@ -446,6 +461,84 @@ fun DebugToolsScreen() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // 添加自定义磁贴到末尾的 Sheet：输入任意磁贴值（wifi/bt 或 custom(包名/类名) 等），不做校验
+    WindowBottomSheet(
+        show = showAddCustomTileSheet,
+        title = "添加自定义磁贴到末尾",
+        onDismissRequest = {
+            showAddCustomTileSheet = false
+            customTileInput = ""
+        }
+    ) {
+        BackHandler {
+            showAddCustomTileSheet = false
+            customTileInput = ""
+        }
+
+        val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = navBarBottomPadding)
+        ) {
+            TextField(
+                value = customTileInput,
+                onValueChange = { customTileInput = it },
+                label = "输入磁贴值，如 wifi / bt / custom(包名/类名)",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    val value = customTileInput.trim()
+                    if (value.isEmpty()) {
+                        Toast.makeText(context, "请输入磁贴值", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    scope.launch {
+                        try {
+                            // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
+                            val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
+                            if (currentTileList.isEmpty()) {
+                                Toast.makeText(context, "无法获取当前磁贴列表", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            // 检查是否需要添加 ,edit
+                            val isXiaomi = com.hjq.device.compat.DeviceOs.isMiui() || com.hjq.device.compat.DeviceOs.isHyperOs()
+                            val hasEdit = currentTileList.contains("edit")
+                            // 添加磁贴到末尾（在 edit 之前）
+                            if (isXiaomi && hasEdit) {
+                                val editIndex = currentTileList.indexOf("edit")
+                                currentTileList.add(editIndex, value)
+                            } else {
+                                currentTileList.add(value)
+                            }
+                            // 立即设置到系统
+                            val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
+                            if (success) {
+                                Toast.makeText(context, "已添加 $value", Toast.LENGTH_SHORT).show()
+                                showAddCustomTileSheet = false
+                                customTileInput = ""
+                                refreshDebugInfo()
+                            } else {
+                                Toast.makeText(context, "添加失败", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "操作失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColorsPrimary(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("添加")
             }
         }
     }
