@@ -455,8 +455,11 @@ fun TileConfigScreen() {
                                     )
                                 }
 
-                                // 磁贴操作弹出菜单
-                                if (showTileMenu && selectedTileForMenu == tile) {
+                                // 磁贴操作弹出菜单。
+                                // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
+                                // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
+                                // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
+                                if (selectedTileForMenu == tile) {
                                     val currentTilesForMenu = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
                                     val gridTilesForMenu = currentTilesForMenu.filter { it !in fixedTileValues && it != "edit" }
                                     val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
