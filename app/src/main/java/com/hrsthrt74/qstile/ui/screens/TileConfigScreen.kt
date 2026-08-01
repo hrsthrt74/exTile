@@ -949,111 +949,119 @@ fun TileConfigScreen() {
             }
         }
 
-        WindowDialog(
+        ConfigConfirmDialog(
             title = "展开配置 → 收起",
             summary = "将展开状态的磁贴配置复制到收起状态，现有的收起配置将被覆盖。",
             show = showCopyConfirmDialog,
-            onDismissRequest = { showCopyConfirmDialog = false }
-        ) {
-            // miuix 居然没这个间距，没了看起来很奇怪哎
-            Spacer(modifier = Modifier.height(8.dp))
-
-            BackHandler { showCopyConfirmDialog = false }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = { showCopyConfirmDialog = false },
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(
-                    text = "确认",
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        updateConfig(config.copy(collapsedTiles = config.expandedTiles))
-                        showCopyConfirmDialog = false
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            confirmText = "确认",
+            onDismissRequest = { showCopyConfirmDialog = false },
+            onConfirm = {
+                updateConfig(config.copy(collapsedTiles = config.expandedTiles))
+                showCopyConfirmDialog = false
             }
-    }
+        )
 
-        WindowDialog(
+        ConfigConfirmDialog(
             title = "清除当前配置的磁贴",
             summary = "将清空当前展开/收起状态的所有磁贴配置，此操作不可撤销。",
             show = showClearConfirmDialog,
-            onDismissRequest = { showClearConfirmDialog = false }
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            BackHandler { showClearConfirmDialog = false }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = { showClearConfirmDialog = false },
-                    modifier = Modifier.weight(1f)
-                )
-                Button(
-                    colors = ButtonDefaults.buttonColors(
-                        color = MiuixTheme.colorScheme.error,
-                        contentColor = MiuixTheme.colorScheme.onError,
-                    ),
-                    onClick = {
-                        val newConfig = if (selectedTabIndex == 0) {
-                            config.copy(expandedTiles = emptyList())
-                        } else {
-                            config.copy(collapsedTiles = emptyList())
-                        }
-                        updateConfig(newConfig)
-                        showClearConfirmDialog = false
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("确认清除")
+            confirmText = "确认清除",
+            destructive = true,
+            onDismissRequest = { showClearConfirmDialog = false },
+            onConfirm = {
+                val newConfig = if (selectedTabIndex == 0) {
+                    config.copy(expandedTiles = emptyList())
+                } else {
+                    config.copy(collapsedTiles = emptyList())
                 }
+                updateConfig(newConfig)
+                showClearConfirmDialog = false
             }
-    }
+        )
 
-        WindowDialog(
+        ConfigConfirmDialog(
             title = "恢复默认设置",
             summary = "将展开和收起磁贴配置恢复为默认值，当前配置将丢失。",
             show = showResetConfirmDialog,
-            onDismissRequest = { showResetConfirmDialog = false }
+            confirmText = "确认恢复",
+            destructive = true,
+            onDismissRequest = { showResetConfirmDialog = false },
+            onConfirm = {
+                updateConfig(TileConfig())
+                showResetConfirmDialog = false
+            }
+        )
+}
+
+/**
+ * 确认对话框（可复用）
+ *
+ * 磁贴配置页的三个确认操作（复制 / 清除 / 恢复默认）结构完全相同，
+ * 仅标题、说明、确认按钮文案和按钮样式不同，故统一封装为一个组件，
+ * 避免三份几乎一样的 WindowDialog 代码。
+ *
+ * @param title 对话框标题
+ * @param summary 对话框说明文字
+ * @param show 是否显示
+ * @param confirmText 确认按钮文案
+ * @param destructive 是否为破坏性操作；为 true 时确认按钮使用错误色（红色）
+ * @param onDismissRequest 取消 / 点击外部关闭回调
+ * @param onConfirm 点击确认按钮时的回调
+ */
+@Composable
+private fun ConfigConfirmDialog(
+    title: String,
+    summary: String,
+    show: Boolean,
+    confirmText: String,
+    destructive: Boolean = false,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    WindowDialog(
+        title = title,
+        summary = summary,
+        show = show,
+        onDismissRequest = onDismissRequest
+    ) {
+        // miuix 居然没这个间距，没了看起来很奇怪哎
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 返回键视为取消
+        BackHandler { onDismissRequest() }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            // 同 Line 375
-            Spacer(modifier = Modifier.height(8.dp))
+            // 左侧固定为「取消」按钮
+            TextButton(
+                text = "取消",
+                onClick = onDismissRequest,
+                modifier = Modifier.weight(1f)
+            )
 
-            BackHandler { showResetConfirmDialog = false }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = { showResetConfirmDialog = false },
-                    modifier = Modifier.weight(1f)
-                )
+            if (destructive) {
+                // 破坏性操作：确认按钮用错误色填充，突出「不可撤销」的警告
                 Button(
                     colors = ButtonDefaults.buttonColors(
                         color = MiuixTheme.colorScheme.error,
                         contentColor = MiuixTheme.colorScheme.onError,
                     ),
-                    onClick = {
-                        updateConfig(TileConfig())
-                        showResetConfirmDialog = false
-                    },
+                    onClick = onConfirm,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("确认恢复")
+                    Text(confirmText)
                 }
+            } else {
+                // 普通操作：确认按钮用主题主色
+                TextButton(
+                    text = confirmText,
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f)
+                )
             }
+        }
     }
 }
