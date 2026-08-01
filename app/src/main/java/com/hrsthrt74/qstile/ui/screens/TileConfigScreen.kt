@@ -144,8 +144,8 @@ fun TileConfigScreen() {
 
     val tabs = listOf("展开时", "收起时")
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    // 通过 DataStore Flow 监听配置变化：备份导入/恢复后 UI 自动刷新
-    val config by ConfigRepository.getConfigFlow(context).collectAsState(initial = TileConfig())
+    // 本地可变状态：拖动排序时同步更新，保证 reorderable 库数据源即时一致（避免抽搐）
+    var config by remember { mutableStateOf(TileConfig()) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showCustomSheet by remember { mutableStateOf(false) }
     var customTileValue by remember { mutableStateOf("") }
@@ -183,8 +183,17 @@ fun TileConfigScreen() {
         }
     }
 
+    // 监听 DataStore 外部变更（如备份导入/恢复），同步到本地 config。
+    // 注意：本页自身的写入也会触发此监听，但值相同，重复赋值无副作用，不影响拖拽。
+    LaunchedEffect(Unit) {
+        ConfigRepository.getConfigFlow(context).collect { newConfig ->
+            config = newConfig
+        }
+    }
+
     fun updateConfig(newConfig: TileConfig) {
-        // 写入 DataStore 后，getConfigFlow 会自动更新 config，无需手动赋值
+        // 同步更新本地状态：拖动排序时 reorderable 数据源必须立即一致，否则位置会抽搐
+        config = newConfig
         scope.launch {
             ConfigRepository.saveExpandedTiles(context, newConfig.expandedTiles)
             ConfigRepository.saveCollapsedTiles(context, newConfig.collapsedTiles)
