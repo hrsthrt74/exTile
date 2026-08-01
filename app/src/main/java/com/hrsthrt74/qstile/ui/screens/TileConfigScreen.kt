@@ -727,7 +727,7 @@ fun TileConfigScreen() {
 
                             Text(
                                 text = tile.displayName,
-                                style = MiuixTheme.textStyles.body2,
+                                style = MiuixTheme.textStyles.footnote1,
                                 maxLines = 2,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
@@ -890,25 +890,25 @@ fun TileConfigScreen() {
                             val tileValue = "custom(${service.packageName}/${service.className})"
                             Column(
                                 modifier = Modifier
-                                    .padding(horizontal = 4.dp, vertical = 12.dp)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        val newTiles = currentTiles + tileValue
-                                        val newConfig = if (selectedTabIndex == 0) {
-                                            config.copy(expandedTiles = newTiles)
-                                        } else {
-                                            config.copy(collapsedTiles = newTiles)
-                                        }
-                                        updateConfig(newConfig)
-                                        showCustomSheet = false
-                                    },
+                                    .padding(horizontal = 4.dp, vertical = 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .size(64.dp)
                                         .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.secondaryVariant),
+                                        .background(MiuixTheme.colorScheme.secondaryVariant)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            val newTiles = currentTiles + tileValue
+                                            val newConfig = if (selectedTabIndex == 0) {
+                                                config.copy(expandedTiles = newTiles)
+                                            } else {
+                                                config.copy(collapsedTiles = newTiles)
+                                            }
+                                            updateConfig(newConfig)
+                                            showCustomSheet = false
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     // 图标已在后台批量预取，渲染时不再触发 IPC
@@ -928,7 +928,7 @@ fun TileConfigScreen() {
 
                                 Text(
                                     text = service.label,
-                                    style = MiuixTheme.textStyles.body2,
+                                    style = MiuixTheme.textStyles.footnote1,
                                     maxLines = 2,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth()
