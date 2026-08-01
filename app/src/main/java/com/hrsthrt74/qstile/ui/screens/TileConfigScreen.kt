@@ -433,6 +433,124 @@ fun TileConfigScreen() {
                                                 modifier = Modifier.size(36.dp)
                                             )
                                         }
+
+                                        // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
+                                        // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
+                                        // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
+                                        // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
+                                        if (selectedTileForMenu == tile) {
+                                            val currentTilesForMenu = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
+                                            val gridTilesForMenu = currentTilesForMenu.filter { it !in fixedTileValues && it != "edit" }
+                                            val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
+
+                                            // 删除按钮的错误颜色
+                                            val errorColors = DropdownDefaults.dropdownColors(
+                                                contentColor = MiuixTheme.colorScheme.error,
+                                                selectedContentColor = MiuixTheme.colorScheme.error
+                                            )
+
+                                            WindowListPopup(
+                                                show = showTileMenu,
+                                                // 垂直间距 8dp：popup 与图标保持间距；左右边距独立设置左 0 右 8
+                                                popupPositionProvider = asymmetricDropdownPositionProvider(
+                                                    verticalMargin = 8.dp,
+                                                    startMargin = 0.dp,
+                                                    endMargin = 8.dp
+                                                ),
+                                                onDismissRequest = { showTileMenu = false }
+                                            ) {
+                                                BackHandler { showTileMenu = false }
+                                                ListPopupColumn {
+                                                    // 磁贴名称（不可点击）
+                                                    DropdownImpl(
+                                                        text = TileMapping.getDisplayName(tile),
+                                                        optionSize = 1,
+                                                        isSelected = false,
+                                                        index = 0,
+                                                        enabled = false,
+                                                        onSelectedIndexChange = {}
+                                                    )
+                                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                                    // 移动到顶端
+                                                    DropdownImpl(
+                                                        text = "移动到顶端",
+                                                        optionSize = 3,
+                                                        isSelected = false,
+                                                        index = 0,
+                                                        enabled = tileIndexForMenu > 0,
+                                                        onSelectedIndexChange = {
+                                                            val newList = gridTilesForMenu.toMutableList().apply {
+                                                                removeAt(tileIndexForMenu)
+                                                                add(0, tile)
+                                                            }
+                                                            val fullList = if (isXiaomi) {
+                                                                fixedTileValues + newList + listOf("edit")
+                                                            } else {
+                                                                newList
+                                                            }
+                                                            val newConfig = if (selectedTabIndex == 0) {
+                                                                config.copy(expandedTiles = fullList)
+                                                            } else {
+                                                                config.copy(collapsedTiles = fullList)
+                                                            }
+                                                            updateConfig(newConfig)
+                                                            showTileMenu = false
+                                                        }
+                                                    )
+                                                    // 移动到底端
+                                                    DropdownImpl(
+                                                        text = "移动到底端",
+                                                        optionSize = 3,
+                                                        isSelected = false,
+                                                        index = 1,
+                                                        enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
+                                                        onSelectedIndexChange = {
+                                                            val newList = gridTilesForMenu.toMutableList().apply {
+                                                                removeAt(tileIndexForMenu)
+                                                                add(gridTilesForMenu.size - 1, tile)
+                                                            }
+                                                            val fullList = if (isXiaomi) {
+                                                                fixedTileValues + newList + listOf("edit")
+                                                            } else {
+                                                                newList
+                                                            }
+                                                            val newConfig = if (selectedTabIndex == 0) {
+                                                                config.copy(expandedTiles = fullList)
+                                                            } else {
+                                                                config.copy(collapsedTiles = fullList)
+                                                            }
+                                                            updateConfig(newConfig)
+                                                            showTileMenu = false
+                                                        }
+                                                    )
+                                                    // 删除（错误颜色）
+                                                    DropdownImpl(
+                                                        text = "删除",
+                                                        optionSize = 3,
+                                                        isSelected = false,
+                                                        index = 2,
+                                                        dropdownColors = errorColors,
+                                                        onSelectedIndexChange = {
+                                                            val newList = gridTilesForMenu.toMutableList().apply {
+                                                                remove(tile)
+                                                            }
+                                                            val fullList = if (isXiaomi) {
+                                                                fixedTileValues + newList + listOf("edit")
+                                                            } else {
+                                                                newList
+                                                            }
+                                                            val newConfig = if (selectedTabIndex == 0) {
+                                                                config.copy(expandedTiles = fullList)
+                                                            } else {
+                                                                config.copy(collapsedTiles = fullList)
+                                                            }
+                                                            updateConfig(newConfig)
+                                                            showTileMenu = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -453,124 +571,6 @@ fun TileConfigScreen() {
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     )
-                                }
-
-                                // 磁贴操作弹出菜单。
-                                // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
-                                // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
-                                // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
-                                if (selectedTileForMenu == tile) {
-                                    val currentTilesForMenu = if (selectedTabIndex == 0) config.expandedTiles else config.collapsedTiles
-                                    val gridTilesForMenu = currentTilesForMenu.filter { it !in fixedTileValues && it != "edit" }
-                                    val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
-
-                                    // 删除按钮的错误颜色
-                                    val errorColors = DropdownDefaults.dropdownColors(
-                                        contentColor = MiuixTheme.colorScheme.error,
-                                        selectedContentColor = MiuixTheme.colorScheme.error
-                                    )
-
-                                    WindowListPopup(
-                                        show = showTileMenu,
-                                        // 左右边距可独立设置：左 0 右 8，让 popup 距屏幕两侧视觉等距
-                                        popupPositionProvider = asymmetricDropdownPositionProvider(
-                                            verticalMargin = 0.dp,
-                                            startMargin = 0.dp,
-                                            endMargin = 8.dp
-                                        ),
-                                        onDismissRequest = { showTileMenu = false }
-                                    ) {
-                                        BackHandler { showTileMenu = false }
-                                        ListPopupColumn {
-                                            // 磁贴名称（不可点击）
-                                            DropdownImpl(
-                                                text = TileMapping.getDisplayName(tile),
-                                                optionSize = 1,
-                                                isSelected = false,
-                                                index = 0,
-                                                enabled = false,
-                                                onSelectedIndexChange = {}
-                                            )
-                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                            // 移动到顶端
-                                            DropdownImpl(
-                                                text = "移动到顶端",
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 0,
-                                                enabled = tileIndexForMenu > 0,
-                                                onSelectedIndexChange = {
-                                                    val newList = gridTilesForMenu.toMutableList().apply {
-                                                        removeAt(tileIndexForMenu)
-                                                        add(0, tile)
-                                                    }
-                                                    val fullList = if (isXiaomi) {
-                                                        fixedTileValues + newList + listOf("edit")
-                                                    } else {
-                                                        newList
-                                                    }
-                                                    val newConfig = if (selectedTabIndex == 0) {
-                                                        config.copy(expandedTiles = fullList)
-                                                    } else {
-                                                        config.copy(collapsedTiles = fullList)
-                                                    }
-                                                    updateConfig(newConfig)
-                                                    showTileMenu = false
-                                                }
-                                            )
-                                            // 移动到底端
-                                            DropdownImpl(
-                                                text = "移动到底端",
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 1,
-                                                enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
-                                                onSelectedIndexChange = {
-                                                    val newList = gridTilesForMenu.toMutableList().apply {
-                                                        removeAt(tileIndexForMenu)
-                                                        add(gridTilesForMenu.size - 1, tile)
-                                                    }
-                                                    val fullList = if (isXiaomi) {
-                                                        fixedTileValues + newList + listOf("edit")
-                                                    } else {
-                                                        newList
-                                                    }
-                                                    val newConfig = if (selectedTabIndex == 0) {
-                                                        config.copy(expandedTiles = fullList)
-                                                    } else {
-                                                        config.copy(collapsedTiles = fullList)
-                                                    }
-                                                    updateConfig(newConfig)
-                                                    showTileMenu = false
-                                                }
-                                            )
-                                            // 删除（错误颜色）
-                                            DropdownImpl(
-                                                text = "删除",
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 2,
-                                                dropdownColors = errorColors,
-                                                onSelectedIndexChange = {
-                                                    val newList = gridTilesForMenu.toMutableList().apply {
-                                                        remove(tile)
-                                                    }
-                                                    val fullList = if (isXiaomi) {
-                                                        fixedTileValues + newList + listOf("edit")
-                                                    } else {
-                                                        newList
-                                                    }
-                                                    val newConfig = if (selectedTabIndex == 0) {
-                                                        config.copy(expandedTiles = fullList)
-                                                    } else {
-                                                        config.copy(collapsedTiles = fullList)
-                                                    }
-                                                    updateConfig(newConfig)
-                                                    showTileMenu = false
-                                                }
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
