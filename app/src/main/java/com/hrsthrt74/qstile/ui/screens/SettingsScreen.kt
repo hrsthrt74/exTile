@@ -84,8 +84,9 @@ import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
-private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
-private val colorSpecLabels = listOf("Spec2021", "Spec2025")
+// 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
+// private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
+// private val colorSpecLabels = listOf("Spec2021", "Spec2025")
 private val longPressBehaviorLabels = listOf("跳转到 exTile", "跳转到系统设置", "跳转到自定义应用")
 
 /** 应用选择器数据模型：包名 + 显示名 + 图标 */
@@ -197,8 +198,9 @@ fun SettingsScreen() {
     }
 
     val dayNightModeOptions = remember { dayNightModeLabels.map { DropdownItem(text = it) } }
-    val paletteStyleOptions = remember { paletteStyleLabels.map { DropdownItem(text = it) } }
-    val colorSpecOptions = remember { colorSpecLabels.map { DropdownItem(text = it) } }
+    // 调色板风格/颜色规范开关暂未启用，相关选项定义一并注释
+    // val paletteStyleOptions = remember { paletteStyleLabels.map { DropdownItem(text = it) } }
+    // val colorSpecOptions = remember { colorSpecLabels.map { DropdownItem(text = it) } }
     val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
 
     // 已选自定义应用的显示名（包名 → 应用名）
@@ -342,28 +344,29 @@ fun SettingsScreen() {
                         }
                     )
 
-                    if (themeSettings.isDynamicColorMode) {
-                        WindowSpinnerPreference(
-                            title = "调色板风格",
-                            items = paletteStyleOptions,
-                            selectedIndex = themeSettings.paletteStyle,
-                            onSelectedIndexChange = { style ->
-                                scope.launch {
-                                    ThemeRepository.savePaletteStyle(context, style)
-                                }
-                            }
-                        )
-                        WindowSpinnerPreference(
-                            title = "颜色规范",
-                            items = colorSpecOptions,
-                            selectedIndex = themeSettings.colorSpec,
-                            onSelectedIndexChange = { spec ->
-                                scope.launch {
-                                    ThemeRepository.saveColorSpec(context, spec)
-                                }
-                            }
-                        )
-                    }
+                    // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
+                    // if (themeSettings.isDynamicColorMode) {
+                    //     WindowSpinnerPreference(
+                    //         title = "调色板风格",
+                    //         items = paletteStyleOptions,
+                    //         selectedIndex = themeSettings.paletteStyle,
+                    //         onSelectedIndexChange = { style ->
+                    //             scope.launch {
+                    //                 ThemeRepository.savePaletteStyle(context, style)
+                    //             }
+                    //         }
+                    //     )
+                    //     WindowSpinnerPreference(
+                    //         title = "颜色规范",
+                    //         items = colorSpecOptions,
+                    //         selectedIndex = themeSettings.colorSpec,
+                    //         onSelectedIndexChange = { spec ->
+                    //             scope.launch {
+                    //                 ThemeRepository.saveColorSpec(context, spec)
+                    //             }
+                    //         }
+                    //     )
+                    // }
                 }
             }
 
