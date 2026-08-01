@@ -76,8 +76,6 @@ import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
-import com.hrsthrt74.qstile.ui.BlurredBar
-import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -109,7 +107,6 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.More
@@ -137,10 +134,10 @@ fun TileConfigScreen() {
     val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
         .collectAsState(initial = ThemeSettings())
 
-    // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
-    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+    // 顶部栏模糊：效果不佳，故禁用（模糊开关关闭或 RuntimeShader 不支持时退回纯色）
+    // val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    // val blurActive = backdrop != null
+    // val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val isDynamicColor = themeSettings.isDynamicColorMode
 
     val haptic = LocalHapticFeedback.current
@@ -224,13 +221,12 @@ fun TileConfigScreen() {
 
     Scaffold(
             topBar = {
-                BlurredBar(backdrop, blurActive) {
-                    TopAppBar(
-                        title = "磁贴配置",
-                        largeTitle = "磁贴配置",
-                        color = barColor,
-                        scrollBehavior = scrollBehavior,
-                        actions = {
+                // 顶部栏模糊：效果不佳，故禁用（原 BlurredBar(backdrop, blurActive) 包裹）
+                TopAppBar(
+                    title = "磁贴配置",
+                    largeTitle = "磁贴配置",
+                    scrollBehavior = scrollBehavior,
+                    actions = {
                             val entry = DropdownEntry(
                                 items = listOf(
                                     DropdownItem(
@@ -252,15 +248,13 @@ fun TileConfigScreen() {
                             }
                         }
                     )
-                }
             }
         ) { paddingValues ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = paddingValues.calculateTopPadding())
-                    // 滚动内容挂载 backdrop，供顶部栏模糊捕获
-                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    // 顶部栏模糊已禁用，不再挂载 backdrop
             ) {
                 TabRow(
                     tabs = tabs,
