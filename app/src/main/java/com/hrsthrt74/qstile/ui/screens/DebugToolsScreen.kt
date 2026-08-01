@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
@@ -45,8 +47,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -163,12 +167,115 @@ fun DebugToolsScreen() {
                 .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
             contentPadding = PaddingValues(
                 top = paddingValues.calculateTopPadding() + 12.dp,
-                start = 16.dp,
-                end = 16.dp,
+//                start = 16.dp,
+//                end = 16.dp,
                 bottom = NavigationBarDefaults.ItemHeight +
                     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             )
         ) {
+            // ===== 操作 =====
+            item {
+                SmallTitle(text = "操作")
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Button(
+                            onClick = { refreshDebugInfo() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("刷新")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { showAddTileSheet = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("添加磁贴到末尾")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                customTileInput = ""
+                                showAddCustomTileSheet = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("添加自定义磁贴到末尾")
+                        }
+
+//                        Spacer(modifier = Modifier.height(8.dp))
+
+//                        Button(
+//                            onClick = {
+//                                val debugInfo = buildString {
+//                                    appendLine("=== exTile 调试信息 ===")
+//                                    appendLine("Shizuku 已安装: ${if (shizukuInstalled) "是" else "否"}")
+//                                    appendLine("Shizuku 运行中: ${if (shizukuRunning) "是" else "否"}")
+//                                    appendLine("WRITE_SECURE_SETTINGS: ${if (hasWriteSecureSettings) "已授权" else "未授权"}")
+//                                    appendLine("QUERY_ALL_PACKAGES: ${if (hasQueryAllPackages) "已授权" else "未授权"}")
+//                                    appendLine("展开磁贴: ${config.expandedTiles.joinToString(", ")}")
+//                                    appendLine("收起磁贴: ${config.collapsedTiles.joinToString(", ")}")
+//                                    appendLine("系统磁贴数: ${currentTiles.size}")
+//                                    appendLine("sysui_qs_tiles: $currentSysuiTiles")
+//                                    appendLine("设备: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+//                                    appendLine("SDK: ${android.os.Build.VERSION.SDK_INT}")
+//                                    appendLine("包名: ${context.packageName}")
+//                                    appendLine("版本: ${context.packageManager.getPackageInfo(context.packageName, 0).versionName}")
+//                                }
+//                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+//                                clipboard.setPrimaryClip(ClipData.newPlainText("exTile debug", debugInfo))
+//                                Toast.makeText(context, "调试信息已复制到剪贴板", Toast.LENGTH_SHORT).show()
+//                            },
+//                            modifier = Modifier.fillMaxWidth()
+//                        ) {
+//                            Text("复制调试信息")
+//                        }
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            // ===== 系统信息 / sysui_qs_tiles =====
+            item {
+                SmallTitle(text = "sysui_qs_tiles")
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.padding(16.dp),
+                        text = currentSysuiTiles,
+                        style = MiuixTheme.textStyles.footnote2.copy(  // 👈 用 copy 保留原有样式
+                            lineBreak = LineBreak(
+                                strategy = LineBreak.Strategy.HighQuality,  // 高质量换行算法，不这么写会在 / 断开
+                                strictness = LineBreak.Strictness.Loose,    // 👈 宽松规则，允许在任意字符处断开
+                                wordBreak = LineBreak.WordBreak.Default     // 默认单词断开规则
+                            )
+                        ),
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
             // ===== 状态信息 =====
             item {
                 SmallTitle(text = "状态信息")
@@ -176,7 +283,9 @@ fun DebugToolsScreen() {
 
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp)
@@ -209,33 +318,53 @@ fun DebugToolsScreen() {
 
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "展开时磁贴：",
-                            style = MiuixTheme.textStyles.body2,
+                            text = "展开时",
+                            style = MiuixTheme.textStyles.subtitle,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
                         Text(
-                            text = config.expandedTiles.joinToString(", "),
-                            style = MiuixTheme.textStyles.footnote2,
-                            modifier = Modifier.padding(top = 4.dp)
+                            text = config.expandedTiles.joinToString(","),
+                            style = MiuixTheme.textStyles.footnote2.copy(  // 👈 用 copy 保留原有样式
+                                lineBreak = LineBreak(
+                                    strategy = LineBreak.Strategy.HighQuality,  // 高质量换行算法，不这么写会在 / 断开
+                                    strictness = LineBreak.Strictness.Loose,    // 👈 宽松规则，允许在任意字符处断开
+                                    wordBreak = LineBreak.WordBreak.Default     // 默认单词断开规则
+                                )
+                            ),
+                            modifier = Modifier.padding(top = 8.dp),
+                            lineHeight = 16.sp
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        HorizontalDivider()
+
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "收起时磁贴：",
-                            style = MiuixTheme.textStyles.body2,
+                            text = "收起时",
+                            style = MiuixTheme.textStyles.subtitle,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
                         Text(
-                            text = config.collapsedTiles.joinToString(", "),
-                            style = MiuixTheme.textStyles.footnote2,
-                            modifier = Modifier.padding(top = 4.dp)
+                            text = config.collapsedTiles.joinToString(","),
+                            style = MiuixTheme.textStyles.footnote2.copy(  // 👈 用 copy 保留原有样式
+                                lineBreak = LineBreak(
+                                    strategy = LineBreak.Strategy.HighQuality,  // 高质量换行算法，不这么写会在 / 断开
+                                    strictness = LineBreak.Strictness.Loose,    // 👈 宽松规则，允许在任意字符处断开
+                                    wordBreak = LineBreak.WordBreak.Default     // 默认单词断开规则
+                                )
+                            ),
+                            modifier = Modifier.padding(top = 8.dp),
+                            lineHeight = 16.sp
                         )
                     }
                 }
@@ -243,95 +372,6 @@ fun DebugToolsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // ===== 系统信息 =====
-            item {
-                SmallTitle(text = "系统信息")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        DebugInfoRow("sysui_qs_tiles", currentSysuiTiles)
-                    }
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            // ===== 操作 =====
-            item {
-                SmallTitle(text = "操作")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Button(
-                            onClick = { refreshDebugInfo() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("刷新信息")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { showAddTileSheet = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("添加磁贴到末尾")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                customTileInput = ""
-                                showAddCustomTileSheet = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("添加自定义磁贴到末尾")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                val debugInfo = buildString {
-                                    appendLine("=== exTile 调试信息 ===")
-                                    appendLine("Shizuku 已安装: ${if (shizukuInstalled) "是" else "否"}")
-                                    appendLine("Shizuku 运行中: ${if (shizukuRunning) "是" else "否"}")
-                                    appendLine("WRITE_SECURE_SETTINGS: ${if (hasWriteSecureSettings) "已授权" else "未授权"}")
-                                    appendLine("QUERY_ALL_PACKAGES: ${if (hasQueryAllPackages) "已授权" else "未授权"}")
-                                    appendLine("展开磁贴: ${config.expandedTiles.joinToString(", ")}")
-                                    appendLine("收起磁贴: ${config.collapsedTiles.joinToString(", ")}")
-                                    appendLine("系统磁贴数: ${currentTiles.size}")
-                                    appendLine("sysui_qs_tiles: $currentSysuiTiles")
-                                    appendLine("设备: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-                                    appendLine("SDK: ${android.os.Build.VERSION.SDK_INT}")
-                                    appendLine("包名: ${context.packageName}")
-                                    appendLine("版本: ${context.packageManager.getPackageInfo(context.packageName, 0).versionName}")
-                                }
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("exTile debug", debugInfo))
-                                Toast.makeText(context, "调试信息已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("复制调试信息")
-                        }
-                    }
-                }
-            }
         }
     }
 
