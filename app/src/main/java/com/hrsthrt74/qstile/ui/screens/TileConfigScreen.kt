@@ -76,6 +76,7 @@ import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
+import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,7 +113,6 @@ import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
 import top.yukonga.miuix.kmp.window.WindowListPopup
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
@@ -472,7 +472,12 @@ fun TileConfigScreen() {
 
                                     WindowListPopup(
                                         show = showTileMenu,
-                                        popupPositionProvider = ListPopupDefaults.dropdownPositionProvider(verticalMargin = 0.dp),
+                                        // 左右边距可独立设置：左 0 右 8，让 popup 距屏幕两侧视觉等距
+                                        popupPositionProvider = asymmetricDropdownPositionProvider(
+                                            verticalMargin = 0.dp,
+                                            startMargin = 0.dp,
+                                            endMargin = 8.dp
+                                        ),
                                         onDismissRequest = { showTileMenu = false }
                                     ) {
                                         BackHandler { showTileMenu = false }

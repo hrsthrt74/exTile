@@ -1,9 +1,18 @@
 package com.hrsthrt74.qstile.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.ListPopupDefaults
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -45,6 +54,73 @@ fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
         drawRect(surfaceColor)
         drawContent()
     }
+}
+
+/**
+ * 创建一个 popup 定位器，左右边距可独立设置，让 popup 距屏幕边缘两侧等距。
+ *
+ * 背景：官方 [ListPopupDefaults.dropdownPositionProvider] 只支持对称的 horizontalMargin，
+ * 而它的 clamp 逻辑下限是 `windowBounds.left`（不强制留左 margin）、上限减右 margin。
+ * 若两侧用同一个 margin，最左磁贴的 popup 靠 anchor 定位（anchor.left + margin）间距偏大，
+ * 最右磁贴被 clamp 到只留 margin 间距偏小，看起来不等距。
+ *
+ * 解决：左 margin 设 0、右 margin 设期望值即可让两侧视觉等距
+ * （最左 = anchor.left(网格 padding 8) + 0 = 8，最右 = clamp 留 8）。
+ *
+ * @param verticalMargin popup 与锚点（磁贴）的垂直间距
+ * @param startMargin popup 距屏幕左（或 RTL 的右）边缘的间距
+ * @param endMargin popup 距屏幕右（或 RTL 的左）边缘的间距
+ */
+fun asymmetricDropdownPositionProvider(
+    verticalMargin: Dp = 0.dp,
+    startMargin: Dp = 0.dp,
+    endMargin: Dp = 8.dp,
+): PopupPositionProvider = object : PopupPositionProvider {
+    private val margins = PaddingValues(
+        start = startMargin,
+        end = endMargin,
+        top = verticalMargin,
+        bottom = verticalMargin,
+    )
+
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowBounds: IntRect,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+        popupMargin: IntRect,
+        alignment: PopupPositionProvider.Align,
+    ): IntOffset {
+        val offsetX = if (alignment == PopupPositionProvider.Align.End) {
+            anchorBounds.right - popupContentSize.width - popupMargin.right
+        } else {
+            anchorBounds.left + popupMargin.left
+        }
+        val offsetY = if (windowBounds.bottom - anchorBounds.bottom > popupContentSize.height) {
+            // 下方空间足够，显示在锚点下方
+            anchorBounds.bottom + popupMargin.bottom
+        } else if (anchorBounds.top - windowBounds.top > popupContentSize.height) {
+            // 上方空间足够，显示在锚点上方
+            anchorBounds.top - popupContentSize.height - popupMargin.top
+        } else {
+            // 上下都不够，垂直居中
+            anchorBounds.top + anchorBounds.height / 2 - popupContentSize.height / 2
+        }
+        return IntOffset(
+            // 水平 clamp：下限不强制留左 margin（对齐官方逻辑），上限保留右 margin
+            x = offsetX.coerceIn(
+                windowBounds.left,
+                (windowBounds.right - popupContentSize.width - popupMargin.right).coerceAtLeast(windowBounds.left),
+            ),
+            y = offsetY.coerceIn(
+                (windowBounds.top + popupMargin.top)
+                    .coerceAtMost(windowBounds.bottom - popupContentSize.height - popupMargin.bottom),
+                windowBounds.bottom - popupContentSize.height - popupMargin.bottom,
+            ),
+        )
+    }
+
+    override fun getMargins(): PaddingValues = margins
 }
 
 /**
