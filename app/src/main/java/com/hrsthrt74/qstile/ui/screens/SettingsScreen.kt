@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,8 @@ import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
+import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,6 +74,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
@@ -125,6 +129,11 @@ fun SettingsScreen() {
 
     val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
         .collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
+
+    // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     var config by remember { mutableStateOf(TileConfig()) }
     var currentSysuiTiles by remember { mutableStateOf("") }
@@ -208,26 +217,33 @@ fun SettingsScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = "设置",
-                largeTitle = "设置",
-                scrollBehavior = scrollBehavior
-            )
+            BlurredBar(backdrop, blurActive) {
+                TopAppBar(
+                    title = "设置",
+                    largeTitle = "设置",
+                    color = barColor,
+                    scrollBehavior = scrollBehavior
+                )
+            }
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .scrollEndHaptic(
-                    hapticFeedbackType = HapticFeedbackType.TextHandleMove
-                ),
-            contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding(),
-                bottom = NavigationBarDefaults.ItemHeight +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-            )
+        // 滚动内容挂载 backdrop，供顶部栏模糊捕获
+        Box(
+            modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .scrollEndHaptic(
+                        hapticFeedbackType = HapticFeedbackType.TextHandleMove
+                    ),
+                contentPadding = PaddingValues(
+                    top = paddingValues.calculateTopPadding(),
+                    bottom = NavigationBarDefaults.ItemHeight +
+                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                )
+            ) {
             // ===== 调试工具板块 =====
             item {
                 SmallTitle(text = "调试工具")
@@ -311,6 +327,17 @@ fun SettingsScreen() {
                         onCheckedChange = { enabled ->
                             scope.launch {
                                 ThemeRepository.saveIsDynamicColorMode(context, enabled)
+                            }
+                        }
+                    )
+
+                    SwitchPreference(
+                        title = "模糊效果",
+                        summary = "顶部栏与导航栏使用毛玻璃模糊效果",
+                        checked = themeSettings.enableBlur,
+                        onCheckedChange = { enabled ->
+                            scope.launch {
+                                ThemeRepository.saveEnableBlur(context, enabled)
                             }
                         }
                     )
@@ -436,6 +463,7 @@ fun SettingsScreen() {
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
         }
     }
 

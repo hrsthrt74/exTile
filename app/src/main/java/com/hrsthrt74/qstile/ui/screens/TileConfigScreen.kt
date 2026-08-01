@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,6 +76,8 @@ import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
+import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -106,6 +109,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.More
@@ -129,9 +133,14 @@ fun TileConfigScreen() {
     // 设备类型检测
     val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
 
-    // 主题设置（用于判断动态取色是否启用）
+    // 主题设置（用于判断动态取色、模糊开关是否启用）
     val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
         .collectAsState(initial = ThemeSettings())
+
+    // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val isDynamicColor = themeSettings.isDynamicColorMode
 
     val haptic = LocalHapticFeedback.current
@@ -215,38 +224,43 @@ fun TileConfigScreen() {
 
     Scaffold(
             topBar = {
-                TopAppBar(
-                    title = "磁贴配置",
-                    largeTitle = "磁贴配置",
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        val entry = DropdownEntry(
-                            items = listOf(
-                                DropdownItem(
-                                    text = "展开配置 → 收起",
-                                    onClick = { showCopyConfirmDialog = true }
-                                ),
-                                DropdownItem(
-                                    text = "清除当前配置的磁贴",
-                                    onClick = { showClearConfirmDialog = true }
-                                ),
-                                DropdownItem(
-                                    text = "恢复默认设置",
-                                    onClick = { showResetConfirmDialog = true }
+                BlurredBar(backdrop, blurActive) {
+                    TopAppBar(
+                        title = "磁贴配置",
+                        largeTitle = "磁贴配置",
+                        color = barColor,
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            val entry = DropdownEntry(
+                                items = listOf(
+                                    DropdownItem(
+                                        text = "展开配置 → 收起",
+                                        onClick = { showCopyConfirmDialog = true }
+                                    ),
+                                    DropdownItem(
+                                        text = "清除当前配置的磁贴",
+                                        onClick = { showClearConfirmDialog = true }
+                                    ),
+                                    DropdownItem(
+                                        text = "恢复默认设置",
+                                        onClick = { showResetConfirmDialog = true }
+                                    )
                                 )
                             )
-                        )
-                        WindowIconDropdownMenu(entry = entry) {
-                            Icon(MiuixIcons.More, contentDescription = "更多操作")
+                            WindowIconDropdownMenu(entry = entry) {
+                                Icon(MiuixIcons.More, contentDescription = "更多操作")
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         ) { paddingValues ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = paddingValues.calculateTopPadding())
+                    // 滚动内容挂载 backdrop，供顶部栏模糊捕获
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
             ) {
                 TabRow(
                     tabs = tabs,
@@ -301,8 +315,8 @@ fun TileConfigScreen() {
                             end = 8.dp,
                             bottom = NavigationBarDefaults.ItemHeight +
                                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-                        )
-                    ) {
+                            )
+                        ) {
                         // 固定卡片（小米特化，不参与拖拽）
                         if (isXiaomi && fixedTileValues.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -403,7 +417,8 @@ fun TileConfigScreen() {
                                             .size(68.dp)
                                             .pressable(
                                                 interactionSource = null,
-                                                indication = SinkFeedback()
+                                                indication = SinkFeedback(sinkAmount = 0.9f, animationSpec = spring(0.8f, 120f)),
+                                                delay = null
                                             )
                                             .shadow(elevation, CircleShape)
                                             .clip(CircleShape)
@@ -577,7 +592,8 @@ fun TileConfigScreen() {
                                             .fillMaxWidth()
                                             .pressable(
                                                 interactionSource = null,
-                                                indication = SinkFeedback()
+                                                indication = SinkFeedback(),
+                                                delay = null
                                             )
                                     ) {
                                         Icon(MiuixIcons.AddCircle, contentDescription = "添加")
@@ -591,7 +607,13 @@ fun TileConfigScreen() {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             showCustomSheet = true
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .pressable(
+                                                interactionSource = null,
+                                                indication = SinkFeedback(),
+                                                delay = null
+                                            )
                                     ) {
                                         Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
                                         Text("添加第三方磁贴", modifier = Modifier.padding(start = 8.dp))

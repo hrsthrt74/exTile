@@ -1,0 +1,157 @@
+package com.hrsthrt74.qstile
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.dp
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import com.hrsthrt74.qstile.ui.blurBarColors
+import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
+import com.hrsthrt74.qstile.ui.screens.HomeScreen
+import com.hrsthrt74.qstile.ui.screens.SettingsScreen
+import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/**
+ * 导航路由封装类。
+ * 每个 Screen 定义展示文本（title）及底部导航图标（icon）。
+ */
+sealed class Screen(val title: String) {
+    @Composable abstract fun icon(): ImageVector
+    /** 主页 Tab — drawable/home_outlined */
+    data object Home : Screen("主页") {
+        @Composable override fun icon() = ImageVector.vectorResource(R.drawable.home_outlined)
+    }
+    /** 磁贴编辑 Tab — MIUIX Edit 图标 */
+    data object Config : Screen("编辑") {
+        @Composable override fun icon() = MiuixIcons.Edit
+    }
+    /** 设置 Tab — MIUIX Settings 图标 */
+    data object SettingPage : Screen("设置") {
+        @Composable override fun icon() = MiuixIcons.Settings
+    }
+
+    companion object {
+        val allPages = listOf(Home, Config, SettingPage)
+    }
+}
+
+/**
+ * 应用的 Compose 根组件（壳层）。
+ * 参考 Miuix 官方示例的层级结构：
+ * - 底部导航栏 [NavigationBar] 写在壳层，所有页面共享一份
+ * - 每个页面（[HomeScreen]/[TileConfigScreen]/[SettingsScreen]）自己再包一层 Scaffold + TopAppBar
+ * - 壳层创建 backdrop 捕获内容，导航栏通过 textureBlur 实现毛玻璃
+ *
+ * @param onRequestShizukuPermission Shizuku 权限请求的入口方法，接收一个结果回调
+ */
+@Composable
+fun MainApp(
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
+) {
+    val navigationEventDispatcherOwner = rememberNavigationEventDispatcherOwner(parent = null)
+
+    // 读取主题设置，获取模糊开关状态
+    val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(
+        androidx.compose.ui.platform.LocalContext.current
+    ).collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
+    val blurEnabled = themeSettings.enableBlur
+
+    // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
+    val backdrop = rememberLayerBackdrop()
+
+    // 模糊色彩配置（与顶部栏统一，见 PageUtils）
+    val navBarBlurColors = blurBarColors()
+
+    // 导航栏颜色：模糊开启时半透明（配合 textureBlur 的 enabled），关闭时回退纯色
+    val navBarColor = if (blurEnabled) {
+        MiuixTheme.colorScheme.surface.copy(alpha = 0.1f)
+    } else {
+        MiuixTheme.colorScheme.surface
+    }
+
+    // Pager 状态管理
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { Screen.allPages.size }
+    )
+    val mainPagerState = rememberMainPagerState(pagerState)
+
+    // 同步页面状态
+    LaunchedEffect(pagerState.currentPage) {
+        mainPagerState.syncPage()
+    }
+
+    CompositionLocalProvider(
+        LocalNavigationEventDispatcherOwner provides navigationEventDispatcherOwner
+    ) {
+        val haptic = LocalHapticFeedback.current
+        MiuixScaffold(
+            bottomBar = {
+                NavigationBar(
+                    modifier = Modifier.textureBlur(
+                        backdrop = backdrop,
+                        shape = RoundedCornerShape(0.dp),
+                        blurRadius = com.hrsthrt74.qstile.ui.AppBlurRadius,
+                        colors = navBarBlurColors,
+                        enabled = blurEnabled
+                    ),
+                    color = navBarColor,
+                    showDivider = true
+                ) {
+                    Screen.allPages.forEachIndexed { index, screen ->
+                        NavigationBarItem(
+                            selected = mainPagerState.selectedPage == index,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                mainPagerState.animateToPage(index)
+                            },
+                            icon = screen.icon(),
+                            label = screen.title
+                        )
+                    }
+                }
+            }
+        ) {
+            // 内容区域使用 HorizontalPager 实现横滑切换
+            HorizontalPager(
+                state = pagerState,
+                beyondViewportPageCount = Screen.allPages.size,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(backdrop)
+            ) { page ->
+                when (page) {
+                    0 -> HomeScreen(
+                        onRequestShizukuPermission = onRequestShizukuPermission
+                    )
+                    1 -> TileConfigScreen()
+                    2 -> SettingsScreen()
+                }
+            }
+        }
+    }
+}

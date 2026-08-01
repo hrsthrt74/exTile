@@ -13,7 +13,8 @@ data class ThemeSettings(
     val dayNightMode: Int = 0,
     val isDynamicColorMode: Boolean = false,
     val paletteStyle: Int = 0,
-    val colorSpec: Int = 1
+    val colorSpec: Int = 1,
+    val enableBlur: Boolean = true
 )
 
 object ThemeRepository {
@@ -21,6 +22,7 @@ object ThemeRepository {
     private val IS_DYNAMIC_COLOR_MODE = booleanPreferencesKey("is_dynamic_color_mode")
     private val PALETTE_STYLE = intPreferencesKey("palette_style")
     private val COLOR_SPEC = intPreferencesKey("color_spec")
+    private val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
 
     fun getThemeSettingsFlow(context: Context): Flow<ThemeSettings> {
         return context.dataStore.data.map { prefs ->
@@ -28,7 +30,8 @@ object ThemeRepository {
                 dayNightMode = prefs[DAY_NIGHT_MODE] ?: 0,
                 isDynamicColorMode = prefs[IS_DYNAMIC_COLOR_MODE] ?: false,
                 paletteStyle = prefs[PALETTE_STYLE] ?: 0,
-                colorSpec = prefs[COLOR_SPEC] ?: 1
+                colorSpec = prefs[COLOR_SPEC] ?: 1,
+                enableBlur = prefs[ENABLE_BLUR] ?: true
             )
         }
     }
@@ -58,6 +61,12 @@ object ThemeRepository {
     suspend fun saveColorSpec(context: Context, spec: Int) {
         context.dataStore.edit { prefs ->
             prefs[COLOR_SPEC] = spec
+        }
+    }
+
+    suspend fun saveEnableBlur(context: Context, enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[ENABLE_BLUR] = enabled
         }
     }
 }

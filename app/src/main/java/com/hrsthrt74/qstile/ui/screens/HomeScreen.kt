@@ -8,6 +8,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -47,6 +50,8 @@ import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
+import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -59,6 +64,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
@@ -78,6 +84,13 @@ fun HomeScreen(
     // 顶部栏滚动行为，标题会根据滚动折叠
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
+
+    // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
+    val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(context)
+        .collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     // ---- 状态声明 ----
     /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖） */
@@ -155,79 +168,87 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = "exTile",
-                largeTitle = "exTile",
-                scrollBehavior = scrollBehavior
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding() + 12.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = NavigationBarDefaults.ItemHeight +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-            )
-        ) {
-            // 权限状态卡片：按状态机展示引导文案和对应操作按钮
-            item {
-                PermissionStatusCard(
-                    status = permissionStatus,
-                    isLoading = isLoading,
-                    onInstallShizuku = {
-                        // 未安装 Shizuku：引导到 GitHub Releases 下载
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RikkaApps/Shizuku/releases"))
-                        )
-                    },
-                    onLaunchShizuku = {
-                        // 已安装未运行：引导打开 Shizuku 应用
-                        val launchIntent = context.packageManager
-                            .getLaunchIntentForPackage("moe.shizuku.privileged.api")
-                        if (launchIntent != null) {
-                            // 标记：用户从 Shizuku 返回后自动衔接请求授权
-                            autoRequestAfterResume = true
-                            context.startActivity(launchIntent)
-                        } else {
-                            Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    onRequestShizukuPermission = {
-                        // 请求 Shizuku 权限，授予后自动执行 pm grant
-                        requestShizukuPermission()
-                    },
-                    onAutoGrant = {
-                        // Shizuku 已授权，直接执行 pm grant
-                        scope.launch {
-                            val success = ShizukuHelper.grantWriteSecureSettings(context)
-                            if (success) {
-                                Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
-                            }
-                            refreshStatus()
-                        }
-                    },
-                    onShowAdbGuide = { showAdbGuide = true }
+            BlurredBar(backdrop, blurActive) {
+                TopAppBar(
+                    title = "exTile",
+                    largeTitle = "exTile",
+                    color = barColor,
+                    scrollBehavior = scrollBehavior
                 )
             }
-
-            // 间距
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-
-            // 当前状态卡片：展示展开/收起状态及磁贴数量
-            item {
-                CurrentStatusCard(
-                    isExpanded = config.isExpanded,
-                    expandedTilesCount = config.expandedTiles.size,
-                    collapsedTilesCount = config.collapsedTiles.size,
-                    currentTilesCount = currentTilesCount
+        }
+    ) { paddingValues ->
+        // 滚动内容挂载 backdrop，供顶部栏模糊捕获
+        Box(
+            modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    top = paddingValues.calculateTopPadding() + 12.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = NavigationBarDefaults.ItemHeight +
+                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
                 )
+            ) {
+                // 权限状态卡片：按状态机展示引导文案和对应操作按钮
+                item {
+                    PermissionStatusCard(
+                        status = permissionStatus,
+                        isLoading = isLoading,
+                        onInstallShizuku = {
+                            // 未安装 Shizuku：引导到 GitHub Releases 下载
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RikkaApps/Shizuku/releases"))
+                            )
+                        },
+                        onLaunchShizuku = {
+                            // 已安装未运行：引导打开 Shizuku 应用
+                            val launchIntent = context.packageManager
+                                .getLaunchIntentForPackage("moe.shizuku.privileged.api")
+                            if (launchIntent != null) {
+                                // 标记：用户从 Shizuku 返回后自动衔接请求授权
+                                autoRequestAfterResume = true
+                                context.startActivity(launchIntent)
+                            } else {
+                                Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onRequestShizukuPermission = {
+                            // 请求 Shizuku 权限，授予后自动执行 pm grant
+                            requestShizukuPermission()
+                        },
+                        onAutoGrant = {
+                            // Shizuku 已授权，直接执行 pm grant
+                            scope.launch {
+                                val success = ShizukuHelper.grantWriteSecureSettings(context)
+                                if (success) {
+                                    Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
+                                }
+                                refreshStatus()
+                            }
+                        },
+                        onShowAdbGuide = { showAdbGuide = true }
+                    )
+                }
+
+                // 间距
+                item { Spacer(modifier = Modifier.height(12.dp)) }
+
+                // 当前状态卡片：展示展开/收起状态及磁贴数量
+                item {
+                    CurrentStatusCard(
+                        isExpanded = config.isExpanded,
+                        expandedTilesCount = config.expandedTiles.size,
+                        collapsedTilesCount = config.collapsedTiles.size,
+                        currentTilesCount = currentTilesCount
+                    )
+                }
             }
         }
     }
