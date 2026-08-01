@@ -209,6 +209,13 @@ fun TileConfigScreen() {
         return null
     }
 
+    // 获取 custom 磁贴的显示名与应用名（缓存避免重复查询）
+    @Composable
+    fun rememberCustomTileNames(tile: String): Pair<String, String>? {
+        if (!tile.startsWith("custom(")) return null
+        return remember(tile) { TileMapping.getCustomTileNames(context, tile) }
+    }
+
     Scaffold(
             topBar = {
                 // 顶部栏模糊：效果不佳，故禁用（原 BlurredBar(backdrop, blurActive) 包裹）
@@ -545,16 +552,19 @@ fun TileConfigScreen() {
 
                                     Spacer(modifier = Modifier.height(8.dp))
 
+                                    // 第一行：磁贴显示名（第三方磁贴显示其 label，而非包名后缀）
                                     Text(
-                                        text = TileMapping.getDisplayName(tile),
+                                        text = rememberCustomTileNames(tile)?.first
+                                            ?: TileMapping.getDisplayName(tile),
                                         style = MiuixTheme.textStyles.body2,
                                         maxLines = 2,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     )
 
+                                    // 第二行：系统磁贴显示 value；第三方磁贴显示应用名
                                     Text(
-                                        text = tile,
+                                        text = rememberCustomTileNames(tile)?.second ?: tile,
                                         style = MiuixTheme.textStyles.footnote2,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                         maxLines = 2,

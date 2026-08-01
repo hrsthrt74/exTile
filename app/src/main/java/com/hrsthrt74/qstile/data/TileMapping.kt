@@ -225,6 +225,43 @@ object TileMapping {
     }
 
     /**
+     * 获取 custom 磁贴的显示名与应用名。
+     * 第一行应显示磁贴显示名（label），第二行应显示应用名（appName），
+     * 而不是原始的 "custom(包名/类名)" 字符串。
+     * @param context Context
+     * @param value 磁贴值，格式为 "custom(包名/类名)"
+     * @return Pair(显示名, 应用名)，无法解析时返回 null
+     */
+    fun getCustomTileNames(context: Context, value: String): Pair<String, String>? {
+        val component = parseCustomComponent(value) ?: return null
+        val pm = context.packageManager
+        return try {
+            val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
+            val label = try {
+                serviceInfo.loadLabel(pm).toString()
+            } catch (_: Exception) {
+                null
+            }
+            val appName = try {
+                pm.getApplicationLabel(serviceInfo.applicationInfo).toString()
+            } catch (_: Exception) {
+                null
+            }
+            // 任一字段成功即返回，失败的字段用包名/类名兜底
+            if (label != null || appName != null) {
+                Pair(
+                    label ?: component.className.substringAfterLast('.'),
+                    appName ?: component.packageName.substringAfterLast('.')
+                )
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * 获取所有可用的 Quick Settings Tile 服务
      * @param context Context
      * @return List<Triple<包名, 类名, 显示名称>>
