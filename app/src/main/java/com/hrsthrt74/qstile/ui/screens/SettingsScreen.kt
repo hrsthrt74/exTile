@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpSize
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
@@ -62,12 +64,15 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -146,6 +151,8 @@ fun SettingsScreen() {
     var showAppPickerSheet by remember { mutableStateOf(false) }
     // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
     var launchableApps by remember { mutableStateOf<List<LaunchableApp>?>(null) }
+    // 应用选择器的搜索关键字：同时匹配应用名和包名
+    var appSearchQuery by remember { mutableStateOf("") }
 
     var showSystemTilesSheet by remember { mutableStateOf(false) }
     var showBackupSheet by remember { mutableStateOf(false) }
@@ -278,7 +285,7 @@ fun SettingsScreen() {
                 ) {
                     WindowSpinnerPreference(
                         title = "长按 exTile 磁贴行为",
-                        summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
+                        // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
                         items = longPressBehaviorOptions,
                         selectedIndex = longPressBehavior,
                         onSelectedIndexChange = { index ->
@@ -290,7 +297,10 @@ fun SettingsScreen() {
                     )
 
                     // 仅当选择了「跳转到自定义应用」时显示应用选择入口
-                    if (longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP) {
+                    // 使用 AnimatedVisibility 实现平滑的展开/收起动画
+                    AnimatedVisibility(
+                        visible = longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
+                    ) {
                         ArrowPreference(
                             title = "自定义应用",
                             summary = customAppLabel,
@@ -658,16 +668,64 @@ fun SettingsScreen() {
                 )
             }
             else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                    contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
+                val filteredApps = remember(apps, appSearchQuery) {
+                    val query = appSearchQuery.trim()
+                    if (query.isEmpty()) {
+                        apps
+                    } else {
+                        apps.filter {
+                            it.label.contains(query, ignoreCase = true) ||
+                                it.packageName.contains(query, ignoreCase = true)
+                        }
+                    }
+                }
+                // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）+ 结果列表
+                // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
+                SearchBar(
+                    expanded = true,
+                    onExpandedChange = {},
+                    insideMargin = DpSize(0.dp, 0.dp),
+                    inputField = {
+                        InputField(
+                            query = appSearchQuery,
+                            onQueryChange = { appSearchQuery = it },
+                            onSearch = {},
+                            expanded = false,
+                            onExpandedChange = {},
+                            label = "搜索",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(apps, key = { it.packageName }) { app ->
-                        Row(
+                    // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (filteredApps.isEmpty()) {
+                        // 搜索无结果提示
+                        Text(
+                            text = "没有匹配的应用",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(vertical = 24.dp)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                            contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                        ) {
+                            items(filteredApps, key = { it.packageName }) { app ->
+                        // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     customAppPackage = app.packageName
@@ -675,40 +733,47 @@ fun SettingsScreen() {
                                         ConfigRepository.saveLongPressCustomApp(context, app.packageName)
                                     }
                                     showAppPickerSheet = false
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                },
+                            insideMargin = PaddingValues(16.dp),
+                            colors = CardDefaults.defaultColors(
+                                color = MiuixTheme.colorScheme.secondaryContainer
+                            )
                         ) {
-                            // 应用图标
-                            val icon = app.icon
-                            if (icon != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 应用图标
+                                val icon = app.icon
                                 val bitmap = remember(icon) { icon.toBitmap() }
                                 Icon(
                                     painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
                                     contentDescription = app.label,
                                     tint = Color.Unspecified,
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(48.dp)
                                 )
-                            }
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
-                            Column {
-                                Text(
-                                    text = app.label,
-                                    style = MiuixTheme.textStyles.body1
-                                )
-                                Text(
-                                    text = app.packageName,
-                                    style = MiuixTheme.textStyles.footnote2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
+                                Column {
+                                    Text(
+                                        text = app.label,
+                                        style = MiuixTheme.textStyles.body1
+                                    )
+                                    Text(
+                                        text = app.packageName,
+                                        style = MiuixTheme.textStyles.footnote2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        }
+    }
     }
 }
 
