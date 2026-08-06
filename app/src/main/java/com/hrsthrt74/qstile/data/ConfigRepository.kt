@@ -20,6 +20,8 @@ object ConfigRepository {
     private val IS_EXPANDED = booleanPreferencesKey("is_expanded")
     private val LONG_PRESS_BEHAVIOR = intPreferencesKey("long_press_behavior")
     private val LONG_PRESS_CUSTOM_APP = stringPreferencesKey("long_press_custom_app")
+    private val WORDLESS_MODE_SYNC = booleanPreferencesKey("wordless_mode_sync")
+    private val SMART_DEVICE_CONTROL_SYNC = booleanPreferencesKey("smart_device_control_sync")
 
     private val DEFAULT_EXPANDED = listOf("wifi", "bt", "cell", "airplane", "flashlight", "hotspot")
     private val DEFAULT_COLLAPSED = listOf("wifi", "bt", "cell")
@@ -117,5 +119,49 @@ object ConfigRepository {
         val newIsExpanded = !config.isExpanded
         saveIsExpanded(context, newIsExpanded)
         return newIsExpanded
+    }
+
+    /**
+     * 获取「展开收起同时控制无字模式」开关状态
+     * @param context Context
+     * @return 是否启用：启用后展开/收起「通用」分类会同步写入 secure settings 的 wordless_mode
+     */
+    suspend fun getWordlessModeSync(context: Context): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[WORDLESS_MODE_SYNC] ?: false
+        }.first()
+    }
+
+    /**
+     * 保存「展开收起同时控制无字模式」开关状态
+     * @param context Context
+     * @param enabled 是否启用
+     */
+    suspend fun saveWordlessModeSync(context: Context, enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[WORDLESS_MODE_SYNC] = enabled
+        }
+    }
+
+    /**
+     * 获取「展开收起同时控制融合设备中心」开关状态
+     * @param context Context
+     * @return 是否启用：启用后磁贴展开/收起会同步写入 secure settings 的 smart_device_control
+     */
+    suspend fun getSmartDeviceControlSync(context: Context): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[SMART_DEVICE_CONTROL_SYNC] ?: false
+        }.first()
+    }
+
+    /**
+     * 保存「展开收起同时控制融合设备中心」开关状态
+     * @param context Context
+     * @param enabled 是否启用
+     */
+    suspend fun saveSmartDeviceControlSync(context: Context, enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SMART_DEVICE_CONTROL_SYNC] = enabled
+        }
     }
 }

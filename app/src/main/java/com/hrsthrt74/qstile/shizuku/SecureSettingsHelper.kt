@@ -196,4 +196,46 @@ object SecureSettingsHelper {
         val tilesString = tiles.joinToString(",")
         return setSysuiQsTiles(context, tilesString)
     }
+
+    /**
+     * 写入任意 Secure Settings 项（如小米 HyperOS 的 wordless_mode 无字模式）。
+     * 优先使用直接 API（应用持有 WRITE_SECURE_SETTINGS 时可用，Shizuku 完全可选），
+     * 权限不足抛 SecurityException 时兜底到 Shizuku UserService。
+     * @param key Secure Settings 项名
+     * @param value 写入的值（字符串形式）
+     * @return 是否写入成功
+     */
+    suspend fun putSecureSetting(context: Context, key: String, value: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // 1. 优先直接写入（需要 WRITE_SECURE_SETTINGS；已授权则直接成功，无需 Shizuku）
+            try {
+                val success = Settings.Secure.putString(context.contentResolver, key, value)
+                Log.d(TAG, "putSecureSetting($key) via API: $success")
+                if (success) {
+                    return@withContext true
+                }
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Direct write failed for $key, fallback to Shizuku")
+            }
+
+            // 2. 兜底：Shizuku 不可用时放弃
+            if (!ShizukuHelper.isShizukuRunning()) {
+                Log.w(TAG, "Shizuku is not running")
+                return@withContext false
+            }
+            // 确保服务已绑定
+            if (!ensureBound()) {
+                Log.w(TAG, "Shizuku service not bound")
+                return@withContext false
+            }
+
+            // 使用 Shizuku UserService 写入
+            val result = commandService?.executeCommand("settings put secure $key $value")
+            Log.d(TAG, "putSecureSetting($key) via UserService: $result")
+            result == null || !result.startsWith("ERROR")
+        } catch (e: Exception) {
+            Log.e(TAG, "putSecureSetting($key) failed", e)
+            false
+        }
+    }
 }

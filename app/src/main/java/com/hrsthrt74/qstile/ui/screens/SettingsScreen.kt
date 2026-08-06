@@ -197,6 +197,10 @@ fun SettingsScreen() {
     var importBackupJson by remember { mutableStateOf("") }
     // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
     var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
+    // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
+    var wordlessModeSync by remember { mutableStateOf(false) }
+    // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
+    var smartDeviceControlSync by remember { mutableStateOf(false) }
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -205,6 +209,8 @@ fun SettingsScreen() {
         currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
         longPressBehavior = ConfigRepository.getLongPressBehavior(context)
         customAppPackage = ConfigRepository.getLongPressCustomApp(context)
+        wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
+        smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
     }
 
     // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
@@ -340,6 +346,30 @@ fun SettingsScreen() {
                         }
                     }
                 ) {
+                    SwitchPreference(
+                        title = "展开收起同时控制无字模式",
+                        summary = "展开时同时展示文字",
+                        checked = wordlessModeSync,
+                        onCheckedChange = { enabled ->
+                            wordlessModeSync = enabled
+                            scope.launch {
+                                ConfigRepository.saveWordlessModeSync(context, enabled)
+                            }
+                        }
+                    )
+
+                    SwitchPreference(
+                        title = "展开收起同时控制融合设备中心",
+                        summary = "展开时同时展示融合设备中心",
+                        checked = smartDeviceControlSync,
+                        onCheckedChange = { enabled ->
+                            smartDeviceControlSync = enabled
+                            scope.launch {
+                                ConfigRepository.saveSmartDeviceControlSync(context, enabled)
+                            }
+                        }
+                    )
+
                     WindowSpinnerPreference(
                         title = "长按 exTile 磁贴行为",
                         // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",

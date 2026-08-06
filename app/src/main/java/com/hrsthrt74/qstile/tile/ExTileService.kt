@@ -40,6 +40,26 @@ class ExTileService : TileService() {
                 if (success) {
                     ConfigRepository.saveIsExpanded(this@ExTileService, newIsExpanded)
                     Log.d(TAG, "Toggled to ${if (newIsExpanded) "expanded" else "collapsed"}")
+
+                    // 「展开收起同时控制无字模式」：开启后，磁贴切换布局时同步 wordless_mode
+                    // 展开 → wordless_mode=0（显示文字），收起 → wordless_mode=1（无字模式）
+                    if (ConfigRepository.getWordlessModeSync(this@ExTileService)) {
+                        SecureSettingsHelper.putSecureSetting(
+                            this@ExTileService,
+                            "wordless_mode",
+                            if (newIsExpanded) "0" else "1"
+                        )
+                    }
+
+                    // 「展开收起同时控制融合设备中心」：开启后，磁贴切换布局时同步 smart_device_control
+                    // 展开 → smart_device_control=1，收起 → smart_device_control=0（与无字模式相反）
+                    if (ConfigRepository.getSmartDeviceControlSync(this@ExTileService)) {
+                        SecureSettingsHelper.putSecureSetting(
+                            this@ExTileService,
+                            "smart_device_control",
+                            if (newIsExpanded) "1" else "0"
+                        )
+                    }
                 } else {
                     Log.e(TAG, "Failed to set sysui_qs_tiles")
                 }
