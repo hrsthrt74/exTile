@@ -299,6 +299,9 @@ fun SettingsScreen() {
                             WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
                     )
                 ) {
+
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+
             // ===== 调试工具分类 =====
             // 点击直接跳转 DebugToolsActivity，不做展开
             item {
@@ -527,7 +530,7 @@ fun SettingsScreen() {
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
             }
         }
