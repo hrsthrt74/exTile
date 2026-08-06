@@ -7,12 +7,15 @@ import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,8 +25,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,9 +46,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +76,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.InputField
@@ -73,16 +84,23 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.extended.Background
+import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
+import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
@@ -93,6 +111,25 @@ private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
 private val longPressBehaviorLabels = listOf("跳转到 exTile", "跳转到系统设置", "跳转到自定义应用")
+
+/**
+ * 设置页可展开分类的标识。
+ * 用于手风琴互斥展开（同一时间仅一个分类展开，点击当前展开的分类则折叠）。
+ * 调试工具分类点击直接跳转 Activity，不参与展开，故不在枚举中。
+ */
+private enum class SettingsCategory {
+    /** 通用：磁贴行为设置 */
+    GENERAL,
+
+    /** 外观：主题设置 */
+    APPEARANCE,
+
+    /** 数据：备份 / 恢复 / 系统导入 */
+    DATA,
+
+    /** 关于：版本 / GitHub / 开源许可 */
+    ABOUT
+}
 
 /** 应用选择器数据模型：包名 + 显示名 + 图标 */
 private data class LaunchableApp(
@@ -159,6 +196,8 @@ fun SettingsScreen() {
     var showImportBackupSheet by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importBackupJson by remember { mutableStateOf("") }
+    // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
+    var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -240,31 +279,37 @@ fun SettingsScreen() {
         Box(
             modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
-            LazyColumn(
+            // 外层 Column 将卡片列表整体垂直居中：
+            // LazyColumn 用 weight(fill = false) 只占内容实际高度，内容不足一屏时居中，
+            // 展开后超出屏幕时自动受限并可正常滚动
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .scrollEndHaptic(
-                        hapticFeedbackType = HapticFeedbackType.TextHandleMove
-                    ),
-                contentPadding = PaddingValues(
-                    top = paddingValues.calculateTopPadding(),
-                    bottom = NavigationBarDefaults.ItemHeight +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-                )
+                    .padding(top = paddingValues.calculateTopPadding()),
+                verticalArrangement = Arrangement.Center
             ) {
-            // ===== 调试工具板块 =====
-            item {
-                SmallTitle(text = "调试工具")
-            }
-
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                        .scrollEndHaptic(
+                            hapticFeedbackType = HapticFeedbackType.TextHandleMove
+                        ),
+                    contentPadding = PaddingValues(
+                        bottom = NavigationBarDefaults.ItemHeight +
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                    )
+                ) {
+            // ===== 调试工具分类 =====
+            // 点击直接跳转 DebugToolsActivity，不做展开
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 ) {
                     ArrowPreference(
                         title = "调试工具",
-                        summary = "查看详细调试信息和执行调试操作",
+                        // summary = "查看详细调试信息和执行调试操作",
+                        startAction = { CategoryIcon(icon = MiuixIcons.Settings) },
                         onClick = {
                             context.startActivity(Intent(context, DebugToolsActivity::class.java))
                         }
@@ -274,14 +319,20 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // ===== 磁贴行为板块 =====
+            // ===== 通用分类：磁贴行为设置 =====
             item {
-                SmallTitle(text = "磁贴行为")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ExpandableSettingsCard(
+                    title = "通用",
+                    icon = MiuixIcons.Tune,
+                    expanded = expandedCategory == SettingsCategory.GENERAL,
+                    onToggle = {
+                        // 手风琴互斥：点击当前展开的分类则折叠，否则切换展开
+                        expandedCategory = if (expandedCategory == SettingsCategory.GENERAL) {
+                            null
+                        } else {
+                            SettingsCategory.GENERAL
+                        }
+                    }
                 ) {
                     WindowSpinnerPreference(
                         title = "长按 exTile 磁贴行为",
@@ -312,14 +363,19 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // ===== 主题设置板块 =====
+            // ===== 外观分类：主题设置 =====
             item {
-                SmallTitle(text = "主题")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ExpandableSettingsCard(
+                    title = "外观",
+                    icon = MiuixIcons.Background,
+                    expanded = expandedCategory == SettingsCategory.APPEARANCE,
+                    onToggle = {
+                        expandedCategory = if (expandedCategory == SettingsCategory.APPEARANCE) {
+                            null
+                        } else {
+                            SettingsCategory.APPEARANCE
+                        }
+                    }
                 ) {
                     WindowSpinnerPreference(
                         title = "配色模式",
@@ -382,14 +438,19 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // ===== 备份与恢复板块 =====
+            // ===== 数据分类：备份 / 恢复 / 系统导入（合并原两个板块） =====
             item {
-                SmallTitle(text = "备份与恢复")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ExpandableSettingsCard(
+                    title = "数据",
+                    icon = MiuixIcons.Backup,
+                    expanded = expandedCategory == SettingsCategory.DATA,
+                    onToggle = {
+                        expandedCategory = if (expandedCategory == SettingsCategory.DATA) {
+                            null
+                        } else {
+                            SettingsCategory.DATA
+                        }
+                    }
                 ) {
                     ArrowPreference(
                         title = "查看系统磁贴配置",
@@ -414,20 +475,7 @@ fun SettingsScreen() {
                             showImportBackupSheet = true
                         }
                     )
-                }
-            }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            // ===== 系统导入板块 =====
-            item {
-                SmallTitle(text = "数据导入")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {
                     ArrowPreference(
                         title = "从系统导入磁贴",
                         summary = "将当前系统磁贴配置保存为展开状态",
@@ -438,14 +486,19 @@ fun SettingsScreen() {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // ===== 关于板块 =====
+            // ===== 关于分类 =====
             item {
-                SmallTitle(text = "关于")
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                ExpandableSettingsCard(
+                    title = "关于",
+                    icon = MiuixIcons.Info,
+                    expanded = expandedCategory == SettingsCategory.ABOUT,
+                    onToggle = {
+                        expandedCategory = if (expandedCategory == SettingsCategory.ABOUT) {
+                            null
+                        } else {
+                            SettingsCategory.ABOUT
+                        }
+                    }
                 ) {
                     ArrowPreference(
                         title = "版本",
@@ -476,6 +529,7 @@ fun SettingsScreen() {
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+                }
             }
         }
     }
@@ -799,5 +853,100 @@ private fun DebugInfoRow(label: String, value: String) {
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurface
         )
+    }
+}
+
+/**
+ * 分类图标：圆角矩形背景（primary）+ 图标（onPrimary），用于分类标题行左侧。
+ * @param icon 图标
+ */
+@Composable
+private fun CategoryIcon(icon: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            // .clip(RoundedCornerShape(8.dp))
+            .squircleClip(cornerRadius = 8.dp)
+            .background(MiuixTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MiuixTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+/**
+ * 可展开的设置分类卡片。
+ * 点击标题行在展开/收起之间切换，内容使用 AnimatedVisibility 平滑展开/收起。
+ * 标题行左侧为分类图标（[CategoryIcon]），右侧箭头图标随展开状态旋转
+ * （收起时指向右，展开时指向下）。
+ * @param title 分类标题
+ * @param icon 分类图标
+ * @param expanded 是否处于展开状态
+ * @param onToggle 点击标题行时的回调（切换展开状态）
+ * @param content 展开后展示的设置项内容
+ */
+@Composable
+private fun ExpandableSettingsCard(
+    title: String,
+    icon: ImageVector,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    // 箭头旋转动画：展开时旋转 90°（指向下），收起时回到 0°（指向右）
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "expandArrowRotation"
+    )
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+    ) {
+        // 标题行：布局样式对齐 Miuix Preference（headline1 字号 + Medium 字重 + 16dp 内边距）
+        // 点击时触发触觉反馈（LongPress 震动）并切换展开状态
+        val haptic = LocalHapticFeedback.current
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggle()
+                }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 分类图标
+            CategoryIcon(icon = icon)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            // 展开/收起箭头图标，与 Preference 的箭头样式保持一致（10x16dp）
+            Icon(
+                imageVector = MiuixIcons.Basic.ArrowRight,
+                contentDescription = if (expanded) "收起" else "展开",
+                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                modifier = Modifier
+                    .size(width = 10.dp, height = 16.dp)
+                    .rotate(arrowRotation)
+            )
+        }
+        // 展开内容：与标题行之间用分隔线隔开，动画复用 AnimatedVisibility 默认展开/收起动画
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                HorizontalDivider()
+                content()
+            }
+        }
     }
 }
