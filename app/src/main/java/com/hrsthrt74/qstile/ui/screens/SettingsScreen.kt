@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -540,7 +539,6 @@ fun SettingsScreen() {
         title = "系统磁贴配置",
         onDismissRequest = { showSystemTilesSheet = false }
     ) {
-        BackHandler { showSystemTilesSheet = false }
         Text(
             text = currentSysuiTiles.ifEmpty { "无数据" },
             style = MiuixTheme.textStyles.body2,
@@ -554,7 +552,6 @@ fun SettingsScreen() {
         title = "备份数据",
         onDismissRequest = { showBackupSheet = false }
     ) {
-        BackHandler { showBackupSheet = false }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -595,10 +592,6 @@ fun SettingsScreen() {
             importBackupJson = ""
         }
     ) {
-        BackHandler {
-            showImportBackupSheet = false
-            importBackupJson = ""
-        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -646,8 +639,6 @@ fun SettingsScreen() {
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        BackHandler { showImportDialog = false }
-
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
@@ -684,8 +675,6 @@ fun SettingsScreen() {
         title = "选择应用",
         onDismissRequest = { showAppPickerSheet = false }
     ) {
-        BackHandler { showAppPickerSheet = false }
-
         val haptic = LocalHapticFeedback.current
         // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
         val apps = launchableApps

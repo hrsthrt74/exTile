@@ -5,7 +5,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,8 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
-import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import com.hrsthrt74.qstile.ui.blurBarColors
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
@@ -72,8 +69,6 @@ sealed class Screen(val title: String) {
 fun MainApp(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
-    val navigationEventDispatcherOwner = rememberNavigationEventDispatcherOwner(parent = null)
-
     // 读取主题设置，获取模糊开关状态
     val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(
         androidx.compose.ui.platform.LocalContext.current
@@ -105,52 +100,50 @@ fun MainApp(
         mainPagerState.syncPage()
     }
 
-    CompositionLocalProvider(
-        LocalNavigationEventDispatcherOwner provides navigationEventDispatcherOwner
-    ) {
-        val haptic = LocalHapticFeedback.current
-        MiuixScaffold(
-            bottomBar = {
-                NavigationBar(
-                    modifier = Modifier.textureBlur(
-                        backdrop = backdrop,
-                        shape = RoundedCornerShape(0.dp),
-                        blurRadius = com.hrsthrt74.qstile.ui.AppBlurRadius,
-                        colors = navBarBlurColors,
-                        enabled = blurEnabled
-                    ),
-                    color = navBarColor,
-                    showDivider = true
-                ) {
-                    Screen.allPages.forEachIndexed { index, screen ->
-                        NavigationBarItem(
-                            selected = mainPagerState.selectedPage == index,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                mainPagerState.animateToPage(index)
-                            },
-                            icon = screen.icon(),
-                            label = screen.title
-                        )
-                    }
+    // 导航事件 dispatcher 由 ComponentActivity 自动提供（activity 1.13+），
+    // 无需手动注入；miuix 弹窗组件内部已注册 NavigationBackHandler（预测式返回）
+    val haptic = LocalHapticFeedback.current
+    MiuixScaffold(
+        bottomBar = {
+            NavigationBar(
+                modifier = Modifier.textureBlur(
+                    backdrop = backdrop,
+                    shape = RoundedCornerShape(0.dp),
+                    blurRadius = com.hrsthrt74.qstile.ui.AppBlurRadius,
+                    colors = navBarBlurColors,
+                    enabled = blurEnabled
+                ),
+                color = navBarColor,
+                showDivider = true
+            ) {
+                Screen.allPages.forEachIndexed { index, screen ->
+                    NavigationBarItem(
+                        selected = mainPagerState.selectedPage == index,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            mainPagerState.animateToPage(index)
+                        },
+                        icon = screen.icon(),
+                        label = screen.title
+                    )
                 }
             }
-        ) {
-            // 内容区域使用 HorizontalPager 实现横滑切换
-            HorizontalPager(
-                state = pagerState,
-                beyondViewportPageCount = Screen.allPages.size,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .layerBackdrop(backdrop)
-            ) { page ->
-                when (page) {
-                    0 -> HomeScreen(
-                        onRequestShizukuPermission = onRequestShizukuPermission
-                    )
-                    1 -> TileConfigScreen()
-                    2 -> SettingsScreen()
-                }
+        }
+    ) {
+        // 内容区域使用 HorizontalPager 实现横滑切换
+        HorizontalPager(
+            state = pagerState,
+            beyondViewportPageCount = Screen.allPages.size,
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
+        ) { page ->
+            when (page) {
+                0 -> HomeScreen(
+                    onRequestShizukuPermission = onRequestShizukuPermission
+                )
+                1 -> TileConfigScreen()
+                2 -> SettingsScreen()
             }
         }
     }

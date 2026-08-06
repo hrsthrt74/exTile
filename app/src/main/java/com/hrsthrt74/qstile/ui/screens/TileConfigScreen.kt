@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
 import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -465,7 +464,6 @@ fun TileConfigScreen() {
                                                 ),
                                                 onDismissRequest = { showTileMenu = false }
                                             ) {
-                                                BackHandler { showTileMenu = false }
                                                 ListPopupColumn {
                                                     // 磁贴名称（不可点击）
                                                     DropdownImpl(
@@ -642,8 +640,6 @@ fun TileConfigScreen() {
             title = if (selectedTabIndex == 0) "添加展开磁贴" else "添加收起磁贴",
             onDismissRequest = { showAddSheet = false }
         ) {
-            BackHandler { showAddSheet = false }
-
             val currentTiles = if (selectedTabIndex == 0) {
                 config.expandedTiles
             } else {
@@ -760,11 +756,6 @@ fun TileConfigScreen() {
                 customTileValue = ""
             }
         ) {
-            BackHandler {
-                showCustomSheet = false
-                customTileValue = ""
-            }
-
             // 检查是否有 QUERY_ALL_PACKAGES 权限
             val hasQueryPermission = remember {
                 ContextCompat.checkSelfPermission(
@@ -1026,9 +1017,6 @@ private fun ConfigConfirmDialog(
     ) {
         // miuix 居然没这个间距，没了看起来很奇怪哎
         Spacer(modifier = Modifier.height(8.dp))
-
-        // 返回键视为取消
-        BackHandler { onDismissRequest() }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),

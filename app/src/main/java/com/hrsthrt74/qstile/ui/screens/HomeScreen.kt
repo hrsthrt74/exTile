@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -263,8 +262,6 @@ fun HomeScreen(
         onDismissRequest = { showAdbGuide = false }
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-
-        BackHandler { showAdbGuide = false }
 
         Column {
             Text(

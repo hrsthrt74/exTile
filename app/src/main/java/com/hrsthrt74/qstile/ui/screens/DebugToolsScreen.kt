@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -381,8 +380,6 @@ fun DebugToolsScreen() {
         title = "添加磁贴到末尾",
         onDismissRequest = { showAddTileSheet = false }
     ) {
-        BackHandler { showAddTileSheet = false }
-
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
         if (availableTiles.isEmpty()) {
@@ -514,11 +511,6 @@ fun DebugToolsScreen() {
             customTileInput = ""
         }
     ) {
-        BackHandler {
-            showAddCustomTileSheet = false
-            customTileInput = ""
-        }
-
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
         Column(
