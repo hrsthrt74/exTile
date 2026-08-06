@@ -305,11 +305,15 @@ fun SettingsScreen() {
             // ===== 调试工具分类 =====
             // 点击直接跳转 DebugToolsActivity，不做展开
             item {
+                // 固定卡片：只有一个状态，背景不透明度固定 0.45（与可展开分类收起的 0.45 保持一致）
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.45f)
+                    )
                 ) {
                     ArrowPreference(
-                        title = "调试工具",
+                        title = " 调试工具",
                         // summary = "查看详细调试信息和执行调试操作",
                         startAction = { CategoryIcon(icon = MiuixIcons.Settings) },
                         onClick = {
@@ -905,8 +909,17 @@ private fun ExpandableSettingsCard(
         animationSpec = tween(durationMillis = 200),
         label = "expandArrowRotation"
     )
+    // 卡片背景不透明度动画：收起时 0.45，展开时 1（颜色 token 不变，仅不透明度变化）
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (expanded) 1f else 0.45f,
+        animationSpec = tween(durationMillis = 200),
+        label = "expandCardAlpha"
+    )
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = cardAlpha)
+        )
     ) {
         // 标题行：布局样式对齐 Miuix Preference（headline1 字号 + Medium 字重 + 16dp 内边距）
         // 点击时触发触觉反馈（LongPress 震动）并切换展开状态
