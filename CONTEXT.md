@@ -149,6 +149,7 @@ exTile/
 | Compose BOM | 2026.02.01 |
 | Navigation Compose | 2.8.5 |
 | NavigationEvent Compose | 1.1.2 |
+| Activity Compose | 1.13.0 |
 | DataStore Preferences | 1.0.0 |
 | Shizuku API | 13.1.5 |
 | Shizuku Provider | 13.1.5 |
@@ -162,13 +163,14 @@ exTile/
 
 ## UI 设计规范
 
-- **导航**：使用 `HorizontalPager` + `MainPagerState` 实现横滑切换主页/编辑/设置，底部 `NavigationBar` 控制三个页面路由并联动。通过 `CompositionLocalProvider` + `rememberNavigationEventDispatcherOwner` 注入 navigation event dispatcher，供 MIUIX Overlay 组件使用
+- **导航**：使用 `HorizontalPager` + `MainPagerState` 实现横滑切换主页/编辑/设置，底部 `NavigationBar` 控制三个页面路由并联动。navigation event dispatcher 由 `ComponentActivity` 自动提供（activity 1.13+，`enableOnBackInvokedCallback="true"`），**不要**再手动 `rememberNavigationEventDispatcherOwner` 注入（root dispatcher 无 input，会覆盖 Activity 自动 dispatcher、导致返回不响应）
 - **横滑动画**：使用三次贝塞尔曲线 `CubicBezierEasing(0.25, 0.1, 0.25, 1.0)`，350ms 时长，iOS 风格手感
 - **页面保留**：`HorizontalPager` 设置 `beyondViewportPageCount = Screen.allPages.size`，保留所有页面状态，避免重新加载
 - **导航栏模糊**：`rememberLayerBackdrop()` + `Modifier.layerBackdrop(backdrop)` 在 HorizontalPager 捕获内容，`Modifier.textureBlur(backdrop, ...)` 在 NavigationBar 上应用毛玻璃效果；底部 padding 只保留 `calculateTopPadding()`，让内容延伸到导航栏背后供模糊捕获
 - **子页面导航**：开源许可、调试工具等子页面使用独立 Activity，通过 `Intent` 跳转，有系统默认转场动画；独立 Activity 需要提供 `LocalNavigationEventDispatcherOwner`
 - **设置页**：卡片式分类结构（调试工具 / 通用 / 外观 / 数据 / 关于），使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口。「调试工具」为 `ArrowPreference`（含 `startAction` 图标）直接跳转 Activity；其余 4 个分类用 `ExpandableSettingsCard` 实现手风琴互斥展开（`SettingsCategory` 枚举 + `expandedCategory` 状态，点击当前展开的分类则全部折叠），内容用 `AnimatedVisibility` 平滑展开/收起；标题行含 `CategoryIcon`（primary 背景 `squircleClip` 圆角矩形 + onPrimary 图标）、headline1 字号标题、随展开状态旋转 90° 的 `MiuixIcons.Basic.ArrowRight` 箭头（`animateFloatAsState`）；点击标题行有 `HapticFeedbackType.LongPress` 震动；标题行与内容用 `HorizontalDivider` 分隔。分类图标：调试 Settings / 通用 Tune / 外观 Background / 数据 Backup / 关于 Info；卡片列表整体垂直居中（外层 `Column` + `verticalArrangement = Arrangement.Center` + LazyColumn `weight(1f, fill = false)`，内容超高时自动受限并恢复滚动）
-- **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；返回事件需在内容内部添加 `BackHandler`；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
+- **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
+- **预测式返回（Predictive Back）**：miuix 0.9.3 的 `BottomSheetContentLayout`/`DialogContentLayout`/`ListPopupLayout`/`SearchBar` 等组件**已内置** `NavigationBackHandler`（跟手下滑 + 遮罩淡出 + 取消回弹），应用层只需 `activity-compose 1.13.0` + Manifest `<application android:enableOnBackInvokedCallback="true">`，**不要**手动注册任何 BackHandler（会抢占内置实现、导致无跟手动画）。Activity 间转场动画由系统自动处理；手写 `PredictiveBackDismiss` 方案已弃用并删除
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
 - **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴支持 `TooltipBox` 提示（无箭头）
 - **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支；custom 磁贴通过 `getCustomTileIcon()` 获取其他应用图标
@@ -177,6 +179,7 @@ exTile/
 - **添加第三方磁贴**：使用 `getAllQSTileServicesWithIcon()` 一次 `queryIntentServices` 批量取回全部 QS Tile 服务的 label/应用名/图标（避免渲染时逐个 `getCustomTileIcon` 反复全量扫描导致卡顿）；在 `Dispatchers.IO` 后台加载并缓存，加载态显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」并用 `fillMaxHeight` 撑满防高度突变；网格 item 用 `key = 包名/类名` 复用；图标统一 `tint = primary`（第三方图标多为白色单色，浅色模式下不可用 `Color.Unspecified` 保留原色）
 - **加载状态**：涉及异步操作（如 Shizuku 服务绑定、权限检查）的 UI 需要添加加载状态，使用 `isLoading` 变量控制显示"加载中..."，避免状态闪烁
 - **长按行为**：设置页「通用」分类使用 `WindowSpinnerPreference` 选择长按行为；选择「跳转自定义应用」时显示 `ArrowPreference` 进入应用选择器；应用选择器 Sheet 的应用列表在 `Dispatchers.IO` 后台加载（缓存，避免重复查询），加载中显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」文本并用 `fillMaxHeight` 撑满避免 sheet 高度突变；应用列表行不加左右边距（Sheet 自带边距）
+- **磁贴切换联动设置**：设置页「通用」分类两个 `SwitchPreference`「展开收起同时控制无字模式」/「展开收起同时控制融合设备中心」，仅持久化开关状态（DataStore key `wordless_mode_sync` / `smart_device_control_sync`）；实际写入在 `ExTileService.onClick` 切换磁贴展开/收起布局成功后，开启时通过 `SecureSettingsHelper.putSecureSetting` 写入 secure settings。注意两个 key 映射**相反**：wordless_mode 展开→0 / 收起→1；smart_device_control 展开→1 / 收起→0
 - **主页权限卡片**：按 `PermissionStatus` 状态机渲染引导文案和按钮（安装 Shizuku / 启动 Shizuku / 授予权限 / 自动授权 / 重试）；未授权标题显示「未获得必须权限」；始终提供「使用 adb 手动授权」入口，弹窗含「复制命令」按钮；通过 `DisposableEffect` + `LifecycleEventObserver` 监听 `ON_RESUME` 自动刷新权限状态，从「启动 Shizuku」跳转返回时自动衔接请求授权（`autoRequestAfterResume` 标记，避免反复弹窗）
 
 ---
