@@ -57,6 +57,8 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
+import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -75,7 +77,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 fun DebugToolsScreen() {
@@ -92,8 +93,9 @@ fun DebugToolsScreen() {
     var hasWriteSecureSettings by remember { mutableStateOf(false) }
     var hasQueryAllPackages by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
-    var showAddTileSheet by remember { mutableStateOf(false) }
-    var showAddCustomTileSheet by remember { mutableStateOf(false) }
+    // 添加磁贴 / 添加自定义磁贴 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val addTileSheetState = rememberSheetState()
+    val addCustomTileSheetState = rememberSheetState()
     var customTileInput by remember { mutableStateOf("") }
 
     // 获取可用的系统磁贴（排除已添加的和第三方磁贴）
@@ -196,7 +198,7 @@ fun DebugToolsScreen() {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Button(
-                            onClick = { showAddTileSheet = true },
+                            onClick = { addTileSheetState.show() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("添加磁贴到末尾")
@@ -207,7 +209,7 @@ fun DebugToolsScreen() {
                         Button(
                             onClick = {
                                 customTileInput = ""
-                                showAddCustomTileSheet = true
+                                addCustomTileSheetState.show()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -375,10 +377,9 @@ fun DebugToolsScreen() {
     }
 
     // 添加磁贴到末尾的 Sheet
-    WindowBottomSheet(
-        show = showAddTileSheet,
+    AppBottomSheet(
+        state = addTileSheetState,
         title = "添加磁贴到末尾",
-        onDismissRequest = { showAddTileSheet = false }
     ) {
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -455,7 +456,7 @@ fun DebugToolsScreen() {
                                                 val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
                                                 if (success) {
                                                     Toast.makeText(context, "已添加 ${tile.displayName}", Toast.LENGTH_SHORT).show()
-                                                    showAddTileSheet = false
+                                                    addTileSheetState.dismiss()
                                                     refreshDebugInfo()
                                                 } else {
                                                     Toast.makeText(context, "添加失败", Toast.LENGTH_SHORT).show()
@@ -503,13 +504,11 @@ fun DebugToolsScreen() {
     }
 
     // 添加自定义磁贴到末尾的 Sheet：输入任意磁贴值（wifi/bt 或 custom(包名/类名) 等），不做校验
-    WindowBottomSheet(
-        show = showAddCustomTileSheet,
+    AppBottomSheet(
+        state = addCustomTileSheetState,
         title = "添加自定义磁贴到末尾",
-        onDismissRequest = {
-            showAddCustomTileSheet = false
-            customTileInput = ""
-        }
+        // 关闭动画完成后清空上次输入的磁贴值，避免下次打开残留
+        onDismissed = { customTileInput = "" },
     ) {
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -556,7 +555,7 @@ fun DebugToolsScreen() {
                             val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
                             if (success) {
                                 Toast.makeText(context, "已添加 $value", Toast.LENGTH_SHORT).show()
-                                showAddCustomTileSheet = false
+                                addCustomTileSheetState.dismiss()
                                 customTileInput = ""
                                 refreshDebugInfo()
                             } else {

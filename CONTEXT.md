@@ -55,8 +55,10 @@ exTile/
             │   │   ├── ShizukuHelper.kt     # Shizuku 状态/权限辅助
             │   │   ├── SecureSettingsHelper.kt # Secure Settings 读写
             │   │   └── CommandService.kt    # Shizuku UserService (AIDL)
-            │   └── ui/
-            │       ├── theme/
+│               └── ui/
+│                   ├── components/
+│                   │   └── AppBottomSheet.kt  # 统一底部 Sheet（SheetState + AppBottomSheet）
+│                   ├── theme/
             │       │   ├── Color.kt         # 预定义颜色
             │       │   └── Theme.kt         # 动态主题控制器
             │       ├── navigation/
@@ -170,6 +172,7 @@ exTile/
 - **子页面导航**：开源许可、调试工具等子页面使用独立 Activity，通过 `Intent` 跳转，有系统默认转场动画；独立 Activity 需要提供 `LocalNavigationEventDispatcherOwner`
 - **设置页**：卡片式分类结构（调试工具 / 通用 / 外观 / 数据 / 关于），使用 MIUIX Preference 组件（`WindowSpinnerPreference`、`SwitchPreference`、`ArrowPreference`）统一入口。「调试工具」为 `ArrowPreference`（含 `startAction` 图标）直接跳转 Activity；其余 4 个分类用 `ExpandableSettingsCard` 实现手风琴互斥展开（`SettingsCategory` 枚举 + `expandedCategory` 状态，点击当前展开的分类则全部折叠），内容用 `AnimatedVisibility` 平滑展开/收起；标题行含 `CategoryIcon`（primary 背景 `squircleClip` 圆角矩形 + onPrimary 图标）、headline1 字号标题、随展开状态旋转 90° 的 `MiuixIcons.Basic.ArrowRight` 箭头（`animateFloatAsState`）；点击标题行有 `HapticFeedbackType.LongPress` 震动；标题行与内容用 `HorizontalDivider` 分隔。分类图标：调试 Settings / 通用 Tune / 外观 Background / 数据 Backup / 关于 Info；卡片列表整体垂直居中（外层 `Column` + `verticalArrangement = Arrangement.Center` + LazyColumn `weight(1f, fill = false)`，内容超高时自动受限并恢复滚动）
 - **弹窗/Sheet**：使用 Window 级别组件（`WindowBottomSheet`、`WindowDialog`），不依赖 Scaffold；Sheet 底部间距为 `WindowInsets.navigationBars + 8.dp`
+- **统一底部 Sheet**：所有 `WindowBottomSheet` 统一封装为 `AppBottomSheet`（`ui/components/AppBottomSheet.kt`）。页面使用 `rememberSheetState()` 创建 `SheetState`（`show`/`show()`/`dismiss()`），打开用 `xxxState.show()`；关闭（点击遮罩 / 返回键 / 下拉拖拽）由 `AppBottomSheet` 内部统一调用 `dismiss()`，**禁止**再手写 `var showXxx by remember {...}` + `onDismissRequest = { showXxx = false }`。返回键行为由 `allowDismiss` 参数统一控制（miuix 0.9.3 内置 NavigationBackHandler，无需手动 BackHandler）；需要关闭后清理临时状态（如清空输入框）时用 `onDismissed` 回调（动画完成后触发）。**毛玻璃背景暂不实现**：曾尝试改用 `OverlayBottomSheet` + `textureBlur`（同 window 才能采样模糊，Window 系组件的 Dialog 独立窗口无法采样），但模糊层与面板动画 `graphicsLayer` 不同步、拖动条区无法覆盖，且 miuix 官方将在 0.9.4 优化并可能提供官方写法，故回退为 WindowBottomSheet 纯色实现，待官方方案发布后再跟进
 - **预测式返回（Predictive Back）**：miuix 0.9.3 的 `BottomSheetContentLayout`/`DialogContentLayout`/`ListPopupLayout`/`SearchBar` 等组件**已内置** `NavigationBackHandler`（跟手下滑 + 遮罩淡出 + 取消回弹），应用层只需 `activity-compose 1.13.0` + Manifest `<application android:enableOnBackInvokedCallback="true">`，**不要**手动注册任何 BackHandler（会抢占内置实现、导致无跟手动画）。Activity 间转场动画由系统自动处理；手写 `PredictiveBackDismiss` 方案已弃用并删除
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
 - **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴支持 `TooltipBox` 提示（无箭头）

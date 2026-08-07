@@ -66,6 +66,8 @@ import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,7 +104,6 @@ import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
@@ -184,15 +185,17 @@ fun SettingsScreen() {
     // 长按 exTile 磁贴行为设置
     var longPressBehavior by remember { mutableIntStateOf(ConfigRepository.LongPressBehavior.OPEN_EXTILE) }
     var customAppPackage by remember { mutableStateOf("") }
-    var showAppPickerSheet by remember { mutableStateOf(false) }
+    // 自定义应用选择器 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val appPickerSheetState = rememberSheetState()
     // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
     var launchableApps by remember { mutableStateOf<List<LaunchableApp>?>(null) }
     // 应用选择器的搜索关键字：同时匹配应用名和包名
     var appSearchQuery by remember { mutableStateOf("") }
 
-    var showSystemTilesSheet by remember { mutableStateOf(false) }
-    var showBackupSheet by remember { mutableStateOf(false) }
-    var showImportBackupSheet by remember { mutableStateOf(false) }
+    // 系统磁贴查看 / 备份结果 / 导入备份 三个 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val systemTilesSheetState = rememberSheetState()
+    val backupSheetState = rememberSheetState()
+    val importBackupSheetState = rememberSheetState()
     var showImportDialog by remember { mutableStateOf(false) }
     var importBackupJson by remember { mutableStateOf("") }
     // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
@@ -214,8 +217,8 @@ fun SettingsScreen() {
     }
 
     // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
-    LaunchedEffect(showAppPickerSheet) {
-        if (showAppPickerSheet && launchableApps == null) {
+    LaunchedEffect(appPickerSheetState.show) {
+        if (appPickerSheetState.show && launchableApps == null) {
             launchableApps = withContext(Dispatchers.IO) {
                 getLaunchableApps(context)
             }
@@ -284,7 +287,7 @@ fun SettingsScreen() {
         Box(
             modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
-            // 外层 Column 将卡片列表整体垂直居中：
+        // 外层 Column 将卡片列表整体垂直居中：
             // LazyColumn 用 weight(fill = false) 只占内容实际高度，内容不足一屏时居中，
             // 展开后超出屏幕时自动受限并可正常滚动
             Column(
@@ -391,7 +394,7 @@ fun SettingsScreen() {
                         ArrowPreference(
                             title = "自定义应用",
                             summary = customAppLabel,
-                            onClick = { showAppPickerSheet = true }
+                            onClick = { appPickerSheetState.show() }
                         )
                     }
                 }
@@ -491,7 +494,7 @@ fun SettingsScreen() {
                     ArrowPreference(
                         title = "查看系统磁贴配置",
                         summary = "查看当前系统的 QS 磁贴原始值",
-                        onClick = { showSystemTilesSheet = true }
+                        onClick = { systemTilesSheetState.show() }
                     )
 
                     ArrowPreference(
@@ -499,7 +502,7 @@ fun SettingsScreen() {
                         summary = "将当前配置导出为 JSON 格式",
                         onClick = {
                             backupText = generateBackupJson()
-                            showBackupSheet = true
+                            backupSheetState.show()
                         }
                     )
 
@@ -508,7 +511,7 @@ fun SettingsScreen() {
                         summary = "从 JSON 文本恢复磁贴配置",
                         onClick = {
                             importBackupJson = ""
-                            showImportBackupSheet = true
+                            importBackupSheetState.show()
                         }
                     )
 
@@ -571,10 +574,9 @@ fun SettingsScreen() {
     }
 
     // ---- 系统磁贴查看 Sheet ----
-    WindowBottomSheet(
-        show = showSystemTilesSheet,
+    AppBottomSheet(
+        state = systemTilesSheetState,
         title = "系统磁贴配置",
-        onDismissRequest = { showSystemTilesSheet = false }
     ) {
         Text(
             text = currentSysuiTiles.ifEmpty { "无数据" },
@@ -584,10 +586,9 @@ fun SettingsScreen() {
     }
 
     // ---- 备份结果 Sheet ----
-    WindowBottomSheet(
-        show = showBackupSheet,
+    AppBottomSheet(
+        state = backupSheetState,
         title = "备份数据",
-        onDismissRequest = { showBackupSheet = false }
     ) {
         Column(
             modifier = Modifier
@@ -610,7 +611,7 @@ fun SettingsScreen() {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
                         Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                        showBackupSheet = false
+                        backupSheetState.dismiss()
                     },
                     colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
@@ -621,13 +622,11 @@ fun SettingsScreen() {
     }
 
     // ---- 导入备份 Sheet ----
-    WindowBottomSheet(
-        show = showImportBackupSheet,
+    AppBottomSheet(
+        state = importBackupSheetState,
         title = "导入备份",
-        onDismissRequest = {
-            showImportBackupSheet = false
-            importBackupJson = ""
-        }
+        // 关闭动画完成后清空输入的 JSON，避免下次打开残留
+        onDismissed = { importBackupJson = "" },
     ) {
         Column(
             modifier = Modifier
@@ -653,7 +652,7 @@ fun SettingsScreen() {
                             config = restored
                             Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
                         }
-                        showImportBackupSheet = false
+                        importBackupSheetState.dismiss()
                         importBackupJson = ""
                     } else {
                         Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
@@ -707,10 +706,11 @@ fun SettingsScreen() {
     }
 
     // ---- 自定义应用选择器 Sheet ----
-    WindowBottomSheet(
-        show = showAppPickerSheet,
+    AppBottomSheet(
+        state = appPickerSheetState,
         title = "选择应用",
-        onDismissRequest = { showAppPickerSheet = false }
+        // 关闭动画完成后清空搜索关键字，避免下次打开残留
+        onDismissed = { appSearchQuery = "" },
     ) {
         val haptic = LocalHapticFeedback.current
         // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
@@ -770,7 +770,7 @@ fun SettingsScreen() {
                         expanded = false,
                         onExpandedChange = { expanded ->
                             if (!expanded) {
-                                showAppPickerSheet = false
+                                appPickerSheetState.dismiss()
                             }
                         },
                         insideMargin = DpSize(0.dp, 0.dp),
@@ -821,7 +821,7 @@ fun SettingsScreen() {
                                     scope.launch {
                                         ConfigRepository.saveLongPressCustomApp(context, app.packageName)
                                     }
-                                    showAppPickerSheet = false
+                                    appPickerSheetState.dismiss()
                                 },
                             insideMargin = PaddingValues(16.dp),
                             colors = CardDefaults.defaultColors(

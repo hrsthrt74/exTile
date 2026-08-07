@@ -76,6 +76,8 @@ import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
+import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,7 +118,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
@@ -145,8 +146,9 @@ fun TileConfigScreen() {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     // 本地可变状态：拖动排序时同步更新，保证 reorderable 库数据源即时一致（避免抽搐）
     var config by remember { mutableStateOf(TileConfig()) }
-    var showAddSheet by remember { mutableStateOf(false) }
-    var showCustomSheet by remember { mutableStateOf(false) }
+    // 添加磁贴 / 添加第三方磁贴 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val addSheetState = rememberSheetState()
+    val customSheetState = rememberSheetState()
     var customTileValue by remember { mutableStateOf("") }
     var showCopyConfirmDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -174,8 +176,8 @@ fun TileConfigScreen() {
     }
 
     // 打开「添加第三方磁贴」sheet 时，在后台线程批量查询所有 QS Tile 服务及其图标（扫描应用较耗时）
-    LaunchedEffect(showCustomSheet) {
-        if (showCustomSheet && allTileServices == null) {
+    LaunchedEffect(customSheetState.show) {
+        if (customSheetState.show && allTileServices == null) {
             allTileServices = withContext(Dispatchers.IO) {
                 TileMapping.getAllQSTileServicesWithIcon(context)
             }
@@ -594,7 +596,7 @@ fun TileConfigScreen() {
                                     Button(
                                         onClick = {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            showAddSheet = true
+                                            addSheetState.show()
                                         },
                                         colors = ButtonDefaults.buttonColorsPrimary(),
                                         modifier = Modifier
@@ -614,7 +616,7 @@ fun TileConfigScreen() {
                                     Button(
                                         onClick = {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            showCustomSheet = true
+                                            customSheetState.show()
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -635,10 +637,9 @@ fun TileConfigScreen() {
             }
         }
 
-        WindowBottomSheet(
-            show = showAddSheet,
+        AppBottomSheet(
+            state = addSheetState,
             title = if (selectedTabIndex == 0) "添加展开磁贴" else "添加收起磁贴",
-            onDismissRequest = { showAddSheet = false }
         ) {
             val currentTiles = if (selectedTabIndex == 0) {
                 config.expandedTiles
@@ -704,7 +705,7 @@ fun TileConfigScreen() {
                                             config.copy(collapsedTiles = newTiles)
                                         }
                                         updateConfig(newConfig)
-                                        showAddSheet = false
+                                        addSheetState.dismiss()
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -748,13 +749,11 @@ fun TileConfigScreen() {
             }
         }
 
-        WindowBottomSheet(
-            show = showCustomSheet,
+        AppBottomSheet(
+            state = customSheetState,
             title = "添加第三方磁贴",
-            onDismissRequest = {
-                showCustomSheet = false
-                customTileValue = ""
-            }
+            // 关闭动画完成后清空上次输入的磁贴值，避免下次打开残留
+            onDismissed = { customTileValue = "" },
         ) {
             // 检查是否有 QUERY_ALL_PACKAGES 权限
             val hasQueryPermission = remember {
@@ -898,7 +897,7 @@ fun TileConfigScreen() {
                                                 config.copy(collapsedTiles = newTiles)
                                             }
                                             updateConfig(newConfig)
-                                            showCustomSheet = false
+                                            customSheetState.dismiss()
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
