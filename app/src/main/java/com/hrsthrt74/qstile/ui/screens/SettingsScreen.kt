@@ -67,6 +67,8 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +106,6 @@ import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
@@ -196,7 +197,8 @@ fun SettingsScreen() {
     val systemTilesSheetState = rememberSheetState()
     val backupSheetState = rememberSheetState()
     val importBackupSheetState = rememberSheetState()
-    var showImportDialog by remember { mutableStateOf(false) }
+    // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
+    val importDialogState = rememberDialogState()
     var importBackupJson by remember { mutableStateOf("") }
     // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
     var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
@@ -518,7 +520,7 @@ fun SettingsScreen() {
                     ArrowPreference(
                         title = "从系统导入磁贴",
                         summary = "将当前系统磁贴配置保存为展开状态",
-                        onClick = { showImportDialog = true }
+                        onClick = { importDialogState.show() }
                     )
                 }
             }
@@ -667,43 +669,24 @@ fun SettingsScreen() {
     }
 
     // ---- 系统导入确认 Dialog ----
-    WindowDialog(
-        show = showImportDialog,
+    AppDialog(
+        state = importDialogState,
         title = "从系统导入磁贴",
         summary = "将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。",
-        onDismissRequest = { showImportDialog = false }
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            TextButton(
-                text = "取消",
-                onClick = { showImportDialog = false },
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(
-                text = "确认",
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-                onClick = {
-                    scope.launch {
-                        val tiles = SecureSettingsHelper.getCurrentTiles(context)
-                        if (tiles.isNotEmpty()) {
-                            ConfigRepository.saveExpandedTiles(context, tiles)
-                            config = config.copy(expandedTiles = tiles)
-                            Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    showImportDialog = false
-                },
-                modifier = Modifier.weight(1f)
-            )
+        confirmText = "确认",
+        onConfirm = {
+            scope.launch {
+                val tiles = SecureSettingsHelper.getCurrentTiles(context)
+                if (tiles.isNotEmpty()) {
+                    ConfigRepository.saveExpandedTiles(context, tiles)
+                    config = config.copy(expandedTiles = tiles)
+                    Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-    }
+    )
 
     // ---- 自定义应用选择器 Sheet ----
     AppBottomSheet(

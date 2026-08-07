@@ -77,6 +77,8 @@ import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hjq.device.compat.DeviceOs
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -118,7 +120,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
 fun TileConfigScreen() {
@@ -150,9 +151,10 @@ fun TileConfigScreen() {
     val addSheetState = rememberSheetState()
     val customSheetState = rememberSheetState()
     var customTileValue by remember { mutableStateOf("") }
-    var showCopyConfirmDialog by remember { mutableStateOf(false) }
-    var showClearConfirmDialog by remember { mutableStateOf(false) }
-    var showResetConfirmDialog by remember { mutableStateOf(false) }
+    // 三个确认操作对话框的显示状态（统一由 AppDialog 管理）
+    val copyConfirmDialogState = rememberDialogState()
+    val clearConfirmDialogState = rememberDialogState()
+    val resetConfirmDialogState = rememberDialogState()
 
     // 第三方磁贴服务列表（含图标）：null 表示尚未加载，在后台线程批量查询避免阻塞主线程
     var allTileServices by remember { mutableStateOf<List<TileMapping.QSTileServiceInfo>?>(null) }
@@ -238,15 +240,15 @@ fun TileConfigScreen() {
                                 items = listOf(
                                     DropdownItem(
                                         text = "展开配置 → 收起",
-                                        onClick = { showCopyConfirmDialog = true }
+                                        onClick = { copyConfirmDialogState.show() }
                                     ),
                                     DropdownItem(
                                         text = "清除当前配置的磁贴",
-                                        onClick = { showClearConfirmDialog = true }
+                                        onClick = { clearConfirmDialogState.show() }
                                     ),
                                     DropdownItem(
                                         text = "恢复默认设置",
-                                        onClick = { showResetConfirmDialog = true }
+                                        onClick = { resetConfirmDialogState.show() }
                                     )
                                 )
                             )
@@ -939,25 +941,22 @@ fun TileConfigScreen() {
             }
         }
 
-        ConfigConfirmDialog(
+        AppDialog(
+            state = copyConfirmDialogState,
             title = "展开配置 → 收起",
             summary = "将展开状态的磁贴配置复制到收起状态，现有的收起配置将被覆盖。",
-            show = showCopyConfirmDialog,
             confirmText = "确认",
-            onDismissRequest = { showCopyConfirmDialog = false },
             onConfirm = {
                 updateConfig(config.copy(collapsedTiles = config.expandedTiles))
-                showCopyConfirmDialog = false
             }
         )
 
-        ConfigConfirmDialog(
+        AppDialog(
+            state = clearConfirmDialogState,
             title = "清除当前配置的磁贴",
             summary = "将清空当前展开/收起状态的所有磁贴配置，此操作不可撤销。",
-            show = showClearConfirmDialog,
             confirmText = "确认清除",
             destructive = true,
-            onDismissRequest = { showClearConfirmDialog = false },
             onConfirm = {
                 val newConfig = if (selectedTabIndex == 0) {
                     config.copy(expandedTiles = emptyList())
@@ -965,90 +964,17 @@ fun TileConfigScreen() {
                     config.copy(collapsedTiles = emptyList())
                 }
                 updateConfig(newConfig)
-                showClearConfirmDialog = false
             }
         )
 
-        ConfigConfirmDialog(
+        AppDialog(
+            state = resetConfirmDialogState,
             title = "恢复默认设置",
             summary = "将展开和收起磁贴配置恢复为默认值，当前配置将丢失。",
-            show = showResetConfirmDialog,
             confirmText = "确认恢复",
             destructive = true,
-            onDismissRequest = { showResetConfirmDialog = false },
             onConfirm = {
                 updateConfig(TileConfig())
-                showResetConfirmDialog = false
             }
         )
-}
-
-/**
- * 确认对话框（可复用）
- *
- * 磁贴配置页的三个确认操作（复制 / 清除 / 恢复默认）结构完全相同，
- * 仅标题、说明、确认按钮文案和按钮样式不同，故统一封装为一个组件，
- * 避免三份几乎一样的 WindowDialog 代码。
- *
- * @param title 对话框标题
- * @param summary 对话框说明文字
- * @param show 是否显示
- * @param confirmText 确认按钮文案
- * @param destructive 是否为破坏性操作；为 true 时确认按钮使用错误色（红色）
- * @param onDismissRequest 取消 / 点击外部关闭回调
- * @param onConfirm 点击确认按钮时的回调
- */
-@Composable
-private fun ConfigConfirmDialog(
-    title: String,
-    summary: String,
-    show: Boolean,
-    confirmText: String,
-    destructive: Boolean = false,
-    onDismissRequest: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    WindowDialog(
-        title = title,
-        summary = summary,
-        show = show,
-        onDismissRequest = onDismissRequest
-    ) {
-        // miuix 居然没这个间距，没了看起来很奇怪哎
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // 左侧固定为「取消」按钮
-            TextButton(
-                text = "取消",
-                onClick = onDismissRequest,
-                modifier = Modifier.weight(1f)
-            )
-
-            if (destructive) {
-                // 破坏性操作：确认按钮用错误色填充，突出「不可撤销」的警告
-                Button(
-                    colors = ButtonDefaults.buttonColors(
-                        color = MiuixTheme.colorScheme.error,
-                        contentColor = MiuixTheme.colorScheme.onError,
-                    ),
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(confirmText)
-                }
-            } else {
-                // 普通操作：确认按钮用主题主色
-                TextButton(
-                    text = confirmText,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
 }

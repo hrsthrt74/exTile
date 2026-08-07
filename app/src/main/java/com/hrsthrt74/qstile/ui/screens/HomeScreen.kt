@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,8 @@ import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
@@ -65,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * 主页屏幕。
@@ -94,8 +96,8 @@ fun HomeScreen(
     // ---- 状态声明 ----
     /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖） */
     var permissionStatus by remember { mutableStateOf(ShizukuHelper.PermissionStatus.GRANTED) }
-    /** 是否显示 adb 手动授权指引 */
-    var showAdbGuide by remember { mutableStateOf(false) }
+    /** adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理） */
+    val adbGuideDialogState = rememberDialogState()
     /** 是否在返回前台时自动请求 Shizuku 权限（用户点击「启动 Shizuku」后置位） */
     var autoRequestAfterResume by remember { mutableStateOf(false) }
     /** 当前磁贴配置（展开/收起列表 + 开关状态） */
@@ -232,7 +234,7 @@ fun HomeScreen(
                                 refreshStatus()
                             }
                         },
-                        onShowAdbGuide = { showAdbGuide = true }
+                        onShowAdbGuide = { adbGuideDialogState.show() }
                     )
                 }
 
@@ -255,42 +257,27 @@ fun HomeScreen(
     // ---- adb 手动授权指引对话框 ----
     // Shizuku 完全可选的兜底方案：用户不装 Shizuku 时，可通过 adb 手动授权后使用核心功能
     val adbGrantCommand = "adb shell pm grant com.hrsthrt74.qstile android.permission.WRITE_SECURE_SETTINGS"
-    WindowDialog(
-        show = showAdbGuide,
+    AppDialog(
+        state = adbGuideDialogState,
         title = "adb 手动授权",
         summary = "不使用 Shizuku 时，可通过以下命令手动授予 WRITE_SECURE_SETTINGS 权限：",
-        onDismissRequest = { showAdbGuide = false }
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Column {
-            Text(
-                text = adbGrantCommand,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TextButton(
-                    text = "关闭",
-                    onClick = { showAdbGuide = false },
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(
-                    text = "复制命令",
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile adb grant", adbGrantCommand))
-                        Toast.makeText(context, "命令已复制", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+        cancelText = "关闭",
+        confirmText = "复制命令",
+        onConfirm = {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("exTile adb grant", adbGrantCommand))
+            Toast.makeText(context, "命令已复制", Toast.LENGTH_SHORT).show()
         }
+    ) {
+        Text(
+            text = adbGrantCommand,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        
     }
 }
 
