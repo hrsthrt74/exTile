@@ -352,8 +352,8 @@ fun SettingsScreen() {
                     }
                 ) {
                     SwitchPreference(
-                        title = "展开收起同时控制无字模式",
-                        summary = "展开时同时展示文字",
+                        title = "磁贴联动无字模式",
+                        summary = "展开时显示文字，收起时隐藏",
                         checked = wordlessModeSync,
                         onCheckedChange = { enabled ->
                             wordlessModeSync = enabled
@@ -364,8 +364,8 @@ fun SettingsScreen() {
                     )
 
                     SwitchPreference(
-                        title = "展开收起同时控制融合设备中心",
-                        summary = "展开时同时展示融合设备中心",
+                        title = "磁贴联动融合设备中心",
+                        summary = "展开时显示设备中心，收起时隐藏",
                         checked = smartDeviceControlSync,
                         onCheckedChange = { enabled ->
                             smartDeviceControlSync = enabled
