@@ -81,6 +81,7 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -280,7 +281,15 @@ fun SettingsScreen() {
                     title = "设置",
                     largeTitle = "设置",
                     color = barColor,
-                    scrollBehavior = scrollBehavior
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
+                        IconButton(onClick = {
+                            context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                        }) {
+                            Icon(MiuixIcons.Settings, contentDescription = "调试工具")
+                        }
+                    }
                 )
             }
         }
@@ -312,29 +321,6 @@ fun SettingsScreen() {
                 ) {
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
-
-            // ===== 调试工具分类 =====
-            // 点击直接跳转 DebugToolsActivity，不做展开
-            item {
-                // 固定卡片：只有一个状态，背景不透明度固定 0.45（与可展开分类收起的 0.45 保持一致）
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.45f)
-                    )
-                ) {
-                    ArrowPreference(
-                        title = " 调试工具",
-                        // summary = "查看详细调试信息和执行调试操作",
-                        startAction = { CategoryIcon(icon = MiuixIcons.Settings) },
-                        onClick = {
-                            context.startActivity(Intent(context, DebugToolsActivity::class.java))
-                        }
-                    )
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
 
             // ===== 通用分类：磁贴行为设置 =====
             item {

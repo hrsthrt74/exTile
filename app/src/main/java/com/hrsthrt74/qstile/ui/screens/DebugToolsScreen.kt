@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
@@ -80,6 +81,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -166,6 +168,12 @@ fun DebugToolsScreen() {
                     IconButton(onClick = { (context as? DebugToolsActivity)?.finish() }) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
+                },
+                actions = {
+                    // 刷新入口：右上角刷新图标按钮，点击重新加载调试信息
+                    IconButton(onClick = { refreshDebugInfo() }) {
+                        Icon(MiuixIcons.Refresh, contentDescription = "刷新")
+                    }
                 }
             )
         }
@@ -197,15 +205,6 @@ fun DebugToolsScreen() {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        Button(
-                            onClick = { refreshDebugInfo() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("刷新")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
                         Button(
                             onClick = { addTileSheetState.show() },
                             modifier = Modifier.fillMaxWidth()
@@ -385,6 +384,58 @@ fun DebugToolsScreen() {
                             modifier = Modifier.padding(top = 8.dp),
                             lineHeight = 16.sp
                         )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            // ===== 震动测试 =====
+            item {
+                SmallTitle(text = "震动测试")
+            }
+
+            item {
+                // 震动反馈实例：通过 LocalHapticFeedback 获取，点击按钮时仅触发对应类型的震动
+                val haptic = LocalHapticFeedback.current
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp, 16.dp)
+                    ) {
+                        // 所有震动类型按每行两个分成一组（两列布局），多余的拼不齐的行单列显示
+                        HapticFeedbackType.values().chunked(2).forEachIndexed { index, rowTypes ->
+                            // 每行之间加一个垂直间距
+                            if (index > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowTypes.forEach { type ->
+                                    Button(
+                                        onClick = {
+                                            // 只触发震动，不做其它操作
+                                            haptic.performHapticFeedback(type)
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            type.toString(),
+                                            style = MiuixTheme.textStyles.footnote2
+                                        )
+                                    }
+                                }
+                                // 当某行只有一个按钮时，用占位符补齐宽度，保持两列对齐
+                                if (rowTypes.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
                 }
             }
