@@ -48,7 +48,11 @@ exTile/
             │   │   └── ExTileService.kt     # QS Tile Service
             │   ├── data/
             │   │   ├── TileConfig.kt        # 磁贴配置数据模型
-            │   │   ├── TileMapping.kt       # 系统磁贴映射表 + 图标映射
+            │   │   ├── TileCatalog.kt       # 磁贴目录（TileInfo 静态声明 + 查询）
+            │   │   ├── TileRequirement.kt   # 磁贴可用性需求（sealed flag 约束 + prop 门控注册表）
+            │   │   ├── DeviceProfile.kt     # 设备能力快照（可用性统一求值）
+            │   │   ├── TileCapabilityFlags.kt # 能力 flag 调试开关（内存态，调试工具页模拟）
+            │   │   ├── CustomTileUtils.kt   # 第三方磁贴工具（解析/查询/图标）
             │   │   ├── ConfigRepository.kt  # 配置持久化（DataStore）
             │   │   └── ThemeSettings.kt     # 主题设置
             │   ├── shizuku/
@@ -134,11 +138,11 @@ exTile/
 8. **小米设备特化**：通过 DeviceCompat 检测 MIUI/HyperOS，手机显示 WLAN+移动数据固定卡片，平板显示 WLAN+蓝牙；编辑磁贴固定在参数末尾；固定磁贴和编辑磁贴支持 Tooltip 提示
 9. **横滑切换页面**：使用 `HorizontalPager` + `MainPagerState` 实现主页/编辑/设置之间的横滑切换，配合底部导航栏联动
 10. **开源许可页面**：独立 `LicensesActivity`，展示所有开源库信息，点击直接跳转浏览器查看项目地址
-11. **设备感知磁贴**：通过 `DeviceType` 枚举（UNIVERSAL/XIAOMI_ONLY/AOSP_ONLY）控制磁贴可用性；`internet` 磁贴仅在 SDK < 37 且 AOSP 设备时显示
+11. **设备感知磁贴**：通过 flag 式需求集合 `TileRequirement`（sealed interface：XIAOMI_ONLY / AOSP_ONLY / MAX_SDK_36 / SATELLITE / COOLING_FAN / `RequiresProp(key)` / `RequiresFeature(feature)`）声明每个磁贴的可用性约束；`DeviceProfile`（isXiaomi / isTablet / sdkInt / 卫星 / 风扇 / gatedProps / features）一次性采集设备能力并统一求值（`satisfies`，AND 语义）；`internet` 磁贴声明为 AOSP_ONLY + MAX_SDK_36（替代原硬编码特判）；SATELLITE / COOLING_FAN 为 TODO 占位（恒满足，保持现状可见性），待 prop 检测实现后收紧，求值时优先采用 `TileCapabilityFlags` 调试覆盖（卫星/风扇为 nullable 开关，prop/feature 为 `propOverrides`/`featureOverrides` 表，覆盖优先于设备检测能力）；`RequiresProp` 通过反射读 `android.os.SystemProperties`，语义为「prop 明确为 0/false/no 才隐藏，true/未定义视为支持」（避免误伤未定义 prop 的 AOSP 设备，如单手模式），prop key 集中在 `TileRequirement.gatedPropKeys` 注册表（`gatedPropLabels` 提供显示名），`DeviceProfile.from` 一次性批量读取缓存；`RequiresFeature` 通过 `PackageManager.hasSystemFeature` 检测硬件能力（false 才隐藏，检测异常视为支持），feature 集中在 `gatedFeatureKeys`/`gatedFeatureLabels` 注册表，`DeviceProfile.from` 一次性批量检测缓存；已接入 prop：实时字幕 / 对话翻译 / 单手模式；已接入 feature：NFC / 自动亮度（环境光）/ 振动（马达，用 `VibratorManager.hasVibrator()` 运行时检测而非 `hasSystemFeature`，因不少 ROM 未声明 vibrator feature 会误判）/ 手电筒（闪光灯）/ 移动数据（蜂窝网）/ 相机（bt、自动旋转、麦克风、GPS、WLAN、各类 sensor 因所有目标设备都支持而未接入）；原 `DeviceType` 枚举已废弃
 12. **触觉反馈**：各处点击添加震动反馈（LongPress/TextHandleMove）；滚动到边界触觉反馈（`scrollEndHaptic`）
 13. **按压特效**：磁贴配置页面磁贴使用 `pressable` + `SinkFeedback` 实现按压缩放效果；添加磁贴 sheet 的磁贴点击特效限定在圆圈内
 14. **加载状态**：首页权限卡片和调试工具页面支持加载状态显示，避免权限状态闪烁
-15. **调试工具**：独立 `DebugToolsActivity`，提供详细调试信息（权限状态、磁贴配置、系统信息）、复制调试信息、添加磁贴到末尾等功能
+15. **调试工具**：独立 `DebugToolsActivity`，提供详细调试信息（权限状态、磁贴配置、系统信息）、复制调试信息、添加磁贴到末尾等功能；调试开关（能力 flag / prop 门控 / 硬件特性）集中在「能力开关（调试）」`AppBottomSheet` 中（入口为操作卡片内的「能力开关（调试）」按钮，内容用 `LazyColumn` 可滚动；能力 flag 为 `SwitchPreference` 开关 `TileCapabilityFlags` 模拟卫星通讯/散热风扇；prop 门控遍历 `TileRequirement.gatedPropKeys` 自动生成开关模拟各 prop；硬件特性遍历 `gatedFeatureKeys` 自动生成开关模拟 NFC/自动亮度/振动/手电筒/移动数据/相机特性），均为内存态（重启恢复），用于测试对应磁贴可见性
 16. **长按 exTile 磁贴行为**：通过幽灵桥接 Activity（`TileLongClickActivity`）实现；系统长按第三方磁贴时会启动 `ACTION_QS_TILE_PREFERENCES` 对应的 Activity，该 Activity 不显示界面，读取「长按 exTile 磁贴行为」配置（跳转 exTile / 跳转系统设置 / 跳转自定义应用）分发后立即 `finish()`；`ConfigRepository` 提供 `LongPressBehavior` 常量 + 行为/自定义应用包名存储；应用选择器使用后台线程加载应用列表 + `InfiniteProgressIndicator` 加载状态避免卡顿
 
 ---
@@ -178,7 +182,7 @@ exTile/
 - **预测式返回（Predictive Back）**：miuix 0.9.3 的 `BottomSheetContentLayout`/`DialogContentLayout`/`ListPopupLayout`/`SearchBar` 等组件**已内置** `NavigationBackHandler`（跟手下滑 + 遮罩淡出 + 取消回弹），应用层只需 `activity-compose 1.13.0` + Manifest `<application android:enableOnBackInvokedCallback="true">`，**不要**手动注册任何 BackHandler（会抢占内置实现、导致无跟手动画）。Activity 间转场动画由系统自动处理；手写 `PredictiveBackDismiss` 方案已弃用并删除
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
 - **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；`key(selectedTabIndex, isXiaomi, fixedTileValues)` 确保状态正确重建；拖拽的 `from.index`/`to.index` 需减去前面固定卡片的偏移量（`indexOffset`）；点击磁贴弹出 `WindowListPopup` 操作菜单；固定磁贴支持 `TooltipBox` 提示（无箭头）
-- **图标映射**：`TileMapping.iconRes(value)` 集中管理磁贴 → drawable 映射，新增图标只需加一行 `when` 分支；custom 磁贴通过 `getCustomTileIcon()` 获取其他应用图标
+- **图标映射**：图标资源 id 并入 `TileCatalog.TileInfo.iconResId`（数据字段），`TileCatalog.iconRes(value)` 查询；新增图标只需在清单条目中声明；custom 磁贴通过 `CustomTileUtils.getCustomTileIcon()` 获取其他应用图标
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
 - **添加第三方磁贴**：使用 `getAllQSTileServicesWithIcon()` 一次 `queryIntentServices` 批量取回全部 QS Tile 服务的 label/应用名/图标（避免渲染时逐个 `getCustomTileIcon` 反复全量扫描导致卡顿）；在 `Dispatchers.IO` 后台加载并缓存，加载态显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」并用 `fillMaxHeight` 撑满防高度突变；网格 item 用 `key = 包名/类名` 复用；图标统一 `tint = primary`（第三方图标多为白色单色，浅色模式下不可用 `Color.Unspecified` 保留原色）

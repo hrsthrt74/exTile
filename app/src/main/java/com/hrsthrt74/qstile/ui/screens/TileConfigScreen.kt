@@ -70,11 +70,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.data.CustomTileUtils
+import com.hrsthrt74.qstile.data.DeviceProfile
+import com.hrsthrt74.qstile.data.TileCapabilityFlags
+import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.data.TileMapping
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.ThemeSettings
-import com.hjq.device.compat.DeviceOs
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -128,8 +130,9 @@ fun TileConfigScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
-    // 设备类型检测
-    val isXiaomi = remember { DeviceOs.isMiui() || DeviceOs.isHyperOs() }
+    // 设备能力快照（isXiaomi/isTablet/SDK 等一次性采集并缓存，见 DeviceProfile）
+    val profile = remember { DeviceProfile.from(context) }
+    val isXiaomi = profile.isXiaomi
 
     // 主题设置（用于判断动态取色、模糊开关是否启用）
     val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
@@ -157,7 +160,7 @@ fun TileConfigScreen() {
     val resetConfirmDialogState = rememberDialogState()
 
     // 第三方磁贴服务列表（含图标）：null 表示尚未加载，在后台线程批量查询避免阻塞主线程
-    var allTileServices by remember { mutableStateOf<List<TileMapping.QSTileServiceInfo>?>(null) }
+    var allTileServices by remember { mutableStateOf<List<CustomTileUtils.QSTileServiceInfo>?>(null) }
 
     // 磁贴菜单状态
     var showTileMenu by remember { mutableStateOf(false) }
@@ -181,7 +184,7 @@ fun TileConfigScreen() {
     LaunchedEffect(customSheetState.show) {
         if (customSheetState.show && allTileServices == null) {
             allTileServices = withContext(Dispatchers.IO) {
-                TileMapping.getAllQSTileServicesWithIcon(context)
+                CustomTileUtils.getAllQSTileServicesWithIcon(context)
             }
         }
     }
@@ -206,13 +209,13 @@ fun TileConfigScreen() {
     // 获取磁贴图标的辅助函数
     @Composable
     fun rememberTileIcon(tile: String): Painter? {
-        val iconRes = TileMapping.iconRes(tile)
+        val iconRes = TileCatalog.iconRes(tile)
         if (iconRes != null) {
             return painterResource(iconRes)
         }
         // 尝试获取 custom 磁贴的图标
         if (tile.startsWith("custom(")) {
-            val drawable = remember(tile) { TileMapping.getCustomTileIcon(context, tile) }
+            val drawable = remember(tile) { CustomTileUtils.getCustomTileIcon(context, tile) }
             if (drawable != null) {
                 val bitmap = remember(drawable) { drawable.toBitmap() }
                 return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
@@ -225,7 +228,7 @@ fun TileConfigScreen() {
     @Composable
     fun rememberCustomTileNames(tile: String): Pair<String, String>? {
         if (!tile.startsWith("custom(")) return null
-        return remember(tile) { TileMapping.getCustomTileNames(context, tile) }
+        return remember(tile) { CustomTileUtils.getCustomTileNames(context, tile) }
     }
 
     Scaffold(
@@ -364,7 +367,7 @@ fun TileConfigScreen() {
                                                     if (icon != null) {
                                                         Icon(
                                                             painter = icon,
-                                                            contentDescription = TileMapping.getDisplayName(tile),
+                                                            contentDescription = TileCatalog.getDisplayName(tile, profile),
                                                             tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                             modifier = Modifier.size(36.dp)
                                                         )
@@ -376,7 +379,7 @@ fun TileConfigScreen() {
                                                     // 磁贴名 和 “固定磁贴”
                                                     Column {
                                                         Text(
-                                                            text = TileMapping.getDisplayName(tile),
+                                                            text = TileCatalog.getDisplayName(tile, profile),
                                                             style = MiuixTheme.textStyles.body1
                                                         )
                                                         Text(
@@ -437,7 +440,7 @@ fun TileConfigScreen() {
                                         if (icon != null) {
                                             Icon(
                                                 painter = icon,
-                                                contentDescription = TileMapping.getDisplayName(tile),
+                                                contentDescription = TileCatalog.getDisplayName(tile, profile),
                                                 tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
                                                 modifier = Modifier.size(36.dp)
                                             )
@@ -471,7 +474,7 @@ fun TileConfigScreen() {
                                                 ListPopupColumn {
                                                     // 磁贴名称（不可点击）
                                                     DropdownImpl(
-                                                        text = TileMapping.getDisplayName(tile),
+                                                        text = TileCatalog.getDisplayName(tile, profile),
                                                         optionSize = 1,
                                                         isSelected = false,
                                                         index = 0,
@@ -566,7 +569,7 @@ fun TileConfigScreen() {
                                     // 第一行：磁贴显示名（第三方磁贴显示其 label，而非包名后缀）
                                     Text(
                                         text = rememberCustomTileNames(tile)?.first
-                                            ?: TileMapping.getDisplayName(tile),
+                                            ?: TileCatalog.getDisplayName(tile, profile),
                                         style = MiuixTheme.textStyles.body2,
                                         maxLines = 2,
                                         textAlign = TextAlign.Center,
@@ -649,8 +652,15 @@ fun TileConfigScreen() {
                 config.collapsedTiles
             }
 
-            val availableTiles = remember(currentTiles, isXiaomi) {
-                TileMapping.getAvailableTiles(isXiaomi).filter { it.value !in currentTiles }
+            // 读取调试 flag（订阅变化），切换后刷新可用磁贴列表
+            val capabilityKey = listOf(
+                TileCapabilityFlags.satelliteOverride,
+                TileCapabilityFlags.coolingFanOverride,
+                TileCapabilityFlags.propOverrides.toMap(),
+                TileCapabilityFlags.featureOverrides.toMap(),
+            )
+            val availableTiles = remember(currentTiles, profile, capabilityKey) {
+                TileCatalog.getAvailableTiles(profile).filter { it.value !in currentTiles }
             }
 
             // 按分类分组
@@ -777,9 +787,9 @@ fun TileConfigScreen() {
 
             // 获取系统预定义的磁贴 ComponentName 集合（用于过滤）
             val systemTileComponents = remember {
-                TileMapping.getAllValues()
+                TileCatalog.getAllValues()
                     .filter { it.startsWith("custom(") }
-                    .mapNotNull { TileMapping.parseCustomComponent(it) }
+                    .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
                     .toSet()
             }
 
@@ -787,7 +797,7 @@ fun TileConfigScreen() {
             val currentTileComponents = remember(currentTiles) {
                 currentTiles
                     .filter { it.startsWith("custom(") }
-                    .mapNotNull { TileMapping.parseCustomComponent(it) }
+                    .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
                     .toSet()
             }
 

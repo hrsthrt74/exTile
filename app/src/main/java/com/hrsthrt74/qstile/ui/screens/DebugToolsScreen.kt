@@ -53,8 +53,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.data.CustomTileUtils
+import com.hrsthrt74.qstile.data.DeviceProfile
+import com.hrsthrt74.qstile.data.TileCapabilityFlags
+import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.data.TileMapping
+import com.hrsthrt74.qstile.data.TileRequirement
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
@@ -63,6 +67,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -75,6 +80,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -96,25 +102,28 @@ fun DebugToolsScreen() {
     // 添加磁贴 / 添加自定义磁贴 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val addTileSheetState = rememberSheetState()
     val addCustomTileSheetState = rememberSheetState()
+    // 能力开关（调试）Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val capabilitySheetState = rememberSheetState()
     var customTileInput by remember { mutableStateOf("") }
 
+    // 设备能力快照（isXiaomi/isTablet/SDK 等一次性采集并缓存，见 DeviceProfile）
+    val profile = remember { DeviceProfile.from(context) }
+
     // 获取可用的系统磁贴（排除已添加的和第三方磁贴）
-    val availableTiles = remember(currentTiles) {
-        TileMapping.getAvailableTiles(
-            com.hjq.device.compat.DeviceOs.isMiui() || com.hjq.device.compat.DeviceOs.isHyperOs()
-        ).filter { it.value !in currentTiles && !it.value.startsWith("custom(") }
+    val availableTiles = remember(currentTiles, profile) {
+        TileCatalog.getAvailableTiles(profile).filter { it.value !in currentTiles && !it.value.startsWith("custom(") }
     }
 
     // 获取磁贴图标的辅助函数
     @Composable
     fun rememberTileIcon(tile: String): Painter? {
-        val iconRes = TileMapping.iconRes(tile)
+        val iconRes = TileCatalog.iconRes(tile)
         if (iconRes != null) {
             return painterResource(iconRes)
         }
         // 尝试获取 custom 磁贴的图标
         if (tile.startsWith("custom(")) {
-            val drawable = remember(tile) { TileMapping.getCustomTileIcon(context, tile) }
+            val drawable = remember(tile) { CustomTileUtils.getCustomTileIcon(context, tile) }
             if (drawable != null) {
                 val bitmap = remember(drawable) { drawable.toBitmap() }
                 return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
@@ -214,6 +223,15 @@ fun DebugToolsScreen() {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("添加自定义磁贴到末尾")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { capabilitySheetState.show() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("能力开关（调试）")
                         }
 
 //                        Spacer(modifier = Modifier.height(8.dp))
@@ -376,6 +394,139 @@ fun DebugToolsScreen() {
         }
     }
 
+    // 能力开关（调试）Sheet：集中管理 flag / prop / 硬件特性的调试开关
+    AppBottomSheet(
+        state = capabilitySheetState,
+        title = "能力开关（调试）",
+    ) {
+        // 内容可滚动，避免开关过多时超出窗口高度
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+            contentPadding = PaddingValues(
+                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+            )
+        ) {
+
+            item {
+                Text(
+                    text = "仅本次运行生效，重启应用恢复默认",
+                    textAlign = TextAlign.Center,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+            }
+
+            // ===== 能力 flag =====
+            item {
+                SmallTitle(
+                    text = "能力 flag",
+                    insideMargin = PaddingValues(16.dp, 8.dp)
+                )
+            }
+
+            // 一组开关用一个 Card 作为背景容器（圆角/内边距由 Card 自动处理，背景色统一 secondaryVariant）
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.secondaryVariant
+                    )
+                ) {
+                    Column {
+                        SwitchPreference(
+                            title = "卫星通讯能力",
+                            summary = "模拟设备是否支持卫星通讯（控制「卫星通信」磁贴可见性）",
+                            checked = TileCapabilityFlags.satelliteOverride ?: profile.hasSatellite,
+                            onCheckedChange = { enabled ->
+                                TileCapabilityFlags.satelliteOverride = enabled
+                            }
+                        )
+
+                        SwitchPreference(
+                            title = "散热风扇能力",
+                            summary = "模拟设备是否带散热风扇（控制「散热风扇」磁贴可见性）",
+                            checked = TileCapabilityFlags.coolingFanOverride ?: profile.hasCoolingFan,
+                            onCheckedChange = { enabled ->
+                                TileCapabilityFlags.coolingFanOverride = enabled
+                            }
+                        )
+                    }
+                }
+            }
+
+            // ===== prop 门控 =====
+            item {
+                SmallTitle(
+                    text = "prop 门控",
+                    insideMargin = PaddingValues(16.dp, 8.dp)
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.secondaryVariant
+                    )
+                ) {
+                    Column {
+                        // 遍历注册表自动生成开关：新增 prop 后无需改 UI
+                        TileRequirement.gatedPropKeys.forEach { key ->
+                            val label = TileRequirement.gatedPropLabels[key] ?: key
+                            SwitchPreference(
+                                title = label,
+                                summary = "模拟 $key",
+                                checked = TileCapabilityFlags.propOverrides[key]
+                                    ?: profile.gatedProps[key]
+                                    ?: true,
+                                onCheckedChange = { enabled ->
+                                    TileCapabilityFlags.propOverrides[key] = enabled
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ===== 硬件特性 =====
+            item {
+                SmallTitle(
+                    text = "硬件特性",
+                    insideMargin = PaddingValues(16.dp, 8.dp)
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.defaultColors(
+                        color = MiuixTheme.colorScheme.secondaryVariant
+                    )
+                ) {
+                    Column {
+                        // 遍历注册表自动生成开关：新增 feature 后无需改 UI
+                        TileRequirement.gatedFeatureKeys.forEach { feature ->
+                            val label = TileRequirement.gatedFeatureLabels[feature] ?: feature
+                            SwitchPreference(
+                                title = label,
+                                summary = "模拟 $feature",
+                                checked = TileCapabilityFlags.featureOverrides[feature]
+                                    ?: profile.features[feature]
+                                    ?: true,
+                                onCheckedChange = { enabled ->
+                                    TileCapabilityFlags.featureOverrides[feature] = enabled
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // 添加磁贴到末尾的 Sheet
     AppBottomSheet(
         state = addTileSheetState,
@@ -443,7 +594,7 @@ fun DebugToolsScreen() {
                                                     return@launch
                                                 }
                                                 // 检查是否需要添加 ,edit
-                                                val isXiaomi = com.hjq.device.compat.DeviceOs.isMiui() || com.hjq.device.compat.DeviceOs.isHyperOs()
+                                                val isXiaomi = profile.isXiaomi
                                                 val hasEdit = currentTileList.contains("edit")
                                                 // 添加磁贴到末尾（在 edit 之前）
                                                 if (isXiaomi && hasEdit) {
@@ -542,7 +693,7 @@ fun DebugToolsScreen() {
                                 return@launch
                             }
                             // 检查是否需要添加 ,edit
-                            val isXiaomi = com.hjq.device.compat.DeviceOs.isMiui() || com.hjq.device.compat.DeviceOs.isHyperOs()
+                            val isXiaomi = profile.isXiaomi
                             val hasEdit = currentTileList.contains("edit")
                             // 添加磁贴到末尾（在 edit 之前）
                             if (isXiaomi && hasEdit) {
