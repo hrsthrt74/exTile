@@ -4,6 +4,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,13 @@ class ExTileService : TileService() {
                 if (success) {
                     ConfigRepository.saveIsExpanded(this@ExTileService, newIsExpanded)
                     Log.d(TAG, "Toggled to ${if (newIsExpanded) "expanded" else "collapsed"}")
+
+                    // 记录统计：仅统计布局切换成功的情况（失败不算）
+                    if (newIsExpanded) {
+                        StatsRepository.recordExpand(this@ExTileService)
+                    } else {
+                        StatsRepository.recordCollapse(this@ExTileService)
+                    }
 
                     // 「展开收起同时控制无字模式」：开启后，磁贴切换布局时同步 wordless_mode
                     // 展开 → wordless_mode=0（显示文字），收起 → wordless_mode=1（无字模式）

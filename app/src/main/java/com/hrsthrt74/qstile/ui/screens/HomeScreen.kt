@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,11 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,9 +40,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.hrsthrt74.qstile.data.ConfigRepository
-import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
+import com.hrsthrt74.qstile.data.StatsRepository
+import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -56,7 +49,6 @@ import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -67,11 +59,15 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.icon.extended.SearchDevice
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 主页屏幕。
- * 展示 Shizuku 权限状态卡片 + 当前磁贴展开/收起状态卡片。
+ * 展示 Shizuku 权限状态卡片 + 使用统计卡片。
  * 是用户首次打开应用时看到的第一屏，引导完成 Shizuku 授权流程。
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口，接收结果回调
@@ -100,22 +96,19 @@ fun HomeScreen(
     val adbGuideDialogState = rememberDialogState()
     /** 是否在返回前台时自动请求 Shizuku 权限（用户点击「启动 Shizuku」后置位） */
     var autoRequestAfterResume by remember { mutableStateOf(false) }
-    /** 当前磁贴配置（展开/收起列表 + 开关状态） */
-    var config by remember { mutableStateOf(TileConfig()) }
-    /** 系统当前磁贴数量 */
-    var currentTilesCount by remember { mutableStateOf(0) }
+    /** 使用统计（累计展开/收起次数），实时订阅 DataStore */
+    val stats by StatsRepository.getStatsFlow(context)
+        .collectAsState(initial = TileStats())
     /** 是否正在加载 */
     var isLoading by remember { mutableStateOf(true) }
 
     /**
      * 刷新所有状态。
-     * 权限检查在主线程完成（轻量查询），配置读取走协程（涉及 DataStore 和 shell 命令）。
+     * 权限检查在主线程完成（轻量查询），其余状态读取走协程。
      */
     fun refreshStatus() {
         permissionStatus = ShizukuHelper.checkPermissionStatus(context)
         scope.launch {
-            config = ConfigRepository.getConfig(context)
-            currentTilesCount = SecureSettingsHelper.getCurrentTiles(context).size
             isLoading = false
         }
     }
@@ -241,13 +234,11 @@ fun HomeScreen(
                 // 间距
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
-                // 当前状态卡片：展示展开/收起状态及磁贴数量
+                // 使用统计卡片：展示累计展开/收起次数（由磁贴切换成功时记录）
                 item {
-                    CurrentStatusCard(
-                        isExpanded = config.isExpanded,
-                        expandedTilesCount = config.expandedTiles.size,
-                        collapsedTilesCount = config.collapsedTiles.size,
-                        currentTilesCount = currentTilesCount
+                    StatsCard(
+                        totalExpandCount = stats.totalExpandCount,
+                        totalCollapseCount = stats.totalCollapseCount
                     )
                 }
             }
@@ -317,9 +308,9 @@ private fun PermissionStatusCard(
                 // 权限状态图标：已授权=绿色对勾，加载中=灰色圆圈，其他状态=红色叉号
                 Icon(
                     imageVector = if (isLoading || status == ShizukuHelper.PermissionStatus.GRANTED) {
-                        Icons.Default.CheckCircle
+                        MiuixIcons.Demibold.Ok
                     } else {
-                        Icons.Default.Close
+                        MiuixIcons.Demibold.Close
                     },
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
@@ -329,15 +320,17 @@ private fun PermissionStatusCard(
                         else -> MiuixTheme.colorScheme.error
                     }
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = when {
                             isLoading -> "正在检查权限..."
                             status == ShizukuHelper.PermissionStatus.GRANTED -> "已获得权限"
                             else -> "未获得必须权限"
                         },
-                        style = MiuixTheme.textStyles.title2,
+                        style = MiuixTheme.textStyles.title3,
                         color = MiuixTheme.colorScheme.onSurface
                     )
                     // 根据状态机展示不同的引导文案
@@ -404,15 +397,16 @@ private fun PermissionStatusCard(
 }
 
 /**
- * 当前磁贴状态卡片组件。
- * 展示展开/收起状态、各模式下的磁贴数量，以及系统当前磁贴总数。
+ * 使用统计卡片组件。
+ * 展示累计展开/收起次数（磁贴布局切换成功时由 StatsRepository 记录）。
+ *
+ * @param totalExpandCount 累计展开次数
+ * @param totalCollapseCount 累计收起次数
  */
 @Composable
-private fun CurrentStatusCard(
-    isExpanded: Boolean,
-    expandedTilesCount: Int,
-    collapsedTilesCount: Int,
-    currentTilesCount: Int
+private fun StatsCard(
+    totalExpandCount: Long,
+    totalCollapseCount: Long
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -423,26 +417,25 @@ private fun CurrentStatusCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 展开/收起状态图标
+                // 使用统计图标（记录/历史语义）
                 Icon(
-                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    imageVector = MiuixIcons.Demibold.SearchDevice,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = MiuixTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = if (isExpanded) "当前：展开状态" else "当前：收起状态",
-                    style = MiuixTheme.textStyles.title2
+                    text = "使用统计",
+                    style = MiuixTheme.textStyles.title3
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // 三行键值对：展示各项磁贴数量
-            StatusRow("展开时磁贴数", expandedTilesCount.toString())
-            StatusRow("收起时磁贴数", collapsedTilesCount.toString())
-            StatusRow("当前系统磁贴数", currentTilesCount.toString())
+            // 两行键值对：累计展开/收起次数
+            StatusRow("累计展开次数", totalExpandCount.toString())
+            StatusRow("累计收起次数", totalCollapseCount.toString())
         }
     }
 }
