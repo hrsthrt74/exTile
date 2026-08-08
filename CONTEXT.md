@@ -4,16 +4,16 @@
 
 **exTile** 是一个 Android 应用，通过 **Shizuku** 框架获取系统级权限，实现对 Android 快速设置面板（Quick Settings）磁贴的动态切换与配置管理。
 
-| 属性 | 值 |
-|------|-----|
-| 包名 | `com.hrsthrt74.qstile` |
-| 语言 | Kotlin 2.4.0 |
+| 属性 | 值                                    |
+|------|--------------------------------------|
+| 包名 | `com.hrsthrt74.qstile`               |
+| 语言 | Kotlin 2.4.0                         |
 | UI | Jetpack Compose + MIUIX (HyperOS 设计) |
-| 构建系统 | Gradle (Kotlin DSL) + AGP 9.3.0 |
-| 最低 SDK | Android 13 (API 33) |
-| 目标 SDK | Android 15 (API 36) |
-| 编译 SDK | Android 17 (API 37) |
-| Java 版本 | Java 11 |
+| 构建系统 | Gradle (Kotlin DSL) + AGP 9.3.0      |
+| 最低 SDK | Android 13 (API 33)                  |
+| 目标 SDK | Android 16 (API 36)                  |
+| 编译 SDK | Android 17 (API 37)                  |
+| Java 版本 | Java 11                              |
 
 ---
 
@@ -184,6 +184,7 @@ exTile/
 - **预测式返回（Predictive Back）**：miuix 0.9.3 的 `BottomSheetContentLayout`/`DialogContentLayout`/`ListPopupLayout`/`SearchBar` 等组件**已内置** `NavigationBackHandler`（跟手下滑 + 遮罩淡出 + 取消回弹），应用层只需 `activity-compose 1.13.0` + Manifest `<application android:enableOnBackInvokedCallback="true">`，**不要**手动注册任何 BackHandler（会抢占内置实现、导致无跟手动画）。Activity 间转场动画由系统自动处理；手写 `PredictiveBackDismiss` 方案已弃用并删除
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
 - **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；一页式布局，`key(isXiaomi, fixedTileValues)` 确保状态正确重建；**统一渲染列表**：框外磁贴 + span 全行的「展开后显示的磁贴」标题行（`Any()` 标记，key 固定 `inner-section-header`）+ 框内磁贴全部塞进同一个 `gridItems(renderList)` 块（`itemKeyOf` 生成 key；标题行通过 `span = { ... }` 参数占满整行，此版本 `LazyGridItemScope.span` modifier 已移除），跨框拖拽时 item 不跨组合块、key 不变，避免 ReorderableItem 拖拽句柄丢失；拖拽的 `from.index`/`to.index` 是网格全部 item 的绝对索引，`gridToData` 映射回数据索引（减去固定卡片偏移、跳过标题行，落在标题/卡片/添加按钮上时忽略本次移动）；**虚线框用网格 overlay 绘制**：`LazyVerticalGrid` 的 `Modifier.drawBehind` 依据 `lazyGridState.layoutInfo` 中框内磁贴的实际 item 位置画框（左右竖线 = 框内磁贴包围范围、顶线 = 标题行、底线 = 末行实际行底，`clipRect` 裁剪到视口），框线不随磁贴拖动/缩放移动、底线不受磁贴文本行数影响；保留系统默认 overscroll 手感（曾尝试自定义 `OverscrollEffect` 让框跟随回弹：或手感变硬、或 fling 无限滚动，故放弃，回弹拉伸瞬间框不跟随是可接受取舍）；颜色为 @Composable 属性需在 drawBehind 外取值；点击磁贴弹出 `WindowListPopup` 操作菜单（移动到顶端=框外第一 / 移动到底端=框内最后 / 删除）；固定磁贴支持 `TooltipBox` 提示（无箭头）；标题行「展开后显示的磁贴」改为 `Row`（文字 + `MiuixIcons.Info` 说明图标），点击图标弹出 `RichTooltip`（`rememberTooltipState(isPersistent = true)` + `focusable = true` 点击外部关闭，点击用 `clickable(indication = null)` 去掉压暗特效、无 caret），文案「将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。」；TopAppBar 提供**撤销上一步**：`MiuixIcons.Undo` 默认图标色（不强调）+ `AnimatedVisibility` 包裹（可用时缩放 0.8→1 + 透明度 0→1 出现、不可用时整个图标不显示，与 More 菜单间距 4dp），只支持一步撤销，撤销后立即失效
+- **磁贴编辑页代码结构**：`TileConfigScreen` 函数已拆分为多个局部函数（闭包捕获、不显式传参）：`TileTopAppBar`（顶栏+撤销+More 菜单）、`LazyGridItemScope.FixedTilesRow`（小米固定卡片）、`LazyGridItemScope.AddTilesSection`（添加按钮区）、`TileGridPane`（拖拽网格主体，内含 `TileGridItem`/`SectionHeaderItem`）、`AddTileSheet`/`AddCustomTileSheet`（添加磁贴两个底部 Sheet）、`ConfirmationDialogs`（清除/恢复确认对话框）；主函数仅保留状态声明 + 副作用 + 保存函数 + 子组件调用。拆分使 Compose 重组失效局部化（状态读取分散到独立组合单元），GPU 渲染时间显著下降（柱状图回落至 vsync 线以下）。未采用顶层函数参数化：需传大量状态/回调，且 lambda 回调等非稳定参数会破坏 Compose skip 优化、收益有限
 - **撤销上一步（磁贴编辑页）**：撤销快照为内存态（不持久化，刷新即清空），每次操作只保留最近一步。**一次完整拖拽合并为一步**（长按→移动跨多格→松手，撤销恢复到拖拽起点而非中间位置），通过 `reorderableState.isAnyItemDragging` + `LaunchedEffect` 观察拖拽起止（**不要用** `onDragStarted`/`onDragStopped` 手势回调——回调捕获的 `gridTiles` 引用不随拖拽重组更新，会导致起点==终点恒成立、撤销失效）；添加/添加第三方/移动到顶端/移动到底端/删除均在修改前记录快照；原地松手（无净变化）不产生撤销项；撤销后立即失效（只支持一步）；清除配置/恢复默认不可撤销（对话框文案已声明）
 - **图标映射**：图标资源 id 并入 `TileCatalog.TileInfo.iconResId`（数据字段），`TileCatalog.iconRes(value)` 查询；新增图标只需在清单条目中声明；custom 磁贴通过 `CustomTileUtils.getCustomTileIcon()` 获取其他应用图标
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效

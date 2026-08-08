@@ -260,614 +260,648 @@ fun TileConfigScreen() {
         return remember(tile) { CustomTileUtils.getCustomTileNames(context, tile) }
     }
 
-    Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = "磁贴配置",
-                    largeTitle = "磁贴配置",
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                            // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
-                            // 出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
-                            // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
-                            AnimatedVisibility(
-                                visible = undoSnapshot != null,
-                                enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
-                                    scaleIn(initialScale = 0.8f, animationSpec = tween(durationMillis = 200)),
-                                exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
-                                    scaleOut(targetScale = 0.8f, animationSpec = tween(durationMillis = 150))
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
-                                        undoSnapshot?.let { updateGridTiles(it) }
-                                        // 只支持撤销一步：撤销后立即清空，避免重复撤销
-                                        undoSnapshot = null
-                                    },
-                                    // 与右侧三点菜单保持间距
-                                    modifier = Modifier.padding(end = 4.dp)
-                                ) {
-                                    Icon(MiuixIcons.Undo, contentDescription = "撤销上一步")
-                                }
-                            }
-                            val entry = DropdownEntry(
-                                items = listOf(
-                                    DropdownItem(
-                                        text = "清除当前配置的磁贴",
-                                        onClick = { clearConfirmDialogState.show() }
-                                    ),
-                                    DropdownItem(
-                                        text = "恢复默认设置",
-                                        onClick = { resetConfirmDialogState.show() }
-                                    )
-                                )
-                            )
-                            WindowIconDropdownMenu(entry = entry) {
-                                Icon(MiuixIcons.More, contentDescription = "更多操作")
-                            }
-                        }
-                    )
-            }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding())
-            ) {
-                // 拖拽排序网格：按住任意磁贴直接拖动，4 列布局。
-                // 一页式：exTile 磁贴为「分界锚点」——它及其之前的磁贴 = 收起时可见（框外），
-                // 之后的磁贴 = 仅展开时可见（框内，渲染在虚线框内）。拖动磁贴跨过 exTile 即自动进出框。
-                key(isXiaomi, fixedTileValues) {
-                    // 单一数据源（过滤固定卡片和 edit），含 exTile
-                    val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
-                    val exTileIndex = gridTiles.indexOf(TileCatalog.EXTILE_CUSTOM)
-                    // 框外磁贴 = exTile 及其之前；框内磁贴 = exTile 之后
-                    val outerTiles = if (exTileIndex >= 0) gridTiles.take(exTileIndex + 1) else gridTiles
-                    val innerTiles = if (exTileIndex >= 0) gridTiles.drop(exTileIndex + 1) else emptyList()
-                    // 只要存在 exTile 就显示「展开后」区域（标题行 + 虚线框）。
-                    // 框内磁贴为空时也保留空框，提示新添加的磁贴会进这里；exTile 被删除才整体隐藏。
-                    val hasInner = exTileIndex >= 0
-                    val outerCount = outerTiles.size
-                    // 固定卡片 item 数（网格中占 1 个不可拖拽 item）
-                    val fixedItemCount = if (isXiaomi && fixedTileValues.isNotEmpty()) 1 else 0
-
-                    // 标题行 item 的 key（overlay 绘制框顶线时用它定位）
-                    val headerKey = "inner-section-header"
-                    // 标记对象用 remember 保持稳定，供 renderList 与 itemKeyOf 用 === 匹配
-                    val headerMarker = remember { Any() }
-                    // 统一渲染列表：框外磁贴 + 标题行 + 框内磁贴。
-                    // 所有磁贴在同一 items 块内渲染，跨框拖拽时 item 不跨组合块、key 不变，
-                    // 避免 ReorderableItem 拖拽句柄丢失导致拖动被打断。
-                    // 注意：不在框内添加「占位 ReorderableItem」——无对应数据的幽灵 item 会干扰
-                    // 库的落点/索引计算，导致拖拽抽搐。空框拖入改由「标题行在空框时作为落点」实现。
-                    val renderList = remember(gridTiles, hasInner) {
-                        buildList {
-                            addAll(outerTiles)
-                            if (hasInner) add(headerMarker)
-                            addAll(innerTiles)
-                        }
-                    }
-                    // 框内磁贴 key 集合（overlay 定位虚线框用）
-                    val innerKeys = remember(innerTiles) { innerTiles.toSet() }
-                    // gridItems 的 key 生成：磁贴用 spec 值，标题行用固定 key
-                    fun itemKeyOf(item: Any): Any = if (item is String) item else headerKey
-
-                    val lazyGridState = rememberLazyGridState()
-                    val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
-                        // 库的索引是 LazyGrid 全部 item 的绝对位置，需映射回数据索引。
-                        // 渲染列表索引 = gi - 固定卡片数；数据索引需跳过标题行（标题位于渲染索引 outerCount 处）。
-                        fun gridToData(gi: Int): Int {
-                            val ri = gi - fixedItemCount
-                            if (ri < 0) return -1
-                            if (!hasInner) return ri
-                            // 标题行：空框时作为落点（= 框内末尾追加位），非空时不注册、不会被选为目标
-                            if (ri == outerCount) return if (innerTiles.isEmpty()) gridTiles.size else -1
-                            // 框内磁贴（跳过标题行）
-                            return if (ri > outerCount) ri - 1 else ri
-                        }
-                        val fromData = gridToData(from.index)
-                        val toData = gridToData(to.index)
-                        // 目标落在标题/固定卡片/添加按钮等非数据 item 上时忽略本次移动。
-                        // toData == gridTiles.size 表示「框内末尾」（拖入占位行），为合法目标
-                        if (fromData < 0 || toData < 0 ||
-                            fromData >= gridTiles.size || toData > gridTiles.size ||
-                            fromData == toData
-                        ) {
-                            return@rememberReorderableLazyGridState
-                        }
-                        val newList = gridTiles.toMutableList().apply {
-                            // toData == gridTiles.size 表示「框内末尾」（拖入占位行）。
-                            // toData 是 removeAt 前的索引，removeAt 后 size 减 1，
-                            // 追加到末尾应使用 gridTiles.size - 1（= removeAt 后的 size），避免越界
-                            val insertAt = if (toData == gridTiles.size) gridTiles.size - 1 else toData
-                            add(insertAt, removeAt(fromData))
-                        }
-                        updateGridTiles(newList)
-                        // 每次调换位置触发震动
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }
-
-                    // 监听拖拽状态变化，把一次完整拖拽（长按→移动跨多格→松手）合并为「一步」可撤销操作。
-                    // 用库公开的可观察状态 isAnyItemDragging（而非手势回调）驱动，避免回调捕获的
-                    // gridTiles 引用不随重组更新导致比较恒等、撤销失效的问题。
-                    // 注意：LaunchedEffect 每次重启时 block 都是最新的，读取的 gridTiles 即触发时刻的值。
-                    LaunchedEffect(reorderableState.isAnyItemDragging) {
-                        if (reorderableState.isAnyItemDragging) {
-                            // 拖拽开始：记录起点（此时尚未发生移动，gridTiles 即拖拽前状态）。
-                            // 后续跨越多个格子时 gridTiles 不断更新，但起点快照不变，
-                            // 故「撤销上一步」恢复到起点而非上一个位置。
-                            dragStartSnapshot = gridTiles
-                        } else {
-                            // 拖拽结束：把起点快照提交为一步。仅当起点与终点不同（确有净变化）才记录，
-                            // 原地松手（来回拖动又回到原处）不产生撤销项。
-                            val start = dragStartSnapshot
-                            if (start != null && start != gridTiles) {
-                                undoSnapshot = start
-                            }
-                            dragStartSnapshot = null
-                        }
-                    }
-
-                    // 单个磁贴格子的渲染（含拖拽、点击菜单）。虚线框不再画在磁贴上（会随拖拽移动），
-                    // 改由网格 overlay 统一绘制。
-                    // 使用 LazyGridItemScope receiver：ReorderableItem 是其扩展函数，只能在网格 item 作用域内调用。
-                    @Composable
-                    fun LazyGridItemScope.TileGridItem(
-                        tile: String,
+    /**
+     * 顶栏：标题 + 撤销上一步按钮 + More 菜单（清除配置 / 恢复默认）。
+     * 撤销按钮仅在存在可撤销快照时显示，出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
+     * 不可用时整个图标不显示，故无需置灰，用默认图标色（不强调）。
+     */
+    @Composable
+    fun TileTopAppBar() {
+        TopAppBar(
+            title = "磁贴配置",
+            largeTitle = "磁贴配置",
+            scrollBehavior = scrollBehavior,
+            actions = {
+                    // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
+                    // 出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
+                    // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
+                    AnimatedVisibility(
+                        visible = undoSnapshot != null,
+                        enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
+                            scaleIn(initialScale = 0.8f, animationSpec = tween(durationMillis = 200)),
+                        exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
+                            scaleOut(targetScale = 0.8f, animationSpec = tween(durationMillis = 150))
                     ) {
-                        ReorderableItem(reorderableState, key = tile) { isDragging ->
-                            val scale by animateFloatAsState(
-                                targetValue = if (isDragging) 1.1f else 1f,
-                                label = "tileScale"
-                            )
-                            val elevation by animateDpAsState(
-                                targetValue = if (isDragging) 12.dp else 0.dp,
-                                label = "tileElevation"
-                            )
-                            Box {
-                                Column(
-                                    modifier = Modifier
-                                        .longPressDraggableHandle(
-                                            onDragStarted = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            }
-                                        )
-                                        .scale(scale)
-                                        .padding(horizontal = 4.dp, vertical = 12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .pressable(
-                                                interactionSource = null,
-                                                indication = SinkFeedback(sinkAmount = 0.9f, animationSpec = spring(0.8f, 120f)),
-                                                delay = null
-                                            )
-                                            .shadow(elevation, CircleShape)
-                                            .clip(CircleShape)
-                                            .background(MiuixTheme.colorScheme.surfaceVariant)
-                                            .clickable {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                selectedTileForMenu = tile
-                                                showTileMenu = true
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        val icon = rememberTileIcon(tile)
-                                        if (icon != null) {
-                                            Icon(
-                                                painter = icon,
-                                                contentDescription = TileCatalog.getDisplayName(tile, profile),
-                                                tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
-                                                modifier = Modifier.size(36.dp)
-                                            )
-                                        }
-
-                                        // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
-                                        // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
-                                        // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
-                                        // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
-                                        if (selectedTileForMenu == tile) {
-                                            val gridTilesForMenu = gridTiles
-                                            val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
-
-                                            // 删除按钮的错误颜色
-                                            val errorColors = DropdownDefaults.dropdownColors(
-                                                contentColor = MiuixTheme.colorScheme.error,
-                                                selectedContentColor = MiuixTheme.colorScheme.error
-                                            )
-
-                                            WindowListPopup(
-                                                show = showTileMenu,
-                                                // 垂直间距 8dp：popup 与图标保持间距；左右边距独立设置左 0 右 8
-                                                popupPositionProvider = asymmetricDropdownPositionProvider(
-                                                    verticalMargin = 8.dp,
-                                                    startMargin = 0.dp,
-                                                    endMargin = 8.dp
-                                                ),
-                                                onDismissRequest = { showTileMenu = false }
-                                            ) {
-                                                ListPopupColumn {
-                                                    // 磁贴名称（不可点击）
-                                                    DropdownImpl(
-                                                        text = TileCatalog.getDisplayName(tile, profile),
-                                                        optionSize = 1,
-                                                        isSelected = false,
-                                                        index = 0,
-                                                        enabled = false,
-                                                        onSelectedIndexChange = {}
-                                                    )
-                                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                                    // 移动到顶端（框外第一个，收起时最先显示）
-                                                    DropdownImpl(
-                                                        text = "移动到顶端",
-                                                        optionSize = 3,
-                                                        isSelected = false,
-                                                        index = 0,
-                                                        enabled = tileIndexForMenu > 0,
-                                                        onSelectedIndexChange = {
-                                                            // 操作前记录快照，供「撤销上一步」恢复
-                                                            undoSnapshot = gridTilesForMenu
-                                                            val newList = gridTilesForMenu.toMutableList().apply {
-                                                                removeAt(tileIndexForMenu)
-                                                                add(0, tile)
-                                                            }
-                                                            updateGridTiles(newList)
-                                                            showTileMenu = false
-                                                        }
-                                                    )
-                                                    // 移动到底端（框内最后一个，仅展开时显示）
-                                                    DropdownImpl(
-                                                        text = "移动到底端",
-                                                        optionSize = 3,
-                                                        isSelected = false,
-                                                        index = 1,
-                                                        enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
-                                                        onSelectedIndexChange = {
-                                                            // 操作前记录快照，供「撤销上一步」恢复
-                                                            undoSnapshot = gridTilesForMenu
-                                                            val newList = gridTilesForMenu.toMutableList().apply {
-                                                                removeAt(tileIndexForMenu)
-                                                                add(gridTilesForMenu.size - 1, tile)
-                                                            }
-                                                            updateGridTiles(newList)
-                                                            showTileMenu = false
-                                                        }
-                                                    )
-                                                    // 删除（错误颜色）
-                                                    DropdownImpl(
-                                                        text = "删除",
-                                                        optionSize = 3,
-                                                        isSelected = false,
-                                                        index = 2,
-                                                        dropdownColors = errorColors,
-                                                        onSelectedIndexChange = {
-                                                            // 操作前记录快照，供「撤销上一步」恢复
-                                                            undoSnapshot = gridTilesForMenu
-                                                            val newList = gridTilesForMenu.toMutableList().apply {
-                                                                remove(tile)
-                                                            }
-                                                            updateGridTiles(newList)
-                                                            showTileMenu = false
-                                                        }
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    // 第一行：磁贴显示名（第三方磁贴显示其 label，而非包名后缀）
-                                    Text(
-                                        text = rememberCustomTileNames(tile)?.first
-                                            ?: TileCatalog.getDisplayName(tile, profile),
-                                        style = MiuixTheme.textStyles.body2,
-                                        maxLines = 2,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    // 第二行：系统磁贴显示 value；第三方磁贴显示应用名
-                                    Text(
-                                        text = rememberCustomTileNames(tile)?.second ?: tile,
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                        maxLines = 2,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
+                        IconButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
+                                undoSnapshot?.let { updateGridTiles(it) }
+                                // 只支持撤销一步：撤销后立即清空，避免重复撤销
+                                undoSnapshot = null
+                            },
+                            // 与右侧三点菜单保持间距
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Icon(MiuixIcons.Undo, contentDescription = "撤销上一步")
                         }
                     }
-
-                    // 虚线框颜色（@Composable 属性，需在 Composable 上下文取值后供 drawBehind 捕获）
-                    val frameColor = MiuixTheme.colorScheme.primary
-                    // 系统 overscroll effect（与 LazyVerticalGrid 默认一致，Miuix 定制同样生效）。
-                    // 通过拆分「渲染/事件」让虚线框进入系统拉伸变换内部：
-                    // - LazyVerticalGrid 接收 withoutVisualEffect（事件照旧进系统 effect，手感不变，不渲染）
-                    // - modifier 最外层挂 withoutEventHandling（系统拉伸渲染节点），包住下面的 drawBehind 虚线框，
-                    //   回弹时框与磁贴被同一个变换拉伸，实现跟随
-                    val systemOverscrollEffect = rememberOverscrollEffect()
-
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        state = lazyGridState,
-                        overscrollEffect = systemOverscrollEffect?.withoutVisualEffect(),
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            // 系统 overscroll 渲染节点（null 时不渲染），置于虚线框外层使其同被拉伸
-                            .overscroll(systemOverscrollEffect?.withoutEventHandling())
-                            // 虚线框覆盖层：画在网格内容上层，不随磁贴拖动/缩放移动（修复拖拽带线）；
-                            // 底线按末行实际行底绘制（修复磁贴文本行数不同导致底线不齐）。
-                            // 框位于 overscroll 渲染变换内部，回弹时与磁贴一起被系统拉伸跟随。
-                            .drawBehind {
-                                // 存在 exTile 时显示「展开后」区域
-                                if (hasInner) {
-                                    val layoutInfo = lazyGridState.layoutInfo
-                                    val visible = layoutInfo.visibleItemsInfo
-                                    val strokeWidth = 1.5.dp.toPx()
-                                    val dash = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))
-                                    // 圆角半径 16dp
-                                    val cornerRadius = CornerRadius(16.dp.toPx())
-                                    // 框左右边界：撑满宽度（不随磁贴数量收窄），
-                                    // 距屏幕左右边缘各留 10dp 水平边距，磁贴(contentPadding 10dp)完整在框内
-                                    val left = 10.dp.toPx()
-                                    val right = size.width - 10.dp.toPx()
-                                    // 标题行 item（画顶线的锚点）
-                                    val headerItem = visible.find { it.key == headerKey }
-                                    // 可见的框内磁贴 item
-                                    val innerVisible = visible.filter { it.key in innerKeys }
-                                    val top: Float
-                                    val bottom: Float
-                                    if (innerVisible.isEmpty()) {
-                                        // 框内无磁贴：空框只包住标题行
-                                        if (headerItem == null) return@drawBehind
-                                        top = headerItem.offset.y.toFloat()
-                                        bottom = (headerItem.offset.y + headerItem.size.height).toFloat()
-                                    } else {
-                                        // 有框内磁贴：框顶用标题行，框底用末行实际行底
-                                        val lastRowStart = ((innerTiles.size - 1) / 4) * 4
-                                        val lastRowKeys = innerTiles.subList(lastRowStart, innerTiles.size).toSet()
-                                        val lastRowVisible = innerVisible.filter { it.key in lastRowKeys }
-                                        val lastRowComplete = lastRowVisible.size == lastRowKeys.size
-                                        top = if (headerItem != null) headerItem.offset.y.toFloat()
-                                              else innerVisible.minOf { it.offset.y }.toFloat()
-                                        bottom = if (lastRowComplete) lastRowVisible.maxOf { it.offset.y + it.size.height }.toFloat()
-                                                 else innerVisible.maxOf { it.offset.y + it.size.height }.toFloat()
-                                    }
-                                    // 绘制裁剪到网格视口内，滚出屏幕的部分被裁掉
-                                    clipRect {
-                                        // 圆角虚线框
-                                        drawRoundRect(
-                                            color = frameColor,
-                                            topLeft = Offset(left, top),
-                                            size = Size(right - left, (bottom - top).coerceAtLeast(0f)),
-                                            cornerRadius = cornerRadius,
-                                            style = Stroke(width = strokeWidth, pathEffect = dash),
-                                        )
-                                    }
-                                }
-                            }
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
-                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                        contentPadding = PaddingValues(
-                            // 磁贴与屏幕边缘 10dp：与虚线框的 10dp 水平边距对应，
-                            // 使框贴边撑满时磁贴距框线正好 10dp
-                            start = 10.dp,
-                            end = 10.dp,
-                            bottom = NavigationBarDefaults.ItemHeight +
-                                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                    val entry = DropdownEntry(
+                        items = listOf(
+                            DropdownItem(
+                                text = "清除当前配置的磁贴",
+                                onClick = { clearConfirmDialogState.show() }
+                            ),
+                            DropdownItem(
+                                text = "恢复默认设置",
+                                onClick = { resetConfirmDialogState.show() }
                             )
+                        )
+                    )
+                    WindowIconDropdownMenu(entry = entry) {
+                        Icon(MiuixIcons.More, contentDescription = "更多操作")
+                    }
+                }
+            )
+    }
+
+    // 小米设备特化：固定卡片（网格中占 1 个不可拖拽 item，不参与排序）
+    @Composable
+    fun LazyGridItemScope.FixedTilesRow() {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 俩卡片的外边距
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            // 俩卡片中间的间距
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val scope = rememberCoroutineScope()
+            fixedTileValues.forEach { tile ->
+                val tooltipState = rememberTooltipState(isPersistent = true)
+
+                TooltipBox(
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                    tooltip = {
+                        PlainTooltip {
+                            Text(
+                                text = "系统限制此磁贴无法移动",
+                                style = MiuixTheme.textStyles.footnote1
+                            )
+                        }
+                    },
+                    state = tooltipState,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Card {
+                        Row(
+                            // 卡片内边距
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    scope.launch { tooltipState.show() }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 18.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                        // 固定卡片（小米特化，不参与拖拽）
-                        if (isXiaomi && fixedTileValues.isNotEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        // 俩卡片的外边距
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    // 俩卡片中间的间距
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    val scope = rememberCoroutineScope()
-                                    fixedTileValues.forEach { tile ->
-                                        val tooltipState = rememberTooltipState(isPersistent = true)
-
-                                        TooltipBox(
-                                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
-                                            tooltip = {
-                                                PlainTooltip {
-                                                    Text(
-                                                        text = "系统限制此磁贴无法移动",
-                                                        style = MiuixTheme.textStyles.footnote1
-                                                    )
-                                                }
-                                            },
-                                            state = tooltipState,
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Card {
-                                                Row(
-                                                    // 卡片内边距
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable {
-                                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                            scope.launch { tooltipState.show() }
-                                                        }
-                                                        .padding(horizontal = 16.dp, vertical = 18.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    val icon = rememberTileIcon(tile)
-                                                    if (icon != null) {
-                                                        Icon(
-                                                            painter = icon,
-                                                            contentDescription = TileCatalog.getDisplayName(tile, profile),
-                                                            tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
-                                                            modifier = Modifier.size(36.dp)
-                                                        )
-                                                    }
-
-                                                    // 图标与文字之间的间距
-                                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                                    // 磁贴名 和 “固定磁贴”
-                                                    Column {
-                                                        Text(
-                                                            text = TileCatalog.getDisplayName(tile, profile),
-                                                            style = MiuixTheme.textStyles.body1
-                                                        )
-                                                        Text(
-                                                            text = "固定磁贴",
-                                                            style = MiuixTheme.textStyles.footnote2,
-                                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            val icon = rememberTileIcon(tile)
+                            if (icon != null) {
+                                Icon(
+                                    painter = icon,
+                                    contentDescription = TileCatalog.getDisplayName(tile, profile),
+                                    tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
                             }
-                        }
 
-                        // 统一渲染列表：框外磁贴 / 标题行 / 框内磁贴。所有磁贴在同一 items 块内渲染，
-                        // 跨框拖拽时 item 不跨组合块、key 不变，避免 ReorderableItem 拖拽句柄丢失。
-                        gridItems(
-                            renderList,
-                            key = { itemKeyOf(it) },
-                            // 磁贴占 1 格；标题行「展开后显示的磁贴」占满整行
-                            span = { item -> if (item is String) GridItemSpan(1) else GridItemSpan(maxLineSpan) }
-                        ) { item ->
-                            if (item is String) {
-                                TileGridItem(tile = item)
-                            } else {
-                                // 标题行「展开后显示的磁贴」（span 全行）。
-                                // 用 ReorderableItem 包裹并仅在空框时 enabled：
-                                // 空框时标题行作为拖拽落点（拖磁贴到这里 = 追加到框内末尾，库的落点只能是
-                                // ReorderableItem，见 findTargetItem 的 reorderableKeys 过滤）；
-                                // 非空框时不注册 reorderableKeys、不作为落点，不影响正常排序拖拽。
-                                // 不挂拖拽句柄，标题行自身不可拖动。框顶线由网格 overlay 绘制。
-                                ReorderableItem(
-                                    reorderableState,
-                                    key = headerKey,
-                                    enabled = innerTiles.isEmpty(),
-                                ) {
-                                    // 标题行：文字 + 说明图标。图标点击弹出 RichTooltip。
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            // 文本距离虚线框的边距
-                                            .padding(top = 16.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "展开后显示的磁贴",
-                                            style = MiuixTheme.textStyles.subtitle,
-                                            color = frameColor,
-                                        )
-                                        // 说明图标：isPersistent 常驻 tooltip，点击显示（点击外部/再点图标自动关闭）
-                                        val infoTooltipState = rememberTooltipState(isPersistent = true)
-                                        TooltipBox(
-                                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-                                                positioning = TooltipAnchorPosition.Below
-                                            ),
-                                            tooltip = {
-                                                RichTooltip {
-                                                    Text(
-                                                        text = "将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。",
-                                                        style = MiuixTheme.textStyles.body2,
-                                                    )
-                                                }
-                                            },
-                                            state = infoTooltipState,
-                                            // rich tooltip 可交互：点击外部触发 onDismissRequest 关闭
-                                            focusable = true,
-                                            modifier = Modifier.padding(start = 6.dp)
-                                        ) {
-                                            Icon(
-                                                MiuixIcons.Info,
-                                                contentDescription = "展开区域说明",
-                                                tint = frameColor,
-                                                modifier = Modifier
-                                                    .size(18.dp)
-                                                    // indication = null：去掉点击压暗/涟漪特效
-                                                    .clickable(
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = null
-                                                    ) {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        scope.launch { infoTooltipState.show() }
-                                                    }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                            // 图标与文字之间的间距
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                        // 磁贴区域 / 按钮区域之间的间隔
-                        item { Spacer(modifier = Modifier.height(24.dp)) }
-
-                        // 添加按钮区域，占满整行
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 8.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Button(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            addSheetState.show()
-                                        },
-                                        colors = ButtonDefaults.buttonColorsPrimary(),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pressable(
-                                                interactionSource = null,
-                                                indication = SinkFeedback(),
-                                                delay = null
-                                            )
-                                    ) {
-                                        Icon(MiuixIcons.AddCircle, contentDescription = "添加")
-                                        Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Button(
-                                        onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            customSheetState.show()
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .pressable(
-                                                interactionSource = null,
-                                                indication = SinkFeedback(),
-                                                delay = null
-                                            )
-                                    ) {
-                                        Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
-                                        Text("添加第三方磁贴", modifier = Modifier.padding(start = 8.dp))
-                                    }
-                                }
+                            // 磁贴名 和 “固定磁贴”
+                            Column {
+                                Text(
+                                    text = TileCatalog.getDisplayName(tile, profile),
+                                    style = MiuixTheme.textStyles.body1
+                                )
+                                Text(
+                                    text = "固定磁贴",
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
                             }
                         }
                     }
                 }
             }
         }
+    }
 
+    // 网格末尾的添加按钮区域（添加磁贴 / 添加第三方磁贴），占满整行
+    @Composable
+    fun LazyGridItemScope.AddTilesSection() {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        addSheetState.show()
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pressable(
+                            interactionSource = null,
+                            indication = SinkFeedback(),
+                            delay = null
+                        )
+                ) {
+                    Icon(MiuixIcons.AddCircle, contentDescription = "添加")
+                    Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        customSheetState.show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pressable(
+                            interactionSource = null,
+                            indication = SinkFeedback(),
+                            delay = null
+                        )
+                ) {
+                    Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
+                    Text("添加第三方磁贴", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+
+    /**
+     * 拖拽排序网格主体（一页式布局，含虚线框 overlay）。
+     * 按住任意磁贴直接拖动，4 列布局；exTile 磁贴为「分界锚点」——它及其之前的磁贴 = 收起时可见（框外），
+     * 之后的磁贴 = 仅展开时可见（框内，渲染在虚线框内）。拖动磁贴跨过 exTile 即自动进出框。
+     */
+    @Composable
+    fun TileGridPane(paddingValues: PaddingValues) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = paddingValues.calculateTopPadding())
+        ) {
+            key(isXiaomi, fixedTileValues) {
+                // 单一数据源（过滤固定卡片和 edit），含 exTile
+                val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
+                val exTileIndex = gridTiles.indexOf(TileCatalog.EXTILE_CUSTOM)
+                // 框外磁贴 = exTile 及其之前；框内磁贴 = exTile 之后
+                val outerTiles = if (exTileIndex >= 0) gridTiles.take(exTileIndex + 1) else gridTiles
+                val innerTiles = if (exTileIndex >= 0) gridTiles.drop(exTileIndex + 1) else emptyList()
+                // 只要存在 exTile 就显示「展开后」区域（标题行 + 虚线框）。
+                // 框内磁贴为空时也保留空框，提示新添加的磁贴会进这里；exTile 被删除才整体隐藏。
+                val hasInner = exTileIndex >= 0
+                val outerCount = outerTiles.size
+                // 固定卡片 item 数（网格中占 1 个不可拖拽 item）
+                val fixedItemCount = if (isXiaomi && fixedTileValues.isNotEmpty()) 1 else 0
+
+                // 标题行 item 的 key（overlay 绘制框顶线时用它定位）
+                val headerKey = "inner-section-header"
+                // 标记对象用 remember 保持稳定，供 renderList 与 itemKeyOf 用 === 匹配
+                val headerMarker = remember { Any() }
+                // 统一渲染列表：框外磁贴 + 标题行 + 框内磁贴。
+                // 所有磁贴在同一 items 块内渲染，跨框拖拽时 item 不跨组合块、key 不变，
+                // 避免 ReorderableItem 拖拽句柄丢失导致拖动被打断。
+                // 注意：不在框内添加「占位 ReorderableItem」——无对应数据的幽灵 item 会干扰
+                // 库的落点/索引计算，导致拖拽抽搐。空框拖入改由「标题行在空框时作为落点」实现。
+                val renderList = remember(gridTiles, hasInner) {
+                    buildList {
+                        addAll(outerTiles)
+                        if (hasInner) add(headerMarker)
+                        addAll(innerTiles)
+                    }
+                }
+                // 框内磁贴 key 集合（overlay 定位虚线框用）
+                val innerKeys = remember(innerTiles) { innerTiles.toSet() }
+                // gridItems 的 key 生成：磁贴用 spec 值，标题行用固定 key
+                fun itemKeyOf(item: Any): Any = if (item is String) item else headerKey
+
+                val lazyGridState = rememberLazyGridState()
+                val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
+                    // 库的索引是 LazyGrid 全部 item 的绝对位置，需映射回数据索引。
+                    // 渲染列表索引 = gi - 固定卡片数；数据索引需跳过标题行（标题位于渲染索引 outerCount 处）。
+                    fun gridToData(gi: Int): Int {
+                        val ri = gi - fixedItemCount
+                        if (ri < 0) return -1
+                        if (!hasInner) return ri
+                        // 标题行：空框时作为落点（= 框内末尾追加位），非空时不注册、不会被选为目标
+                        if (ri == outerCount) return if (innerTiles.isEmpty()) gridTiles.size else -1
+                        // 框内磁贴（跳过标题行）
+                        return if (ri > outerCount) ri - 1 else ri
+                    }
+                    val fromData = gridToData(from.index)
+                    val toData = gridToData(to.index)
+                    // 目标落在标题/固定卡片/添加按钮等非数据 item 上时忽略本次移动。
+                    // toData == gridTiles.size 表示「框内末尾」（拖入占位行），为合法目标
+                    if (fromData < 0 || toData < 0 ||
+                        fromData >= gridTiles.size || toData > gridTiles.size ||
+                        fromData == toData
+                    ) {
+                        return@rememberReorderableLazyGridState
+                    }
+                    val newList = gridTiles.toMutableList().apply {
+                        // toData == gridTiles.size 表示「框内末尾」（拖入占位行）。
+                        // toData 是 removeAt 前的索引，removeAt 后 size 减 1，
+                        // 追加到末尾应使用 gridTiles.size - 1（= removeAt 后的 size），避免越界
+                        val insertAt = if (toData == gridTiles.size) gridTiles.size - 1 else toData
+                        add(insertAt, removeAt(fromData))
+                    }
+                    updateGridTiles(newList)
+                    // 每次调换位置触发震动
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+
+                // 监听拖拽状态变化，把一次完整拖拽（长按→移动跨多格→松手）合并为「一步」可撤销操作。
+                // 用库公开的可观察状态 isAnyItemDragging（而非手势回调）驱动，避免回调捕获的
+                // gridTiles 引用不随重组更新导致比较恒等、撤销失效的问题。
+                // 注意：LaunchedEffect 每次重启时 block 都是最新的，读取的 gridTiles 即触发时刻的值。
+                LaunchedEffect(reorderableState.isAnyItemDragging) {
+                    if (reorderableState.isAnyItemDragging) {
+                        // 拖拽开始：记录起点（此时尚未发生移动，gridTiles 即拖拽前状态）。
+                        // 后续跨越多个格子时 gridTiles 不断更新，但起点快照不变，
+                        // 故「撤销上一步」恢复到起点而非上一个位置。
+                        dragStartSnapshot = gridTiles
+                    } else {
+                        // 拖拽结束：把起点快照提交为一步。仅当起点与终点不同（确有净变化）才记录，
+                        // 原地松手（来回拖动又回到原处）不产生撤销项。
+                        val start = dragStartSnapshot
+                        if (start != null && start != gridTiles) {
+                            undoSnapshot = start
+                        }
+                        dragStartSnapshot = null
+                    }
+                }
+
+                // 虚线框颜色（@Composable 属性，需在 Composable 上下文取值后供 drawBehind 捕获）
+                val frameColor = MiuixTheme.colorScheme.primary
+
+                /**
+                 * 单个磁贴格子的渲染（含拖拽、点击菜单）。虚线框不再画在磁贴上（会随拖拽移动），
+                 * 改由网格 overlay 统一绘制。
+                 * 使用 LazyGridItemScope receiver：ReorderableItem 是其扩展函数，只能在网格 item 作用域内调用。
+                 */
+                @Composable
+                fun LazyGridItemScope.TileGridItem(
+                    tile: String,
+                ) {
+                    ReorderableItem(reorderableState, key = tile) { isDragging ->
+                        val scale by animateFloatAsState(
+                            targetValue = if (isDragging) 1.1f else 1f,
+                            label = "tileScale"
+                        )
+                        val elevation by animateDpAsState(
+                            targetValue = if (isDragging) 12.dp else 0.dp,
+                            label = "tileElevation"
+                        )
+                        Box {
+                            Column(
+                                modifier = Modifier
+                                    .longPressDraggableHandle(
+                                        onDragStarted = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    )
+                                    .scale(scale)
+                                    .padding(horizontal = 4.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .pressable(
+                                            interactionSource = null,
+                                            indication = SinkFeedback(sinkAmount = 0.9f, animationSpec = spring(0.8f, 120f)),
+                                            delay = null
+                                        )
+                                        .shadow(elevation, CircleShape)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.surfaceVariant)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            selectedTileForMenu = tile
+                                            showTileMenu = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val icon = rememberTileIcon(tile)
+                                    if (icon != null) {
+                                        Icon(
+                                            painter = icon,
+                                            contentDescription = TileCatalog.getDisplayName(tile, profile),
+                                            tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+
+                                    // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
+                                    // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
+                                    // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
+                                    // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
+                                    if (selectedTileForMenu == tile) {
+                                        val gridTilesForMenu = gridTiles
+                                        val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
+
+                                        // 删除按钮的错误颜色
+                                        val errorColors = DropdownDefaults.dropdownColors(
+                                            contentColor = MiuixTheme.colorScheme.error,
+                                            selectedContentColor = MiuixTheme.colorScheme.error
+                                        )
+
+                                        WindowListPopup(
+                                            show = showTileMenu,
+                                            // 垂直间距 8dp：popup 与图标保持间距；左右边距独立设置左 0 右 8
+                                            popupPositionProvider = asymmetricDropdownPositionProvider(
+                                                verticalMargin = 8.dp,
+                                                startMargin = 0.dp,
+                                                endMargin = 8.dp
+                                            ),
+                                            onDismissRequest = { showTileMenu = false }
+                                        ) {
+                                            ListPopupColumn {
+                                                // 磁贴名称（不可点击）
+                                                DropdownImpl(
+                                                    text = TileCatalog.getDisplayName(tile, profile),
+                                                    optionSize = 1,
+                                                    isSelected = false,
+                                                    index = 0,
+                                                    enabled = false,
+                                                    onSelectedIndexChange = {}
+                                                )
+                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                                // 移动到顶端（框外第一个，收起时最先显示）
+                                                DropdownImpl(
+                                                    text = "移动到顶端",
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 0,
+                                                    enabled = tileIndexForMenu > 0,
+                                                    onSelectedIndexChange = {
+                                                        // 操作前记录快照，供「撤销上一步」恢复
+                                                        undoSnapshot = gridTilesForMenu
+                                                        val newList = gridTilesForMenu.toMutableList().apply {
+                                                            removeAt(tileIndexForMenu)
+                                                            add(0, tile)
+                                                        }
+                                                        updateGridTiles(newList)
+                                                        showTileMenu = false
+                                                    }
+                                                )
+                                                // 移动到底端（框内最后一个，仅展开时显示）
+                                                DropdownImpl(
+                                                    text = "移动到底端",
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 1,
+                                                    enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
+                                                    onSelectedIndexChange = {
+                                                        // 操作前记录快照，供「撤销上一步」恢复
+                                                        undoSnapshot = gridTilesForMenu
+                                                        val newList = gridTilesForMenu.toMutableList().apply {
+                                                            removeAt(tileIndexForMenu)
+                                                            add(gridTilesForMenu.size - 1, tile)
+                                                        }
+                                                        updateGridTiles(newList)
+                                                        showTileMenu = false
+                                                    }
+                                                )
+                                                // 删除（错误颜色）
+                                                DropdownImpl(
+                                                    text = "删除",
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 2,
+                                                    dropdownColors = errorColors,
+                                                    onSelectedIndexChange = {
+                                                        // 操作前记录快照，供「撤销上一步」恢复
+                                                        undoSnapshot = gridTilesForMenu
+                                                        val newList = gridTilesForMenu.toMutableList().apply {
+                                                            remove(tile)
+                                                        }
+                                                        updateGridTiles(newList)
+                                                        showTileMenu = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // 第一行：磁贴显示名（第三方磁贴显示其 label，而非包名后缀）
+                                Text(
+                                    text = rememberCustomTileNames(tile)?.first
+                                        ?: TileCatalog.getDisplayName(tile, profile),
+                                    style = MiuixTheme.textStyles.body2,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                // 第二行：系统磁贴显示 value；第三方磁贴显示应用名
+                                Text(
+                                    text = rememberCustomTileNames(tile)?.second ?: tile,
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                /**
+                 * 标题行「展开后显示的磁贴」（span 全行）。
+                 * 用 ReorderableItem 包裹并仅在空框时 enabled：
+                 * 空框时标题行作为拖拽落点（拖磁贴到这里 = 追加到框内末尾，库的落点只能是
+                 * ReorderableItem，见 findTargetItem 的 reorderableKeys 过滤）；
+                 * 非空框时不注册 reorderableKeys、不作为落点，不影响正常排序拖拽。
+                 * 不挂拖拽句柄，标题行自身不可拖动。框顶线由网格 overlay 绘制。
+                 */
+                @Composable
+                fun LazyGridItemScope.SectionHeaderItem() {
+                    ReorderableItem(
+                        reorderableState,
+                        key = headerKey,
+                        enabled = innerTiles.isEmpty(),
+                    ) {
+                        // 标题行：文字 + 说明图标。图标点击弹出 RichTooltip。
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 文本距离虚线框的边距
+                                .padding(top = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "展开后显示的磁贴",
+                                style = MiuixTheme.textStyles.subtitle,
+                                color = frameColor,
+                            )
+                            // 说明图标：isPersistent 常驻 tooltip，点击显示（点击外部/再点图标自动关闭）
+                            val infoTooltipState = rememberTooltipState(isPersistent = true)
+                            TooltipBox(
+                                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                                    positioning = TooltipAnchorPosition.Below
+                                ),
+                                tooltip = {
+                                    RichTooltip {
+                                        Text(
+                                            text = "将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。",
+                                            style = MiuixTheme.textStyles.body2,
+                                        )
+                                    }
+                                },
+                                state = infoTooltipState,
+                                // rich tooltip 可交互：点击外部触发 onDismissRequest 关闭
+                                focusable = true,
+                                modifier = Modifier.padding(start = 6.dp)
+                            ) {
+                                Icon(
+                                    MiuixIcons.Info,
+                                    contentDescription = "展开区域说明",
+                                    tint = frameColor,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        // indication = null：去掉点击压暗/涟漪特效
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            scope.launch { infoTooltipState.show() }
+                                        }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 系统 overscroll effect（与 LazyVerticalGrid 默认一致，Miuix 定制同样生效）。
+                // 通过拆分「渲染/事件」让虚线框进入系统拉伸变换内部：
+                // - LazyVerticalGrid 接收 withoutVisualEffect（事件照旧进系统 effect，手感不变，不渲染）
+                // - modifier 最外层挂 withoutEventHandling（系统拉伸渲染节点），包住下面的 drawBehind 虚线框，
+                //   回弹时框与磁贴被同一个变换拉伸，实现跟随
+                val systemOverscrollEffect = rememberOverscrollEffect()
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    state = lazyGridState,
+                    overscrollEffect = systemOverscrollEffect?.withoutVisualEffect(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        // 系统 overscroll 渲染节点（null 时不渲染），置于虚线框外层使其同被拉伸
+                        .overscroll(systemOverscrollEffect?.withoutEventHandling())
+                        // 虚线框覆盖层：画在网格内容上层，不随磁贴拖动/缩放移动（修复拖拽带线）；
+                        // 底线按末行实际行底绘制（修复磁贴文本行数不同导致底线不齐）。
+                        // 框位于 overscroll 渲染变换内部，回弹时与磁贴一起被系统拉伸跟随。
+                        .drawBehind {
+                            // 存在 exTile 时显示「展开后」区域
+                            if (hasInner) {
+                                val layoutInfo = lazyGridState.layoutInfo
+                                val visible = layoutInfo.visibleItemsInfo
+                                val strokeWidth = 1.5.dp.toPx()
+                                val dash = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))
+                                // 圆角半径 16dp
+                                val cornerRadius = CornerRadius(16.dp.toPx())
+                                // 框左右边界：撑满宽度（不随磁贴数量收窄），
+                                // 距屏幕左右边缘各留 10dp 水平边距，磁贴(contentPadding 10dp)完整在框内
+                                val left = 10.dp.toPx()
+                                val right = size.width - 10.dp.toPx()
+                                // 标题行 item（画顶线的锚点）
+                                val headerItem = visible.find { it.key == headerKey }
+                                // 可见的框内磁贴 item
+                                val innerVisible = visible.filter { it.key in innerKeys }
+                                val top: Float
+                                val bottom: Float
+                                if (innerVisible.isEmpty()) {
+                                    // 框内无磁贴：空框只包住标题行
+                                    if (headerItem == null) return@drawBehind
+                                    top = headerItem.offset.y.toFloat()
+                                    bottom = (headerItem.offset.y + headerItem.size.height).toFloat()
+                                } else {
+                                    // 有框内磁贴：框顶用标题行，框底用末行实际行底
+                                    val lastRowStart = ((innerTiles.size - 1) / 4) * 4
+                                    val lastRowKeys = innerTiles.subList(lastRowStart, innerTiles.size).toSet()
+                                    val lastRowVisible = innerVisible.filter { it.key in lastRowKeys }
+                                    val lastRowComplete = lastRowVisible.size == lastRowKeys.size
+                                    top = if (headerItem != null) headerItem.offset.y.toFloat()
+                                          else innerVisible.minOf { it.offset.y }.toFloat()
+                                    bottom = if (lastRowComplete) lastRowVisible.maxOf { it.offset.y + it.size.height }.toFloat()
+                                             else innerVisible.maxOf { it.offset.y + it.size.height }.toFloat()
+                                }
+                                // 绘制裁剪到网格视口内，滚出屏幕的部分被裁掉
+                                clipRect {
+                                    // 圆角虚线框
+                                    drawRoundRect(
+                                        color = frameColor,
+                                        topLeft = Offset(left, top),
+                                        size = Size(right - left, (bottom - top).coerceAtLeast(0f)),
+                                        cornerRadius = cornerRadius,
+                                        style = Stroke(width = strokeWidth, pathEffect = dash),
+                                    )
+                                }
+                            }
+                        }
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                    contentPadding = PaddingValues(
+                        // 磁贴与屏幕边缘 10dp：与虚线框的 10dp 水平边距对应，
+                        // 使框贴边撑满时磁贴距框线正好 10dp
+                        start = 10.dp,
+                        end = 10.dp,
+                        bottom = NavigationBarDefaults.ItemHeight +
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                        )
+                ) {
+                    // 固定卡片（小米特化，不参与拖拽）
+                    if (isXiaomi && fixedTileValues.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            FixedTilesRow()
+                        }
+                    }
+
+                    // 统一渲染列表：框外磁贴 / 标题行 / 框内磁贴。所有磁贴在同一 items 块内渲染，
+                    // 跨框拖拽时 item 不跨组合块、key 不变，避免 ReorderableItem 拖拽句柄丢失。
+                    gridItems(
+                        renderList,
+                        key = { itemKeyOf(it) },
+                        // 磁贴占 1 格；标题行「展开后显示的磁贴」占满整行
+                        span = { item -> if (item is String) GridItemSpan(1) else GridItemSpan(maxLineSpan) }
+                    ) { item ->
+                        if (item is String) {
+                            TileGridItem(tile = item)
+                        } else {
+                            SectionHeaderItem()
+                        }
+                    }
+
+                    // 磁贴区域 / 按钮区域之间的间隔
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
+
+                    // 添加按钮区域，占满整行
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        AddTilesSection()
+                    }
+                }
+            }
+        }
+    }
+
+    // 「添加磁贴」底部 Sheet：按分类分组展示可用系统磁贴，点击添加到框内末尾
+    @Composable
+    fun AddTileSheet() {
         AppBottomSheet(
             state = addSheetState,
             title = "添加磁贴",
@@ -972,7 +1006,11 @@ fun TileConfigScreen() {
                 }
             }
         }
+    }
 
+    // 「添加第三方磁贴」底部 Sheet：展示其他应用的 QS Tile 服务（需 QUERY_ALL_PACKAGES 权限）
+    @Composable
+    fun AddCustomTileSheet() {
         AppBottomSheet(
             state = customSheetState,
             title = "添加第三方磁贴",
@@ -1155,7 +1193,11 @@ fun TileConfigScreen() {
                 }
             }
         }
+    }
 
+    // 两个确认操作对话框（清除当前配置 / 恢复默认设置）
+    @Composable
+    fun ConfirmationDialogs() {
         AppDialog(
             state = clearConfirmDialogState,
             title = "清除当前配置的磁贴",
@@ -1177,4 +1219,19 @@ fun TileConfigScreen() {
                 updateConfig(TileConfig())
             }
         )
+    }
+
+    Scaffold(
+            topBar = {
+                TileTopAppBar()
+            }
+        ) { paddingValues ->
+            TileGridPane(paddingValues)
+        }
+
+    AddTileSheet()
+
+    AddCustomTileSheet()
+
+    ConfirmationDialogs()
 }
