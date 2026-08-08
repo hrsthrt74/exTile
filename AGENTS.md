@@ -10,6 +10,8 @@
 
 - Sheet 组件已有左右边距，其中的组件不需要再添加左右边距。
 - 添加新 Activity 时，请记得在 TopAppBar 里加入返回按钮。
+- 所有 Sheet / Dialog 统一使用 `AppBottomSheet` / `AppDialog` 封装（`SheetState`/`DialogState` 的 `show()`/`dismiss()`），禁止手写 `var showXxx` + `onDismissRequest`。
+- 不要手动注册 `BackHandler` / `NavigationBackHandler`，miuix 0.9.3 组件已内置，手动注册会抢占内置实现。
 
 # 关于调试
 
