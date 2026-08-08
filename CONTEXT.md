@@ -54,6 +54,7 @@ exTile/
             │   │   ├── TileCapabilityFlags.kt # 能力 flag 调试开关（内存态，调试工具页模拟）
             │   │   ├── CustomTileUtils.kt   # 第三方磁贴工具（解析/查询/图标）
             │   │   ├── ConfigRepository.kt  # 配置持久化（DataStore）
+            │   │   ├── StatsRepository.kt   # 使用统计持久化（DataStore）
             │   │   └── ThemeSettings.kt     # 主题设置
             │   ├── shizuku/
             │   │   ├── ShizukuHelper.kt     # Shizuku 状态/权限辅助
@@ -144,6 +145,7 @@ exTile/
 14. **加载状态**：首页权限卡片和调试工具页面支持加载状态显示，避免权限状态闪烁
 15. **调试工具**：独立 `DebugToolsActivity`，提供详细调试信息（权限状态、磁贴配置、系统信息）、复制调试信息、添加磁贴到末尾等功能；调试开关（能力 flag / prop 门控 / 硬件特性）集中在「能力开关（调试）」`AppBottomSheet` 中（入口为操作卡片内的「能力开关（调试）」按钮，内容用 `LazyColumn` 可滚动；能力 flag 为 `SwitchPreference` 开关 `TileCapabilityFlags` 模拟卫星通讯/散热风扇；prop 门控遍历 `TileRequirement.gatedPropKeys` 自动生成开关模拟各 prop；硬件特性遍历 `gatedFeatureKeys` 自动生成开关模拟 NFC/自动亮度/振动/手电筒/移动数据/相机特性），均为内存态（重启恢复），用于测试对应磁贴可见性
 16. **长按 exTile 磁贴行为**：通过幽灵桥接 Activity（`TileLongClickActivity`）实现；系统长按第三方磁贴时会启动 `ACTION_QS_TILE_PREFERENCES` 对应的 Activity，该 Activity 不显示界面，读取「长按 exTile 磁贴行为」配置（跳转 exTile / 跳转系统设置 / 跳转自定义应用）分发后立即 `finish()`；`ConfigRepository` 提供 `LongPressBehavior` 常量 + 行为/自定义应用包名存储；应用选择器使用后台线程加载应用列表 + `InfiniteProgressIndicator` 加载状态避免卡顿
+17. **使用统计**：记录磁贴布局切换的累计展开/收起次数；`StatsRepository`（`data/StatsRepository.kt`，与 ConfigRepository 共用同一 DataStore）提供 `TileStats` 数据模型 + `getStatsFlow`/`getStats`/`recordExpand`/`recordCollapse`；触发点在 `ExTileService.onClick` 切换布局成功后（仅统计成功切换，Long 计数防溢出）；主页新增「使用统计」卡片（`StatsCard`）实时展示累计展开/收起次数
 
 ---
 
@@ -181,7 +183,8 @@ exTile/
 - **统一对话框**：所有 `WindowDialog` 统一封装为 `AppDialog`（`ui/components/AppDialog.kt`）。页面使用 `rememberDialogState()` 创建 `DialogState`，打开用 `xxxDialogState.show()`；关闭（点击遮罩 / 返回键）由 `AppDialog` 内部统一调用 `dismiss()`，**禁止**再手写 `var showXxx by remember {...}` + `onDismissRequest = { showXxx = false }`。**`AppDialog` 默认样式即为「取消 + 确认」按钮**（`cancelText`/`confirmText`/`destructive` 可配，`onConfirm` 执行后自动关闭，`content` 放按钮区上方的额外内容），无独立 ConfirmDialog 组件；磁贴配置页三个确认操作、设置页导入确认、主页 adb 授权均使用该默认样式
 - **预测式返回（Predictive Back）**：miuix 0.9.3 的 `BottomSheetContentLayout`/`DialogContentLayout`/`ListPopupLayout`/`SearchBar` 等组件**已内置** `NavigationBackHandler`（跟手下滑 + 遮罩淡出 + 取消回弹），应用层只需 `activity-compose 1.13.0` + Manifest `<application android:enableOnBackInvokedCallback="true">`，**不要**手动注册任何 BackHandler（会抢占内置实现、导致无跟手动画）。Activity 间转场动画由系统自动处理；手写 `PredictiveBackDismiss` 方案已弃用并删除
 - **主题模型**：`ThemeSettings` 包含 `dayNightMode`（0=跟随/1=浅/2=深）+ `isDynamicColorMode`（动态取色开关），`ExTileTheme` 中通过 `SideEffect` 处理状态栏颜色反色
-- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；一页式布局，`key(isXiaomi, fixedTileValues)` 确保状态正确重建；**统一渲染列表**：框外磁贴 + span 全行的「展开后显示的磁贴」标题行（`Any()` 标记，key 固定 `inner-section-header`）+ 框内磁贴全部塞进同一个 `gridItems(renderList)` 块（`itemKeyOf` 生成 key；标题行通过 `span = { ... }` 参数占满整行，此版本 `LazyGridItemScope.span` modifier 已移除），跨框拖拽时 item 不跨组合块、key 不变，避免 ReorderableItem 拖拽句柄丢失；拖拽的 `from.index`/`to.index` 是网格全部 item 的绝对索引，`gridToData` 映射回数据索引（减去固定卡片偏移、跳过标题行，落在标题/卡片/添加按钮上时忽略本次移动）；**虚线框用网格 overlay 绘制**：`LazyVerticalGrid` 的 `Modifier.drawBehind` 依据 `lazyGridState.layoutInfo` 中框内磁贴的实际 item 位置画框（左右竖线 = 框内磁贴包围范围、顶线 = 标题行、底线 = 末行实际行底，`clipRect` 裁剪到视口），框线不随磁贴拖动/缩放移动、底线不受磁贴文本行数影响；保留系统默认 overscroll 手感（曾尝试自定义 `OverscrollEffect` 让框跟随回弹：或手感变硬、或 fling 无限滚动，故放弃，回弹拉伸瞬间框不跟随是可接受取舍）；颜色为 @Composable 属性需在 drawBehind 外取值；点击磁贴弹出 `WindowListPopup` 操作菜单（移动到顶端=框外第一 / 移动到底端=框内最后 / 删除）；固定磁贴支持 `TooltipBox` 提示（无箭头）
+- **磁贴编辑页**：4 列 `LazyVerticalGrid`，Calvin-LL Reorderable 库实现长按拖拽排序；一页式布局，`key(isXiaomi, fixedTileValues)` 确保状态正确重建；**统一渲染列表**：框外磁贴 + span 全行的「展开后显示的磁贴」标题行（`Any()` 标记，key 固定 `inner-section-header`）+ 框内磁贴全部塞进同一个 `gridItems(renderList)` 块（`itemKeyOf` 生成 key；标题行通过 `span = { ... }` 参数占满整行，此版本 `LazyGridItemScope.span` modifier 已移除），跨框拖拽时 item 不跨组合块、key 不变，避免 ReorderableItem 拖拽句柄丢失；拖拽的 `from.index`/`to.index` 是网格全部 item 的绝对索引，`gridToData` 映射回数据索引（减去固定卡片偏移、跳过标题行，落在标题/卡片/添加按钮上时忽略本次移动）；**虚线框用网格 overlay 绘制**：`LazyVerticalGrid` 的 `Modifier.drawBehind` 依据 `lazyGridState.layoutInfo` 中框内磁贴的实际 item 位置画框（左右竖线 = 框内磁贴包围范围、顶线 = 标题行、底线 = 末行实际行底，`clipRect` 裁剪到视口），框线不随磁贴拖动/缩放移动、底线不受磁贴文本行数影响；保留系统默认 overscroll 手感（曾尝试自定义 `OverscrollEffect` 让框跟随回弹：或手感变硬、或 fling 无限滚动，故放弃，回弹拉伸瞬间框不跟随是可接受取舍）；颜色为 @Composable 属性需在 drawBehind 外取值；点击磁贴弹出 `WindowListPopup` 操作菜单（移动到顶端=框外第一 / 移动到底端=框内最后 / 删除）；固定磁贴支持 `TooltipBox` 提示（无箭头）；标题行「展开后显示的磁贴」改为 `Row`（文字 + `MiuixIcons.Info` 说明图标），点击图标弹出 `RichTooltip`（`rememberTooltipState(isPersistent = true)` + `focusable = true` 点击外部关闭，点击用 `clickable(indication = null)` 去掉压暗特效、无 caret），文案「将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。」；TopAppBar 提供**撤销上一步**：`MiuixIcons.Undo` 默认图标色（不强调）+ `AnimatedVisibility` 包裹（可用时缩放 0.8→1 + 透明度 0→1 出现、不可用时整个图标不显示，与 More 菜单间距 4dp），只支持一步撤销，撤销后立即失效
+- **撤销上一步（磁贴编辑页）**：撤销快照为内存态（不持久化，刷新即清空），每次操作只保留最近一步。**一次完整拖拽合并为一步**（长按→移动跨多格→松手，撤销恢复到拖拽起点而非中间位置），通过 `reorderableState.isAnyItemDragging` + `LaunchedEffect` 观察拖拽起止（**不要用** `onDragStarted`/`onDragStopped` 手势回调——回调捕获的 `gridTiles` 引用不随拖拽重组更新，会导致起点==终点恒成立、撤销失效）；添加/添加第三方/移动到顶端/移动到底端/删除均在修改前记录快照；原地松手（无净变化）不产生撤销项；撤销后立即失效（只支持一步）；清除配置/恢复默认不可撤销（对话框文案已声明）
 - **图标映射**：图标资源 id 并入 `TileCatalog.TileInfo.iconResId`（数据字段），`TileCatalog.iconRes(value)` 查询；新增图标只需在清单条目中声明；custom 磁贴通过 `CustomTileUtils.getCustomTileIcon()` 获取其他应用图标
 - **触觉反馈**：使用 `LocalHapticFeedback.current` 触发震动；`Modifier.scrollEndHaptic()` 实现滚动到边界触觉反馈；`Modifier.pressable()` + `SinkFeedback()` 实现按压特效
 - **添加磁贴**：使用 `WindowBottomSheet` + `LazyVerticalGrid` 按分类分组显示；每个分类结束后添加 `HorizontalDivider` 分割线；点击特效限定在圆圈内
@@ -190,6 +193,7 @@ exTile/
 - **长按行为**：设置页「通用」分类使用 `WindowSpinnerPreference` 选择长按行为；选择「跳转自定义应用」时显示 `ArrowPreference` 进入应用选择器；应用选择器 Sheet 的应用列表在 `Dispatchers.IO` 后台加载（缓存，避免重复查询），加载中显示 `InfiniteProgressIndicator`（默认样式）+「加载中...」文本并用 `fillMaxHeight` 撑满避免 sheet 高度突变；应用列表行不加左右边距（Sheet 自带边距）
 - **磁贴切换联动设置**：设置页「通用」分类两个 `SwitchPreference`「展开收起同时控制无字模式」/「展开收起同时控制融合设备中心」，仅持久化开关状态（DataStore key `wordless_mode_sync` / `smart_device_control_sync`）；实际写入在 `ExTileService.onClick` 切换磁贴展开/收起布局成功后，开启时通过 `SecureSettingsHelper.putSecureSetting` 写入 secure settings。注意两个 key 映射**相反**：wordless_mode 展开→0 / 收起→1；smart_device_control 展开→1 / 收起→0
 - **主页权限卡片**：按 `PermissionStatus` 状态机渲染引导文案和按钮（安装 Shizuku / 启动 Shizuku / 授予权限 / 自动授权 / 重试）；未授权标题显示「未获得必须权限」；始终提供「使用 adb 手动授权」入口，弹窗含「复制命令」按钮；通过 `DisposableEffect` + `LifecycleEventObserver` 监听 `ON_RESUME` 自动刷新权限状态，从「启动 Shizuku」跳转返回时自动衔接请求授权（`autoRequestAfterResume` 标记，避免反复弹窗）
+- **主页统计卡片**：权限状态卡片下方展示「使用统计」卡片（`StatsCard`），标题行 `MiuixIcons.Recent` 图标 + 「使用统计」，`StatusRow` 展示「累计展开次数」「累计收起次数」；数据经 `StatsRepository.getStatsFlow` 实时订阅（`collectAsState`），计数由 `ExTileService.onClick` 布局切换成功时写入
 
 ---
 

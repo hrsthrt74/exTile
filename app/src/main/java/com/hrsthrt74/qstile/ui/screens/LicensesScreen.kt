@@ -2,13 +2,12 @@ package com.hrsthrt74.qstile.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -136,7 +135,8 @@ fun LicensesScreen() {
                 end = 16.dp,
                 bottom = NavigationBarDefaults.ItemHeight +
                     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-            )
+            ),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(licenses) { license ->
                 Card(
@@ -150,7 +150,6 @@ fun LicensesScreen() {
                         }
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }

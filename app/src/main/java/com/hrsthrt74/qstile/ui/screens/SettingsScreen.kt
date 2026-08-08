@@ -6,11 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,20 +20,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,19 +44,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
@@ -89,7 +87,6 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
@@ -308,6 +305,7 @@ fun SettingsScreen() {
                 verticalArrangement = Arrangement.Center
             ) {
                 LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -388,8 +386,6 @@ fun SettingsScreen() {
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
             // ===== 外观分类：主题设置 =====
             item {
                 ExpandableSettingsCard(
@@ -463,8 +459,6 @@ fun SettingsScreen() {
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
             // ===== 数据分类：备份 / 恢复 / 系统导入（合并原两个板块） =====
             item {
                 ExpandableSettingsCard(
@@ -510,8 +504,6 @@ fun SettingsScreen() {
                     )
                 }
             }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
 
             // ===== 关于分类 =====
             item {
@@ -758,7 +750,7 @@ fun SettingsScreen() {
                     ) { }
 
                     // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
-                    Spacer(modifier = Modifier.height(16.dp))
+//                    Spacer(modifier = Modifier.height(4.dp))
 
                     if (filteredApps.isEmpty()) {
                         // 搜索无结果提示

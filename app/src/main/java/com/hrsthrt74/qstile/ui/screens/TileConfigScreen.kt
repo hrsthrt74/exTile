@@ -4,9 +4,9 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
-import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -19,10 +19,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.overscroll
-import androidx.compose.foundation.rememberOverscrollEffect
-import androidx.compose.foundation.withoutEventHandling
-import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,8 +27,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -43,9 +39,12 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.overscroll
+import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.withoutEventHandling
+import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,7 +56,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
@@ -65,31 +63,31 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
-import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
+import com.hrsthrt74.qstile.data.ThemeRepository
+import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.data.ThemeRepository
-import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -103,10 +101,10 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownEntry
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -114,14 +112,14 @@ import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
+import top.yukonga.miuix.kmp.basic.PlainTooltip
+import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.basic.PlainTooltip
-import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -130,11 +128,12 @@ import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
-import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.window.WindowListPopup
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 @Composable
 fun TileConfigScreen() {
@@ -760,12 +759,12 @@ fun TileConfigScreen() {
                                     key = headerKey,
                                     enabled = innerTiles.isEmpty(),
                                 ) {
-                                    // 标题行：文字 + 说明图标。图标点击弹出 RichTooltip（带 caret 指向标题行）。
+                                    // 标题行：文字 + 说明图标。图标点击弹出 RichTooltip。
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 8.dp)
-                                            .padding(top = 8.dp),
+                                            // 文本距离虚线框的边距
+                                            .padding(top = 16.dp),
                                         horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -814,7 +813,8 @@ fun TileConfigScreen() {
                             }
                         }
 
-                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        // 磁贴区域 / 按钮区域之间的间隔
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
 
                         // 添加按钮区域，占满整行
                         item(span = { GridItemSpan(maxLineSpan) }) {
