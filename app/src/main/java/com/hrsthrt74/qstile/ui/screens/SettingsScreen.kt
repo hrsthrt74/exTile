@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -53,12 +54,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
@@ -86,6 +89,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -113,6 +117,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
+import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -126,7 +131,7 @@ private val PreferenceIconSize = 24.dp
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
-private val longPressBehaviorLabels = listOf("跳转到 exTile", "跳转到系统设置", "跳转到自定义应用")
+private val longPressBehaviorLabels = listOf("exTile", "系统设置", "自定义应用")
 
 /**
  * 设置页可展开分类的标识。
@@ -302,9 +307,13 @@ fun SettingsScreen() {
                 }
             }
         ) {
+            SmallTitle(
+                text = "磁贴联动",
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
             SwitchPreference(
-                title = "磁贴联动无字模式",
-                summary = "展开时显示文字，收起时隐藏",
+                title = "无字模式",
+                summary = "展开显示磁贴名，收起隐藏",
                 checked = wordlessModeSync,
                 onCheckedChange = { enabled ->
                     wordlessModeSync = enabled
@@ -316,8 +325,8 @@ fun SettingsScreen() {
             )
 
             SwitchPreference(
-                title = "磁贴联动融合设备中心",
-                summary = "展开时显示设备中心，收起时隐藏",
+                title = "融合设备中心",
+                summary = "展开显示设备中心，收起隐藏",
                 checked = smartDeviceControlSync,
                 onCheckedChange = { enabled ->
                     smartDeviceControlSync = enabled
@@ -328,10 +337,10 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.GridView) }
             )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             WindowSpinnerPreference(
-                title = "长按 exTile 磁贴行为",
+                title = "长按 exTile 磁贴\n跳转到",
                 // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
                 items = longPressBehaviorOptions,
                 selectedIndex = longPressBehavior,
@@ -390,7 +399,7 @@ fun SettingsScreen() {
 
             SwitchPreference(
                 title = "动态取色",
-                summary = "从壁纸中提取颜色方案",
+                summary = "使用 Monet 配色",
                 checked = themeSettings.isDynamicColorMode,
                 onCheckedChange = { enabled ->
                     scope.launch {
@@ -404,7 +413,7 @@ fun SettingsScreen() {
 
             SwitchPreference(
                 title = "模糊效果",
-                summary = "顶部栏与导航栏使用毛玻璃模糊效果",
+                summary = "顶栏 / 底栏的模糊",
                 checked = themeSettings.enableBlur,
                 onCheckedChange = { enabled ->
                     scope.launch {
@@ -518,7 +527,7 @@ fun SettingsScreen() {
                     "未知"
                 },
                 onClick = {},
-                startAction = { PreferenceLeadingPlaceholder() }
+                startAction = { PreferenceLeadingIcon(R.drawable.ic_settings_extile) }
             )
 
             ArrowPreference(
@@ -527,7 +536,7 @@ fun SettingsScreen() {
                 onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/hrsthrt74/exTile")))
                 },
-                startAction = { PreferenceLeadingPlaceholder() }
+                startAction = { PreferenceLeadingIcon(R.drawable.ic_github) }
             )
 
             ArrowPreference(
@@ -939,8 +948,8 @@ private fun DebugInfoRow(label: String, value: String) {
 
 /**
  * 设置项行首图标。
- * 放在各 Preference 的 startAction 中，统一使用 primary 色 + 图标宽度（[PreferenceIconSize]），
- * 右侧留出与文字之间的间距（[PreferenceIconEndPadding]）。
+ * 放在各 Preference 的 startAction 中，使用图标自身配色 + 图标宽度（[PreferenceIconSize]），
+ * 左右留出间距（[PreferenceIconStartPadding] / [PreferenceIconEndPadding]）。
  * @param icon 图标
  */
 @Composable
@@ -954,6 +963,30 @@ private fun PreferenceLeadingIcon(icon: ImageVector) {
         modifier = Modifier
             .padding(start = PreferenceIconStartPadding, end = PreferenceIconEndPadding)
             .size(PreferenceIconSize)
+            .alpha(0.8f)
+    )
+}
+
+/**
+ * 设置项行首图标（drawable 版本）。
+ * 用于加载 res/drawable 下的自定义图标（如磁贴图标 tile_*.xml），
+ * 用法与 [PreferenceLeadingIcon]（ImageVector 版本）一致，调用 `PreferenceLeadingIcon(R.drawable.xxx)` 即可。
+ * 通过 painter 加载并使用 [LocalContentColor] 染色，使图标跟随主题前景色
+ * （适用于纯色 drawable，如黑色填充的图标在深色模式下也能正常显示）；
+ * 若想保留 drawable 的彩色原图，请移除 tint 参数（改用 Color.Unspecified）。
+ * @param iconRes drawable 资源 id（R.drawable.xxx）
+ */
+@Composable
+private fun PreferenceLeadingIcon(iconRes: Int) {
+    Icon(
+        painter = painterResource(iconRes),
+        contentDescription = null,
+        // 使用主题前景色染色，适配深浅色模式；miuix Icon 的默认 tint 即 LocalContentColor.current
+        tint = LocalContentColor.current,
+        modifier = Modifier
+            .padding(start = PreferenceIconStartPadding, end = PreferenceIconEndPadding)
+            .size(PreferenceIconSize)
+            .alpha(0.8f)
     )
 }
 
