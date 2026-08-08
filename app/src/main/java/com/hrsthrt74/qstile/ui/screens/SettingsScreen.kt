@@ -93,10 +93,21 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.File
+import top.yukonga.miuix.kmp.icon.extended.Forward
+import top.yukonga.miuix.kmp.icon.extended.GridView
+import top.yukonga.miuix.kmp.icon.extended.Import
 import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.extended.ListView
+import top.yukonga.miuix.kmp.icon.extended.Months
+import top.yukonga.miuix.kmp.icon.extended.Paste
+import top.yukonga.miuix.kmp.icon.extended.Remove
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -106,6 +117,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 private val dayNightModeLabels = listOf("跟随系统", "浅色", "深色")
+// 设置项行首图标（或空白占位）与标题文字之间的间距，统一由此变量控制，方便整体调整
+private val PreferenceIconEndPadding = 8.dp
+// 设置项行首图标（或空白占位）左侧的间距，用于与卡片内边距拉开一点距离
+private val PreferenceIconStartPadding = 4.dp
+// 无图标设置项的行首空白占位宽度，与图标宽度（24dp）保持一致以对齐
+private val PreferenceIconSize = 24.dp
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
@@ -251,25 +268,566 @@ fun SettingsScreen() {
         } catch (_: Exception) { null }
     }
 
-    val dayNightModeOptions = remember { dayNightModeLabels.map { DropdownItem(text = it) } }
-    // 调色板风格/颜色规范开关暂未启用，相关选项定义一并注释
-    // val paletteStyleOptions = remember { paletteStyleLabels.map { DropdownItem(text = it) } }
-    // val colorSpecOptions = remember { colorSpecLabels.map { DropdownItem(text = it) } }
-    val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
+    // ==================== 局部 UI 函数（闭包捕获，不显式传参） ====================
+    // 拆分仅出于可读性 / IDE 导航考虑，不改变重组范围与任何业务逻辑。
 
-    // 已选自定义应用的显示名（包名 → 应用名）
-    val customAppLabel = remember(customAppPackage) {
-        if (customAppPackage.isBlank()) {
-            "未选择"
-        } else {
-            try {
-                context.packageManager.getApplicationInfo(customAppPackage, 0)
-                    .loadLabel(context.packageManager).toString()
-            } catch (e: Exception) {
-                customAppPackage
+    /** 通用分类卡片：磁贴行为设置 */
+    @Composable
+    fun GeneralCategoryCard() {
+        val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
+        // 已选自定义应用的显示名（包名 → 应用名）
+        val customAppLabel = remember(customAppPackage) {
+            if (customAppPackage.isBlank()) {
+                "未选择"
+            } else {
+                try {
+                    context.packageManager.getApplicationInfo(customAppPackage, 0)
+                        .loadLabel(context.packageManager).toString()
+                } catch (e: Exception) {
+                    customAppPackage
+                }
+            }
+        }
+
+        ExpandableSettingsCard(
+            title = "通用",
+            icon = MiuixIcons.Tune,
+            expanded = expandedCategory == SettingsCategory.GENERAL,
+            onToggle = {
+                // 手风琴互斥：点击当前展开的分类则折叠，否则切换展开
+                expandedCategory = if (expandedCategory == SettingsCategory.GENERAL) {
+                    null
+                } else {
+                    SettingsCategory.GENERAL
+                }
+            }
+        ) {
+            SwitchPreference(
+                title = "磁贴联动无字模式",
+                summary = "展开时显示文字，收起时隐藏",
+                checked = wordlessModeSync,
+                onCheckedChange = { enabled ->
+                    wordlessModeSync = enabled
+                    scope.launch {
+                        ConfigRepository.saveWordlessModeSync(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Months) }
+            )
+
+            SwitchPreference(
+                title = "磁贴联动融合设备中心",
+                summary = "展开时显示设备中心，收起时隐藏",
+                checked = smartDeviceControlSync,
+                onCheckedChange = { enabled ->
+                    smartDeviceControlSync = enabled
+                    scope.launch {
+                        ConfigRepository.saveSmartDeviceControlSync(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.GridView) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+
+            WindowSpinnerPreference(
+                title = "长按 exTile 磁贴行为",
+                // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
+                items = longPressBehaviorOptions,
+                selectedIndex = longPressBehavior,
+                onSelectedIndexChange = { index ->
+                    longPressBehavior = index
+                    scope.launch {
+                        ConfigRepository.saveLongPressBehavior(context, index)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Forward) }
+            )
+
+            // 仅当选择了「跳转到自定义应用」时显示应用选择入口
+            // 使用 AnimatedVisibility 实现平滑的展开/收起动画
+            AnimatedVisibility(
+                visible = longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
+            ) {
+                ArrowPreference(
+                    title = "自定义应用",
+                    summary = customAppLabel,
+                    onClick = { appPickerSheetState.show() },
+                    startAction = { PreferenceLeadingPlaceholder() }
+                )
             }
         }
     }
+
+    /** 外观分类卡片：主题设置 */
+    @Composable
+    fun AppearanceCategoryCard() {
+        val dayNightModeOptions = remember { dayNightModeLabels.map { DropdownItem(text = it) } }
+
+        ExpandableSettingsCard(
+            title = "外观",
+            icon = MiuixIcons.Background,
+            expanded = expandedCategory == SettingsCategory.APPEARANCE,
+            onToggle = {
+                expandedCategory = if (expandedCategory == SettingsCategory.APPEARANCE) {
+                    null
+                } else {
+                    SettingsCategory.APPEARANCE
+                }
+            }
+        ) {
+            WindowSpinnerPreference(
+                title = "配色模式",
+                items = dayNightModeOptions,
+                selectedIndex = themeSettings.dayNightMode,
+                onSelectedIndexChange = { mode ->
+                    scope.launch {
+                        ThemeRepository.saveDayNightMode(context, mode)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Theme) }
+            )
+
+            SwitchPreference(
+                title = "动态取色",
+                summary = "从壁纸中提取颜色方案",
+                checked = themeSettings.isDynamicColorMode,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        ThemeRepository.saveIsDynamicColorMode(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Album) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SwitchPreference(
+                title = "模糊效果",
+                summary = "顶部栏与导航栏使用毛玻璃模糊效果",
+                checked = themeSettings.enableBlur,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        ThemeRepository.saveEnableBlur(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Paste) }
+            )
+
+            // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
+            // if (themeSettings.isDynamicColorMode) {
+            //     WindowSpinnerPreference(
+            //         title = "调色板风格",
+            //         items = paletteStyleOptions,
+            //         selectedIndex = themeSettings.paletteStyle,
+            //         onSelectedIndexChange = { style ->
+            //             scope.launch {
+            //                 ThemeRepository.savePaletteStyle(context, style)
+            //             }
+            //         }
+            //     )
+            //     WindowSpinnerPreference(
+            //         title = "颜色规范",
+            //         items = colorSpecOptions,
+            //         selectedIndex = themeSettings.colorSpec,
+            //         onSelectedIndexChange = { spec ->
+            //             scope.launch {
+            //                 ThemeRepository.saveColorSpec(context, spec)
+            //             }
+            //         }
+            //     )
+            // }
+        }
+    }
+
+    /** 数据分类卡片：备份 / 恢复 / 系统导入（合并原两个板块） */
+    @Composable
+    fun DataCategoryCard() {
+        ExpandableSettingsCard(
+            title = "数据",
+            icon = MiuixIcons.Backup,
+            expanded = expandedCategory == SettingsCategory.DATA,
+            onToggle = {
+                expandedCategory = if (expandedCategory == SettingsCategory.DATA) {
+                    null
+                } else {
+                    SettingsCategory.DATA
+                }
+            }
+        ) {
+            ArrowPreference(
+                title = "查看系统磁贴配置",
+                summary = "sysui_qs_tiles 值",
+                onClick = { systemTilesSheetState.show() },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            ArrowPreference(
+                title = "备份",
+//                summary = "将当前配置导出为 JSON 格式",
+                onClick = {
+                    backupText = generateBackupJson()
+                    backupSheetState.show()
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Import) }
+            )
+
+            ArrowPreference(
+                title = "恢复",
+//                summary = "从 JSON 文本恢复磁贴配置",
+                onClick = {
+                    importBackupJson = ""
+                    importBackupSheetState.show()
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Remove) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            ArrowPreference(
+                title = "从系统导入磁贴",
+                summary = "将当前系统磁贴配置保存为展开状态",
+                onClick = { importDialogState.show() },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Download) }
+            )
+        }
+    }
+
+    /** 关于分类卡片：版本 / GitHub / 开源许可 */
+    @Composable
+    fun AboutCategoryCard() {
+        ExpandableSettingsCard(
+            title = "关于",
+            icon = MiuixIcons.Info,
+            expanded = expandedCategory == SettingsCategory.ABOUT,
+            onToggle = {
+                expandedCategory = if (expandedCategory == SettingsCategory.ABOUT) {
+                    null
+                } else {
+                    SettingsCategory.ABOUT
+                }
+            }
+        ) {
+            ArrowPreference(
+                title = "版本",
+                summary = try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "未知"
+                } catch (e: Exception) {
+                    "未知"
+                },
+                onClick = {},
+                startAction = { PreferenceLeadingPlaceholder() }
+            )
+
+            ArrowPreference(
+                title = "GitHub",
+                summary = "hrsthrt74/exTile",
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/hrsthrt74/exTile")))
+                },
+                startAction = { PreferenceLeadingPlaceholder() }
+            )
+
+            ArrowPreference(
+                title = "开源许可",
+                summary = "查看本应用使用的开源库及许可证",
+                onClick = {
+                    context.startActivity(Intent(context, LicensesActivity::class.java))
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
+            )
+        }
+    }
+
+    /** 系统磁贴查看 Sheet */
+    @Composable
+    fun SystemTilesSheet() {
+        AppBottomSheet(
+            state = systemTilesSheetState,
+            title = "系统磁贴配置",
+        ) {
+            Text(
+                text = currentSysuiTiles.ifEmpty { "无数据" },
+                style = MiuixTheme.textStyles.body2,
+                modifier = Modifier.padding(bottom = navBarBottomPadding)
+            )
+        }
+    }
+
+    /** 备份结果 Sheet */
+    @Composable
+    fun BackupSheet() {
+        AppBottomSheet(
+            state = backupSheetState,
+            title = "备份数据",
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding)
+            ) {
+                Text(
+                    text = backupText,
+                    // 别问为什么是脚注2
+                    style = MiuixTheme.textStyles.footnote2,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .padding(horizontal = 8.dp)
+                        .verticalScroll(rememberScrollState())
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
+                            Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                            backupSheetState.dismiss()
+                        },
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("复制")
+                    }
+            }
+        }
+    }
+
+    /** 导入备份 Sheet */
+    @Composable
+    fun ImportBackupSheet() {
+        AppBottomSheet(
+            state = importBackupSheetState,
+            title = "导入备份",
+            // 关闭动画完成后清空输入的 JSON，避免下次打开残留
+            onDismissed = { importBackupJson = "" },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding)
+            ) {
+                TextField(
+                    value = importBackupJson,
+                    onValueChange = { importBackupJson = it },
+                    label = "粘贴 JSON 备份数据",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        val restored = parseBackupJson(importBackupJson)
+                        if (restored != null) {
+                            scope.launch {
+                                ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
+                                ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
+                                config = restored
+                                Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
+                            }
+                            importBackupSheetState.dismiss()
+                            importBackupJson = ""
+                        } else {
+                            Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("恢复")
+                }
+            }
+        }
+    }
+
+    /** 系统导入确认 Dialog */
+    @Composable
+    fun ImportSystemTilesDialog() {
+        AppDialog(
+            state = importDialogState,
+            title = "从系统导入磁贴",
+            summary = "将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。",
+            confirmText = "确认",
+            onConfirm = {
+                scope.launch {
+                    val tiles = SecureSettingsHelper.getCurrentTiles(context)
+                    if (tiles.isNotEmpty()) {
+                        ConfigRepository.saveExpandedTiles(context, tiles)
+                        config = config.copy(expandedTiles = tiles)
+                        Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+    }
+
+    /** 自定义应用选择器 Sheet */
+    @Composable
+    fun AppPickerSheet() {
+        AppBottomSheet(
+            state = appPickerSheetState,
+            title = "选择应用",
+            // 关闭动画完成后清空搜索关键字，避免下次打开残留
+            onDismissed = { appSearchQuery = "" },
+        ) {
+            val haptic = LocalHapticFeedback.current
+            // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
+            val apps = launchableApps
+            val isLoading = apps == null
+
+            when {
+                isLoading -> {
+                    // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
+                    // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        InfiniteProgressIndicator()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "加载中...",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+                }
+                apps.isEmpty() -> {
+                    Text(
+                        text = "没有可用的应用",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp)
+                    )
+                }
+                else -> {
+                    // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
+                    val filteredApps = remember(apps, appSearchQuery) {
+                        val query = appSearchQuery.trim()
+                        if (query.isEmpty()) {
+                            apps
+                        } else {
+                            apps.filter {
+                                it.label.contains(query, ignoreCase = true) ||
+                                    it.packageName.contains(query, ignoreCase = true)
+                            }
+                        }
+                    }
+                    // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）
+                    // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
+                    // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
+                    // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
+                    // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SearchBar(
+                            expanded = false,
+                            onExpandedChange = { expanded ->
+                                if (!expanded) {
+                                    appPickerSheetState.dismiss()
+                                }
+                            },
+                            insideMargin = DpSize(0.dp, 0.dp),
+                            inputField = {
+                                InputField(
+                                    query = appSearchQuery,
+                                    onQueryChange = { appSearchQuery = it },
+                                    onSearch = {},
+                                    expanded = false,
+                                    onExpandedChange = {},
+                                    label = "搜索",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { }
+
+                        // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
+//                    Spacer(modifier = Modifier.height(4.dp))
+
+                        if (filteredApps.isEmpty()) {
+                            // 搜索无结果提示
+                            Text(
+                                text = "没有匹配的应用",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp)
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                                contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                            ) {
+                                items(filteredApps, key = { it.packageName }) { app ->
+                            // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        customAppPackage = app.packageName
+                                        scope.launch {
+                                            ConfigRepository.saveLongPressCustomApp(context, app.packageName)
+                                        }
+                                        appPickerSheetState.dismiss()
+                                    },
+                                insideMargin = PaddingValues(16.dp),
+                                colors = CardDefaults.defaultColors(
+                                    color = MiuixTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // 应用图标
+                                    val icon = app.icon
+                                    val bitmap = remember(icon) { icon.toBitmap() }
+                                    Icon(
+                                        painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                        contentDescription = app.label,
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column {
+                                        Text(
+                                            text = app.label,
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                        Text(
+                                            text = app.packageName,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    }
+                }
+            }
+        }
+    }
+}
 
     Scaffold(
         topBar = {
@@ -321,231 +879,16 @@ fun SettingsScreen() {
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             // ===== 通用分类：磁贴行为设置 =====
-            item {
-                ExpandableSettingsCard(
-                    title = "通用",
-                    icon = MiuixIcons.Tune,
-                    expanded = expandedCategory == SettingsCategory.GENERAL,
-                    onToggle = {
-                        // 手风琴互斥：点击当前展开的分类则折叠，否则切换展开
-                        expandedCategory = if (expandedCategory == SettingsCategory.GENERAL) {
-                            null
-                        } else {
-                            SettingsCategory.GENERAL
-                        }
-                    }
-                ) {
-                    SwitchPreference(
-                        title = "磁贴联动无字模式",
-                        summary = "展开时显示文字，收起时隐藏",
-                        checked = wordlessModeSync,
-                        onCheckedChange = { enabled ->
-                            wordlessModeSync = enabled
-                            scope.launch {
-                                ConfigRepository.saveWordlessModeSync(context, enabled)
-                            }
-                        }
-                    )
-
-                    SwitchPreference(
-                        title = "磁贴联动融合设备中心",
-                        summary = "展开时显示设备中心，收起时隐藏",
-                        checked = smartDeviceControlSync,
-                        onCheckedChange = { enabled ->
-                            smartDeviceControlSync = enabled
-                            scope.launch {
-                                ConfigRepository.saveSmartDeviceControlSync(context, enabled)
-                            }
-                        }
-                    )
-
-                    WindowSpinnerPreference(
-                        title = "长按 exTile 磁贴行为",
-                        // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
-                        items = longPressBehaviorOptions,
-                        selectedIndex = longPressBehavior,
-                        onSelectedIndexChange = { index ->
-                            longPressBehavior = index
-                            scope.launch {
-                                ConfigRepository.saveLongPressBehavior(context, index)
-                            }
-                        }
-                    )
-
-                    // 仅当选择了「跳转到自定义应用」时显示应用选择入口
-                    // 使用 AnimatedVisibility 实现平滑的展开/收起动画
-                    AnimatedVisibility(
-                        visible = longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
-                    ) {
-                        ArrowPreference(
-                            title = "自定义应用",
-                            summary = customAppLabel,
-                            onClick = { appPickerSheetState.show() }
-                        )
-                    }
-                }
-            }
+            item { GeneralCategoryCard() }
 
             // ===== 外观分类：主题设置 =====
-            item {
-                ExpandableSettingsCard(
-                    title = "外观",
-                    icon = MiuixIcons.Background,
-                    expanded = expandedCategory == SettingsCategory.APPEARANCE,
-                    onToggle = {
-                        expandedCategory = if (expandedCategory == SettingsCategory.APPEARANCE) {
-                            null
-                        } else {
-                            SettingsCategory.APPEARANCE
-                        }
-                    }
-                ) {
-                    WindowSpinnerPreference(
-                        title = "配色模式",
-                        items = dayNightModeOptions,
-                        selectedIndex = themeSettings.dayNightMode,
-                        onSelectedIndexChange = { mode ->
-                            scope.launch {
-                                ThemeRepository.saveDayNightMode(context, mode)
-                            }
-                        }
-                    )
-
-                    SwitchPreference(
-                        title = "动态取色",
-                        summary = "从壁纸中提取颜色方案",
-                        checked = themeSettings.isDynamicColorMode,
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                ThemeRepository.saveIsDynamicColorMode(context, enabled)
-                            }
-                        }
-                    )
-
-                    SwitchPreference(
-                        title = "模糊效果",
-                        summary = "顶部栏与导航栏使用毛玻璃模糊效果",
-                        checked = themeSettings.enableBlur,
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                ThemeRepository.saveEnableBlur(context, enabled)
-                            }
-                        }
-                    )
-
-                    // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
-                    // if (themeSettings.isDynamicColorMode) {
-                    //     WindowSpinnerPreference(
-                    //         title = "调色板风格",
-                    //         items = paletteStyleOptions,
-                    //         selectedIndex = themeSettings.paletteStyle,
-                    //         onSelectedIndexChange = { style ->
-                    //             scope.launch {
-                    //                 ThemeRepository.savePaletteStyle(context, style)
-                    //             }
-                    //         }
-                    //     )
-                    //     WindowSpinnerPreference(
-                    //         title = "颜色规范",
-                    //         items = colorSpecOptions,
-                    //         selectedIndex = themeSettings.colorSpec,
-                    //         onSelectedIndexChange = { spec ->
-                    //             scope.launch {
-                    //                 ThemeRepository.saveColorSpec(context, spec)
-                    //             }
-                    //         }
-                    //     )
-                    // }
-                }
-            }
+            item { AppearanceCategoryCard() }
 
             // ===== 数据分类：备份 / 恢复 / 系统导入（合并原两个板块） =====
-            item {
-                ExpandableSettingsCard(
-                    title = "数据",
-                    icon = MiuixIcons.Backup,
-                    expanded = expandedCategory == SettingsCategory.DATA,
-                    onToggle = {
-                        expandedCategory = if (expandedCategory == SettingsCategory.DATA) {
-                            null
-                        } else {
-                            SettingsCategory.DATA
-                        }
-                    }
-                ) {
-                    ArrowPreference(
-                        title = "查看系统磁贴配置",
-                        summary = "查看当前系统的 QS 磁贴原始值",
-                        onClick = { systemTilesSheetState.show() }
-                    )
-
-                    ArrowPreference(
-                        title = "生成备份",
-                        summary = "将当前配置导出为 JSON 格式",
-                        onClick = {
-                            backupText = generateBackupJson()
-                            backupSheetState.show()
-                        }
-                    )
-
-                    ArrowPreference(
-                        title = "导入备份",
-                        summary = "从 JSON 文本恢复磁贴配置",
-                        onClick = {
-                            importBackupJson = ""
-                            importBackupSheetState.show()
-                        }
-                    )
-
-                    ArrowPreference(
-                        title = "从系统导入磁贴",
-                        summary = "将当前系统磁贴配置保存为展开状态",
-                        onClick = { importDialogState.show() }
-                    )
-                }
-            }
+            item { DataCategoryCard() }
 
             // ===== 关于分类 =====
-            item {
-                ExpandableSettingsCard(
-                    title = "关于",
-                    icon = MiuixIcons.Info,
-                    expanded = expandedCategory == SettingsCategory.ABOUT,
-                    onToggle = {
-                        expandedCategory = if (expandedCategory == SettingsCategory.ABOUT) {
-                            null
-                        } else {
-                            SettingsCategory.ABOUT
-                        }
-                    }
-                ) {
-                    ArrowPreference(
-                        title = "版本",
-                        summary = try {
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "未知"
-                        } catch (e: Exception) {
-                            "未知"
-                        },
-                        onClick = {}
-                    )
-
-                    ArrowPreference(
-                        title = "GitHub",
-                        summary = "hrsthrt74/exTile",
-                        onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/hrsthrt74/exTile")))
-                        }
-                    )
-
-                    ArrowPreference(
-                        title = "开源许可",
-                        summary = "查看本应用使用的开源库及许可证",
-                        onClick = {
-                            context.startActivity(Intent(context, LicensesActivity::class.java))
-                        }
-                    )
-                }
-            }
+            item { AboutCategoryCard() }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
@@ -554,277 +897,19 @@ fun SettingsScreen() {
     }
 
     // ---- 系统磁贴查看 Sheet ----
-    AppBottomSheet(
-        state = systemTilesSheetState,
-        title = "系统磁贴配置",
-    ) {
-        Text(
-            text = currentSysuiTiles.ifEmpty { "无数据" },
-            style = MiuixTheme.textStyles.body2,
-            modifier = Modifier.padding(bottom = navBarBottomPadding)
-        )
-    }
+    SystemTilesSheet()
 
     // ---- 备份结果 Sheet ----
-    AppBottomSheet(
-        state = backupSheetState,
-        title = "备份数据",
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = navBarBottomPadding)
-        ) {
-            Text(
-                text = backupText,
-                // 别问为什么是脚注2
-                style = MiuixTheme.textStyles.footnote2,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .padding(horizontal = 8.dp)
-                    .verticalScroll(rememberScrollState())
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
-                        Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                        backupSheetState.dismiss()
-                    },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("复制")
-                }
-        }
-    }
+    BackupSheet()
 
     // ---- 导入备份 Sheet ----
-    AppBottomSheet(
-        state = importBackupSheetState,
-        title = "导入备份",
-        // 关闭动画完成后清空输入的 JSON，避免下次打开残留
-        onDismissed = { importBackupJson = "" },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = navBarBottomPadding)
-        ) {
-            TextField(
-                value = importBackupJson,
-                onValueChange = { importBackupJson = it },
-                label = "粘贴 JSON 备份数据",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    val restored = parseBackupJson(importBackupJson)
-                    if (restored != null) {
-                        scope.launch {
-                            ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
-                            ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
-                            config = restored
-                            Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
-                        }
-                        importBackupSheetState.dismiss()
-                        importBackupJson = ""
-                    } else {
-                        Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                colors = ButtonDefaults.buttonColorsPrimary(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("恢复")
-            }
-        }
-    }
+    ImportBackupSheet()
 
     // ---- 系统导入确认 Dialog ----
-    AppDialog(
-        state = importDialogState,
-        title = "从系统导入磁贴",
-        summary = "将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。",
-        confirmText = "确认",
-        onConfirm = {
-            scope.launch {
-                val tiles = SecureSettingsHelper.getCurrentTiles(context)
-                if (tiles.isNotEmpty()) {
-                    ConfigRepository.saveExpandedTiles(context, tiles)
-                    config = config.copy(expandedTiles = tiles)
-                    Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    )
+    ImportSystemTilesDialog()
 
     // ---- 自定义应用选择器 Sheet ----
-    AppBottomSheet(
-        state = appPickerSheetState,
-        title = "选择应用",
-        // 关闭动画完成后清空搜索关键字，避免下次打开残留
-        onDismissed = { appSearchQuery = "" },
-    ) {
-        val haptic = LocalHapticFeedback.current
-        // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
-        val apps = launchableApps
-        val isLoading = apps == null
-
-        when {
-            isLoading -> {
-                // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
-                // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    InfiniteProgressIndicator()
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "加载中...",
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    )
-                }
-            }
-            apps.isEmpty() -> {
-                Text(
-                    text = "没有可用的应用",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp)
-                )
-            }
-            else -> {
-                // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
-                val filteredApps = remember(apps, appSearchQuery) {
-                    val query = appSearchQuery.trim()
-                    if (query.isEmpty()) {
-                        apps
-                    } else {
-                        apps.filter {
-                            it.label.contains(query, ignoreCase = true) ||
-                                it.packageName.contains(query, ignoreCase = true)
-                        }
-                    }
-                }
-                // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）
-                // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
-                // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
-                // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
-                // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    SearchBar(
-                        expanded = false,
-                        onExpandedChange = { expanded ->
-                            if (!expanded) {
-                                appPickerSheetState.dismiss()
-                            }
-                        },
-                        insideMargin = DpSize(0.dp, 0.dp),
-                        inputField = {
-                            InputField(
-                                query = appSearchQuery,
-                                onQueryChange = { appSearchQuery = it },
-                                onSearch = {},
-                                expanded = false,
-                                onExpandedChange = {},
-                                label = "搜索",
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { }
-
-                    // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
-//                    Spacer(modifier = Modifier.height(4.dp))
-
-                    if (filteredApps.isEmpty()) {
-                        // 搜索无结果提示
-                        Text(
-                            text = "没有匹配的应用",
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp)
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                            contentPadding = PaddingValues(bottom = navBarBottomPadding)
-                        ) {
-                            items(filteredApps, key = { it.packageName }) { app ->
-                        // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    customAppPackage = app.packageName
-                                    scope.launch {
-                                        ConfigRepository.saveLongPressCustomApp(context, app.packageName)
-                                    }
-                                    appPickerSheetState.dismiss()
-                                },
-                            insideMargin = PaddingValues(16.dp),
-                            colors = CardDefaults.defaultColors(
-                                color = MiuixTheme.colorScheme.secondaryContainer
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // 应用图标
-                                val icon = app.icon
-                                val bitmap = remember(icon) { icon.toBitmap() }
-                                Icon(
-                                    painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                    contentDescription = app.label,
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(48.dp)
-                                )
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Column {
-                                    Text(
-                                        text = app.label,
-                                        style = MiuixTheme.textStyles.body1
-                                    )
-                                    Text(
-                                        text = app.packageName,
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                }
-            }
-        }
-        }
-    }
+    AppPickerSheet()
 }
 
 /**
@@ -850,6 +935,40 @@ private fun DebugInfoRow(label: String, value: String) {
             color = MiuixTheme.colorScheme.onSurface
         )
     }
+}
+
+/**
+ * 设置项行首图标。
+ * 放在各 Preference 的 startAction 中，统一使用 primary 色 + 图标宽度（[PreferenceIconSize]），
+ * 右侧留出与文字之间的间距（[PreferenceIconEndPadding]）。
+ * @param icon 图标
+ */
+@Composable
+private fun PreferenceLeadingIcon(icon: ImageVector) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        // 不指定 tint，使用图标自身的默认配色
+        // 注意 Modifier 顺序：padding 在前、size 在后，size 约束的是内容区域，
+        // 图标始终完整占据 24dp，左右的 padding 是在图标外侧额外留出空隙，不会把图标挤小
+        modifier = Modifier
+            .padding(start = PreferenceIconStartPadding, end = PreferenceIconEndPadding)
+            .size(PreferenceIconSize)
+    )
+}
+
+/**
+ * 设置项行首空白占位。
+ * 没有配图标的设置项用它占位，保证所有设置项图标列对齐；
+ * 宽度与图标一致（[PreferenceIconSize]），左右两侧同样留出与图标相同的间距。
+ */
+@Composable
+private fun PreferenceLeadingPlaceholder() {
+    Spacer(
+        modifier = Modifier
+            .padding(start = PreferenceIconStartPadding, end = PreferenceIconEndPadding)
+            .size(PreferenceIconSize)
+    )
 }
 
 /**
@@ -949,7 +1068,7 @@ private fun ExpandableSettingsCard(
         // 展开内容：与标题行之间用分隔线隔开，动画复用 AnimatedVisibility 默认展开/收起动画
         AnimatedVisibility(visible = expanded) {
             Column {
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 content()
             }
         }
