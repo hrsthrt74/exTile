@@ -7,9 +7,15 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.overscroll
@@ -102,6 +108,7 @@ import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -117,6 +124,7 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
 import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -146,6 +154,12 @@ fun TileConfigScreen() {
 
     // 本地可变状态：拖动排序时同步更新，保证 reorderable 库数据源即时一致（避免抽搐）
     var config by remember { mutableStateOf(TileConfig()) }
+    // 撤销快照：记录最近一次「一步操作」之前的网格磁贴列表（不含固定卡片/edit）。
+    // null 表示当前无可撤销操作；每次新操作会覆盖为最新快照，故天然只保留「上一步」。
+    var undoSnapshot by remember { mutableStateOf<List<String>?>(null) }
+    // 拖拽起点快照：拖拽手势开始时记录起点，松手时合并为一步提交到 undoSnapshot。
+    // 这样拖拽跨越多个格子产生的中间位置不会被计入撤销步骤。
+    var dragStartSnapshot by remember { mutableStateOf<List<String>?>(null) }
     // 添加磁贴 / 添加第三方磁贴 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val addSheetState = rememberSheetState()
     val customSheetState = rememberSheetState()
@@ -250,6 +264,30 @@ fun TileConfigScreen() {
                     largeTitle = "磁贴配置",
                     scrollBehavior = scrollBehavior,
                     actions = {
+                            // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
+                            // 出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
+                            // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
+                            AnimatedVisibility(
+                                visible = undoSnapshot != null,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
+                                    scaleIn(initialScale = 0.8f, animationSpec = tween(durationMillis = 200)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
+                                    scaleOut(targetScale = 0.8f, animationSpec = tween(durationMillis = 150))
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
+                                        undoSnapshot?.let { updateGridTiles(it) }
+                                        // 只支持撤销一步：撤销后立即清空，避免重复撤销
+                                        undoSnapshot = null
+                                    },
+                                    // 与右侧三点菜单保持间距
+                                    modifier = Modifier.padding(end = 4.dp)
+                                ) {
+                                    Icon(MiuixIcons.Undo, contentDescription = "撤销上一步")
+                                }
+                            }
                             val entry = DropdownEntry(
                                 items = listOf(
                                     DropdownItem(
@@ -345,6 +383,27 @@ fun TileConfigScreen() {
                         updateGridTiles(newList)
                         // 每次调换位置触发震动
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+
+                    // 监听拖拽状态变化，把一次完整拖拽（长按→移动跨多格→松手）合并为「一步」可撤销操作。
+                    // 用库公开的可观察状态 isAnyItemDragging（而非手势回调）驱动，避免回调捕获的
+                    // gridTiles 引用不随重组更新导致比较恒等、撤销失效的问题。
+                    // 注意：LaunchedEffect 每次重启时 block 都是最新的，读取的 gridTiles 即触发时刻的值。
+                    LaunchedEffect(reorderableState.isAnyItemDragging) {
+                        if (reorderableState.isAnyItemDragging) {
+                            // 拖拽开始：记录起点（此时尚未发生移动，gridTiles 即拖拽前状态）。
+                            // 后续跨越多个格子时 gridTiles 不断更新，但起点快照不变，
+                            // 故「撤销上一步」恢复到起点而非上一个位置。
+                            dragStartSnapshot = gridTiles
+                        } else {
+                            // 拖拽结束：把起点快照提交为一步。仅当起点与终点不同（确有净变化）才记录，
+                            // 原地松手（来回拖动又回到原处）不产生撤销项。
+                            val start = dragStartSnapshot
+                            if (start != null && start != gridTiles) {
+                                undoSnapshot = start
+                            }
+                            dragStartSnapshot = null
+                        }
                     }
 
                     // 单个磁贴格子的渲染（含拖拽、点击菜单）。虚线框不再画在磁贴上（会随拖拽移动），
@@ -446,6 +505,8 @@ fun TileConfigScreen() {
                                                         index = 0,
                                                         enabled = tileIndexForMenu > 0,
                                                         onSelectedIndexChange = {
+                                                            // 操作前记录快照，供「撤销上一步」恢复
+                                                            undoSnapshot = gridTilesForMenu
                                                             val newList = gridTilesForMenu.toMutableList().apply {
                                                                 removeAt(tileIndexForMenu)
                                                                 add(0, tile)
@@ -462,6 +523,8 @@ fun TileConfigScreen() {
                                                         index = 1,
                                                         enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
                                                         onSelectedIndexChange = {
+                                                            // 操作前记录快照，供「撤销上一步」恢复
+                                                            undoSnapshot = gridTilesForMenu
                                                             val newList = gridTilesForMenu.toMutableList().apply {
                                                                 removeAt(tileIndexForMenu)
                                                                 add(gridTilesForMenu.size - 1, tile)
@@ -478,6 +541,8 @@ fun TileConfigScreen() {
                                                         index = 2,
                                                         dropdownColors = errorColors,
                                                         onSelectedIndexChange = {
+                                                            // 操作前记录快照，供「撤销上一步」恢复
+                                                            undoSnapshot = gridTilesForMenu
                                                             val newList = gridTilesForMenu.toMutableList().apply {
                                                                 remove(tile)
                                                             }
@@ -823,6 +888,8 @@ fun TileConfigScreen() {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
                                         val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
+                                        // 操作前记录快照，供「撤销上一步」恢复
+                                        undoSnapshot = gridTiles
                                         updateGridTiles(gridTiles + tile.value)
                                         addSheetState.dismiss()
                                     },
@@ -1006,6 +1073,8 @@ fun TileConfigScreen() {
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
+                                            // 操作前记录快照，供「撤销上一步」恢复
+                                            undoSnapshot = gridTiles
                                             updateGridTiles(gridTiles + tileValue)
                                             customSheetState.dismiss()
                                         },
