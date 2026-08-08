@@ -8,7 +8,9 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -50,12 +52,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
@@ -262,8 +266,9 @@ fun TileConfigScreen() {
 
     /**
      * 顶栏：标题 + 撤销上一步按钮 + More 菜单（清除配置 / 恢复默认）。
-     * 撤销按钮仅在存在可撤销快照时显示，出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
-     * 不可用时整个图标不显示，故无需置灰，用默认图标色（不强调）。
+     * 撤销按钮仅在存在可撤销快照时显示，出现动画为缩放 0.8→1 + 透明度 0→1 + 模糊 4dp→0dp，
+     * 消失动画为反向；不可用时整个图标不显示，故无需置灰，用默认图标色（不强调）。
+     * 模糊半径与「设置-外观-模糊效果」联动：enableBlur 关闭时恒定 0dp，总是不模糊。
      */
     @Composable
     fun TileTopAppBar() {
@@ -273,15 +278,36 @@ fun TileConfigScreen() {
             scrollBehavior = scrollBehavior,
             actions = {
                     // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
-                    // 出现动画为缩放 0.8→1 + 透明度 0→1，消失动画为反向；
+                    // 出现动画为缩放 0.8→1 + 透明度 0→1 + 模糊 4dp→0dp，消失动画为反向；
                     // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
                     AnimatedVisibility(
                         visible = undoSnapshot != null,
                         enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
-                            scaleIn(initialScale = 0.8f, animationSpec = tween(durationMillis = 200)),
+                            scaleIn(initialScale = 0.5f, animationSpec = tween(durationMillis = 200)),
                         exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
-                            scaleOut(targetScale = 0.8f, animationSpec = tween(durationMillis = 150))
+                            scaleOut(targetScale = 0.5f, animationSpec = tween(durationMillis = 150))
                     ) {
+                        // 模糊半径随进入/退出过渡：隐藏时 4dp，显示时 0dp。
+                        // 与 fade/scale 共用同一个 transition，进出完全同步；
+                        // 时长与现有动画一致（进入 200ms / 退出 150ms）。
+                        // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
+                        val blurRadius by if (themeSettings.enableBlur) {
+                            transition.animateFloat(
+                                transitionSpec = {
+                                    if (targetState == EnterExitState.Visible) {
+                                        tween(durationMillis = 200)
+                                    } else {
+                                        tween(durationMillis = 150)
+                                    }
+                                },
+                                label = "undoBlur"
+                            ) { state ->
+                                // 模糊半径 0 <=> 6
+                                if (state == EnterExitState.Visible) 0f else 6f
+                            }
+                        } else {
+                            remember { mutableFloatStateOf(0f) }
+                        }
                         IconButton(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -293,7 +319,12 @@ fun TileConfigScreen() {
                             // 与右侧三点菜单保持间距
                             modifier = Modifier.padding(end = 4.dp)
                         ) {
-                            Icon(MiuixIcons.Undo, contentDescription = "撤销上一步")
+                            Icon(
+                                MiuixIcons.Undo,
+                                contentDescription = "撤销上一步",
+                                // 只模糊图标本体（矢量图形亦可模糊，blur 作用于绘制节点）
+                                modifier = Modifier.blur(blurRadius.dp)
+                            )
                         }
                     }
                     val entry = DropdownEntry(
@@ -755,16 +786,16 @@ fun TileConfigScreen() {
                                     positioning = TooltipAnchorPosition.Below
                                 ),
                                 tooltip = {
-                                    RichTooltip {
+                                    RichTooltip(
+                                        title = {Text(text = "提示", style = MiuixTheme.textStyles.subtitle)}
+                                    ) {
                                         Text(
-                                            text = "将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。",
+                                            text = "将磁贴拖动到 exTile 后面，即可收纳进「展开」磁贴。建议将 exTile 磁贴放置在行尾。",
                                             style = MiuixTheme.textStyles.body2,
                                         )
                                     }
                                 },
                                 state = infoTooltipState,
-                                // rich tooltip 可交互：点击外部触发 onDismissRequest 关闭
-                                focusable = true,
                                 modifier = Modifier.padding(start = 6.dp)
                             ) {
                                 Icon(

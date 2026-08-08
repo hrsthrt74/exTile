@@ -1,6 +1,14 @@
 package com.hrsthrt74.qstile.ui.screens
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,13 +33,16 @@ import androidx.compose.foundation.shape.CircleShape
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
@@ -43,6 +54,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
@@ -53,6 +65,8 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
+import com.hrsthrt74.qstile.data.ThemeRepository
+import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hrsthrt74.qstile.data.TileRequirement
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
@@ -76,6 +90,7 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -86,6 +101,13 @@ fun DebugToolsScreen() {
     val scope = rememberCoroutineScope()
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
+
+    // 主题设置（读取「模糊效果」总开关，动画演示与其联动）
+    val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
+        .collectAsState(initial = ThemeSettings())
+    val haptic = LocalHapticFeedback.current
+    // 模糊浮现动画演示状态：初始激活（图标常驻显示），「禁用 icon」播放退出动画（模糊缩小消失），「激活 icon」播放进入动画（模糊缩小浮现）
+    var demoActive by remember { mutableStateOf(true) }
 
     var config by remember { mutableStateOf(TileConfig()) }
     var currentSysuiTiles by remember { mutableStateOf("") }
@@ -126,6 +148,56 @@ fun DebugToolsScreen() {
             }
         }
         return null
+    }
+
+    /**
+     * 模糊浮现动画演示：单个尺寸图标的格子。
+     * 固定占位高度（80dp），无论图标是否可见都保持相同高度，避免退出动画（图标从组合树移除）时卡片高度坍塌。
+     * 注意：RowScope 存在 `AnimatedVisibility` 扩展（供 Modifier.weight 等使用），若在 Row 的 lambda 内
+     * 直接调用会产生隐式 receiver 歧义（编译报错），故提取为无 receiver 的局部函数消除歧义。
+     */
+    @Composable
+    fun DemoIconCell(size: Dp) {
+        Box(
+            modifier = Modifier.size(80.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // 激活/禁用共用 demoActive，一起播放进入（模糊缩小浮现）/退出（模糊缩小消失）动画，
+            // 与磁贴配置页撤销按钮同款参数（scale 0.5↔1、模糊 0↔6dp、进 200ms / 出 150ms）。
+            AnimatedVisibility(
+                visible = demoActive,
+                enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
+                    scaleIn(initialScale = 0.5f, animationSpec = tween(durationMillis = 200)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
+                    scaleOut(targetScale = 0.5f, animationSpec = tween(durationMillis = 150))
+            ) {
+                // 模糊半径随进出过渡：隐藏 6dp、显示 0dp。
+                // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
+                val blurRadius by if (themeSettings.enableBlur) {
+                    transition.animateFloat(
+                        transitionSpec = {
+                            if (targetState == EnterExitState.Visible) {
+                                tween(durationMillis = 200)
+                            } else {
+                                tween(durationMillis = 150)
+                            }
+                        },
+                        label = "demoBlur"
+                    ) { state ->
+                        if (state == EnterExitState.Visible) 0f else 6f
+                    }
+                } else {
+                    remember { mutableFloatStateOf(0f) }
+                }
+                Icon(
+                    MiuixIcons.Undo,
+                    contentDescription = "模糊浮现动画演示图标 ${size.value.toInt()}dp",
+                    modifier = Modifier
+                        .size(size)
+                        .blur(blurRadius.dp)
+                )
+            }
+        }
     }
 
     fun refreshDebugInfo() {
@@ -405,6 +477,64 @@ fun DebugToolsScreen() {
                                 if (rowTypes.size == 1) {
                                     Spacer(modifier = Modifier.weight(1f))
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== 模糊浮现动画演示 =====
+            item {
+                SmallTitle(text = "模糊浮现动画演示")
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // 演示图标尺寸列表（dp）：多尺寸排成一行，方便对比不同大小的模糊浮现效果
+                        val demoIconSizes = remember { listOf(24.dp, 36.dp, 48.dp, 60.dp, 72.dp) }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 每个图标由 DemoIconCell 渲染（固定占位高度，防止退出动画时卡片高度坍塌）
+                            demoIconSizes.forEach { size ->
+                                DemoIconCell(size)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 激活 / 禁用两个按钮：控制演示图标显隐，反复切换即可欣赏模糊浮现动画
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    demoActive = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("激活 icon")
+                            }
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    demoActive = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("禁用 icon")
                             }
                         }
                     }
