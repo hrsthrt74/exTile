@@ -691,10 +691,11 @@ fun TileConfigScreen() {
                                     key = headerKey,
                                     enabled = innerTiles.isEmpty(),
                                 ) {
+                                    // 虚线框
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                            .padding(horizontal = 8.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = "展开后显示的磁贴",
@@ -703,12 +704,14 @@ fun TileConfigScreen() {
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(vertical = 2.dp)
+                                                .padding(top = 8.dp)
                                         )
                                     }
                                 }
                             }
                         }
+
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
 
                         // 添加按钮区域，占满整行
                         item(span = { GridItemSpan(maxLineSpan) }) {
