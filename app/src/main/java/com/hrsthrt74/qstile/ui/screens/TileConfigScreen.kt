@@ -18,6 +18,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.foundation.withoutEventHandling
@@ -115,14 +116,17 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.PlainTooltip
+import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
+import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
@@ -756,21 +760,55 @@ fun TileConfigScreen() {
                                     key = headerKey,
                                     enabled = innerTiles.isEmpty(),
                                 ) {
-                                    // 虚线框
-                                    Box(
+                                    // 标题行：文字 + 说明图标。图标点击弹出 RichTooltip（带 caret 指向标题行）。
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 8.dp, vertical = 8.dp)
+                                            .padding(top = 8.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
                                             text = "展开后显示的磁贴",
                                             style = MiuixTheme.textStyles.subtitle,
                                             color = frameColor,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 8.dp)
                                         )
+                                        // 说明图标：isPersistent 常驻 tooltip，点击显示（点击外部/再点图标自动关闭）
+                                        val infoTooltipState = rememberTooltipState(isPersistent = true)
+                                        TooltipBox(
+                                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                                                positioning = TooltipAnchorPosition.Below
+                                            ),
+                                            tooltip = {
+                                                RichTooltip {
+                                                    Text(
+                                                        text = "将磁贴拖动到「exTile」磁贴后即可收纳进「展开」磁贴。",
+                                                        style = MiuixTheme.textStyles.body2,
+                                                    )
+                                                }
+                                            },
+                                            state = infoTooltipState,
+                                            // rich tooltip 可交互：点击外部触发 onDismissRequest 关闭
+                                            focusable = true,
+                                            modifier = Modifier.padding(start = 6.dp)
+                                        ) {
+                                            Icon(
+                                                MiuixIcons.Info,
+                                                contentDescription = "展开区域说明",
+                                                tint = frameColor,
+                                                modifier = Modifier
+                                                    .size(18.dp)
+                                                    // indication = null：去掉点击压暗/涟漪特效
+                                                    .clickable(
+                                                        interactionSource = remember { MutableInteractionSource() },
+                                                        indication = null
+                                                    ) {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        scope.launch { infoTooltipState.show() }
+                                                    }
+                                            )
+                                        }
                                     }
                                 }
                             }
