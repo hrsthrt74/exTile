@@ -19,8 +19,8 @@
 
 关键代码位于 `app/src/main/java/com/hrsthrt74/qstile/`：
 
-- `ui/screens/` 页面（Home / TileConfig / Settings / Licenses / DebugTools），另有三个独立 Activity（Licenses / DebugTools / TileLongClick）
-- `ui/components/` `AppBottomSheet` / `AppDialog` 统一封装
+- `ui/screens/` 页面（Home / TileConfig / Settings / Oobe / Licenses / DebugTools），另有三个独立 Activity（Licenses / DebugTools / TileLongClick）
+- `ui/components/` `AppBottomSheet` / `AppDialog` / `PermissionStatusCard`（主页与 OOBE 复用）
 - `data/` TileConfig / TileCatalog / TileRequirement / DeviceProfile / ConfigRepository / StatsRepository / ThemeSettings
 - `shizuku/` ShizukuHelper / SecureSettingsHelper / CommandService
 - `tile/ExTileService.kt` QS 磁贴服务
@@ -42,6 +42,8 @@
 13. **调试工具**：DebugToolsActivity +「能力开关（调试）」sheet 模拟 prop/feature 开关
 14. **长按 exTile 行为**：幽灵桥接 Activity（`TileLongClickActivity`）读取「长按 exTile 磁贴行为」配置（跳转 exTile/系统设置/自定义应用）后分发并 finish
 15. **使用统计**：StatsRepository 记录展开/收起次数（仅统计成功切换），主页 `StatsCard` 实时展示
+16. **首次使用引导 OOBE**：DataStore 存 `oobe_completed` 标志；壳层 `MainApp` 按标志分流——未完成渲染 `OobeScreen`（不渲染底部导航栏），完成切回主页；数据流 initial=null 防闪烁。OOBE 流程：请求权限 → 一键 `requestAddTileService` 添加 exTile 磁贴（回调返回 TILE_ADDED/ALREADY_ADDED 后按钮置灰）→ `importSystemTiles` 从系统导入配置 → 预览 → 完成
+17. **系统配置导入**：`ConfigRepository.importSystemTiles` 复用 `SecureSettingsHelper.getCurrentTiles` 读 `sysui_qs_tiles`（读 secure settings 免权限）；展开=完整列表原样保存，收起=[0..exTileIndex]+补 `edit`，`isExpanded=true`；返回 `SystemImportResult`（Success/NoExtile/ReadFailed）。配置合法性以 `Success.hideCount>0` 判定：无收纳磁贴时弹窗提示、不显示导入预览卡片、按钮停留「我已配置完成」
 
 ## UI 设计规范
 
@@ -63,5 +65,6 @@
 - **加载状态**：异步操作（Shizuku 绑定、权限检查、应用列表加载）必须加 isLoading 防闪烁
 - **长按行为**：设置页 WindowSpinnerPreference 选择；应用选择器后台加载缓存
 - **磁贴切换联动**：`wordless_mode_sync` / `smart_device_control_sync` 两个 SwitchPreference，映射**相反**（wordless 展开→0/收起→1；smart 展开→1/收起→0），写入在 ExTileService.onClick 切换成功后
-- **主页权限卡片**：PermissionStatus 状态机渲染引导；ON_RESUME 自动刷新权限状态；`autoRequestAfterResume` 标记防重复弹窗
+- **主页权限卡片**：PermissionStatus 状态机渲染引导；ON_RESUME 自动刷新权限状态；`autoRequestAfterResume` 标记防重复弹窗；卡片抽为 `PermissionStatusCard` 供 OOBE 复用
 - **主页统计卡片**：StatsCard，`getStatsFlow` 实时订阅，数据由 ExTileService.onClick 成功切换时写入
+- **设置页「重新运行引导」**：仅重置 `oobe_completed=false`（配置数据保留），壳层监听到 false 自动切回 OOBE 页面，可再次导入覆盖
