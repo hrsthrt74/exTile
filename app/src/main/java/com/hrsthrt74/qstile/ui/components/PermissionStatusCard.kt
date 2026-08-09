@@ -1,0 +1,165 @@
+package com.hrsthrt74.qstile.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.shizuku.ShizukuHelper
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/**
+ * 权限状态卡片组件（主页与 OOBE 共用）。
+ *
+ * 按 WRITE_SECURE_SETTINGS 权限状态机展示：状态图标 + 标题 + 引导文案 + 按状态显示的主操作按钮，
+ * 是 [PermissionStatus] 各分支的通用引导 UI。设计原则：Shizuku 是可选权限，仅用于首次/失效时
+ * 自动授权；未安装 Shizuku 时可使用 adb 手动授权兜底。
+ *
+ * 复用说明：
+ * - 主页（HomeScreen）使用完整能力：传入 [isLoading]（防闪烁）与 [onShowAdbGuide]（adb 手动授权入口）。
+ * - OOBE（OobeScreen）使用简化形态：省略 [isLoading] 与 [onShowAdbGuide]，两个参数均有默认值，
+ *   不传即隐藏加载态与 adb 入口。
+ *
+ * @param status WRITE_SECURE_SETTINGS 权限状态机当前状态
+ * @param modifier 作用于卡片根节点的 Modifier
+ * @param isLoading 是否正在检查权限（加载中：图标置灰、显示「正在检查权限...」、隐藏操作按钮）
+ * @param onInstallShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED] 时主按钮点击回调（引导下载安装）
+ * @param onLaunchShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING] 时主按钮点击回调（引导启动 Shizuku）
+ * @param onRequestShizukuPermission 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED] 时主按钮点击回调（请求 Shizuku 权限）
+ * @param onAutoGrant 状态为 [ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT] 或
+ *   [ShizukuHelper.PermissionStatus.GRANT_FAILED] 时主按钮点击回调（直接执行 pm grant）
+ * @param onShowAdbGuide 展示 adb 手动授权指引的回调；为 null 时不显示 adb 入口（OOBE 场景）
+ */
+@Composable
+fun PermissionStatusCard(
+    status: ShizukuHelper.PermissionStatus,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    onInstallShizuku: () -> Unit,
+    onLaunchShizuku: () -> Unit,
+    onRequestShizukuPermission: () -> Unit,
+    onAutoGrant: () -> Unit,
+    onShowAdbGuide: (() -> Unit)? = null,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 权限状态图标：已授权/加载中=对勾，其他状态=叉号。
+                // 加载中对勾置灰表示「检查中」，避免未授权瞬间闪红色叉号。
+                Icon(
+                    imageVector = if (isLoading || status == ShizukuHelper.PermissionStatus.GRANTED) {
+                        MiuixIcons.Demibold.Ok
+                    } else {
+                        MiuixIcons.Demibold.Close
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = when {
+                        isLoading -> MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f)
+                        status == ShizukuHelper.PermissionStatus.GRANTED -> MiuixTheme.colorScheme.primary
+                        else -> MiuixTheme.colorScheme.error
+                    }
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    // 标题：随加载态 / 授权结果变化
+                    Text(
+                        text = when {
+                            isLoading -> "正在检查权限..."
+                            status == ShizukuHelper.PermissionStatus.GRANTED -> "已获得权限"
+                            else -> "未获得必须权限"
+                        },
+                        style = MiuixTheme.textStyles.title3,
+                        color = MiuixTheme.colorScheme.onSurface
+                    )
+                    // 引导文案：按状态机给出下一步提示，加载态固定为「请稍候」
+                    Text(
+                        text = when {
+                            isLoading -> "请稍候"
+                            status == ShizukuHelper.PermissionStatus.GRANTED ->
+                                "WRITE_SECURE_SETTINGS 已授权，磁贴切换可用"
+                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED ->
+                                "未安装 Shizuku，可安装后自动授权，或使用 adb 手动授权"
+                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING ->
+                                "Shizuku 未运行，请先启动它"
+                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED ->
+                                "需要授予 Shizuku 权限以自动授权"
+                            status == ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT ->
+                                "Shizuku 已就绪，可一键自动授权"
+                            else -> "自动授权失败，请重试或使用 adb 手动授权"
+                        },
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+            }
+
+            // 未授权且非加载中时，按状态显示对应主操作按钮与 adb 兜底入口
+            if (status != ShizukuHelper.PermissionStatus.GRANTED && !isLoading) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 主按钮回调：按状态机映射到调用方传入的对应动作
+                val mainAction: (() -> Unit)? = when (status) {
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> onInstallShizuku
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> onLaunchShizuku
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> onRequestShizukuPermission
+                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> onAutoGrant
+                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> onAutoGrant
+                    else -> null
+                }
+                // 主按钮文案：与回调一一对应
+                val mainText = when (status) {
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> "安装 Shizuku"
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> "启动 Shizuku"
+                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> "授予 Shizuku 权限"
+                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> "自动授权"
+                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> "重试授权"
+                    else -> null
+                }
+
+                if (mainAction != null && mainText != null) {
+                    Button(
+                        onClick = mainAction,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(mainText)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // 兜底方案：仅当调用方提供了 adb 手动授权入口（onShowAdbGuide 非空）时展示
+                if (onShowAdbGuide != null) {
+                    TextButton(
+                        text = "使用 adb 手动授权",
+                        onClick = onShowAdbGuide,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}

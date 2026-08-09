@@ -45,23 +45,20 @@ import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Close
-import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.SearchDevice
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -269,130 +266,6 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
         
-    }
-}
-
-/**
- * 权限状态卡片组件。
- * 按 WRITE_SECURE_SETTINGS 权限状态机展示引导文案和对应操作按钮。
- * 设计原则：Shizuku 是可选权限，仅用于首次/失效时自动授权；
- * 未安装 Shizuku 时提供 adb 手动授权兜底。
- *
- * @param status 权限状态
- * @param isLoading 是否正在加载
- * @param onInstallShizuku Shizuku 未安装时点击
- * @param onLaunchShizuku Shizuku 未运行时点击
- * @param onRequestShizukuPermission 请求 Shizuku 权限
- * @param onAutoGrant 直接执行 pm grant
- * @param onShowAdbGuide 展示 adb 手动授权指引
- */
-@Composable
-private fun PermissionStatusCard(
-    status: ShizukuHelper.PermissionStatus,
-    isLoading: Boolean,
-    onInstallShizuku: () -> Unit,
-    onLaunchShizuku: () -> Unit,
-    onRequestShizukuPermission: () -> Unit,
-    onAutoGrant: () -> Unit,
-    onShowAdbGuide: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 权限状态图标：已授权=绿色对勾，加载中=灰色圆圈，其他状态=红色叉号
-                Icon(
-                    imageVector = if (isLoading || status == ShizukuHelper.PermissionStatus.GRANTED) {
-                        MiuixIcons.Demibold.Ok
-                    } else {
-                        MiuixIcons.Demibold.Close
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = when {
-                        isLoading -> MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f)
-                        status == ShizukuHelper.PermissionStatus.GRANTED -> MiuixTheme.colorScheme.primary
-                        else -> MiuixTheme.colorScheme.error
-                    }
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = when {
-                            isLoading -> "正在检查权限..."
-                            status == ShizukuHelper.PermissionStatus.GRANTED -> "已获得权限"
-                            else -> "未获得必须权限"
-                        },
-                        style = MiuixTheme.textStyles.title3,
-                        color = MiuixTheme.colorScheme.onSurface
-                    )
-                    // 根据状态机展示不同的引导文案
-                    Text(
-                        text = when {
-                            isLoading -> "请稍候"
-                            status == ShizukuHelper.PermissionStatus.GRANTED -> "WRITE_SECURE_SETTINGS 已授权，磁贴切换可用"
-                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED ->
-                                "未安装 Shizuku，可安装后自动授权，或使用 adb 手动授权"
-                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING ->
-                                "Shizuku 未运行，请先启动它"
-                            status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED ->
-                                "需要授予 Shizuku 权限以自动授权"
-                            status == ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT ->
-                                "Shizuku 已就绪，可一键自动授权"
-                            else -> "自动授权失败，请重试或使用 adb 手动授权"
-                        },
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    )
-                }
-            }
-
-            // 未授权且非加载中时，按状态显示对应操作按钮
-            if (status != ShizukuHelper.PermissionStatus.GRANTED && !isLoading) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                val mainAction: (() -> Unit)? = when (status) {
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> onInstallShizuku
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> onLaunchShizuku
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> onRequestShizukuPermission
-                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> onAutoGrant
-                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> onAutoGrant
-                    else -> null
-                }
-                val mainText = when (status) {
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> "安装 Shizuku"
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> "启动 Shizuku"
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> "授予 Shizuku 权限"
-                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> "自动授权"
-                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> "重试授权"
-                    else -> null
-                }
-
-                if (mainAction != null && mainText != null) {
-                    Button(
-                        onClick = mainAction,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(mainText)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // 兜底方案：始终提供 adb 手动授权入口
-                TextButton(
-                    text = "使用 adb 手动授权",
-                    onClick = onShowAdbGuide,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
     }
 }
 

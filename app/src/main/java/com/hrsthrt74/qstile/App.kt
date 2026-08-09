@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -16,11 +17,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.ui.blurBarColors
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
+import com.hrsthrt74.qstile.ui.screens.OobeScreen
 import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
@@ -69,6 +73,35 @@ sealed class Screen(val title: String) {
 fun MainApp(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // OOBE 完成标志流：initial 用 null 表示「尚未读取到」，
+    // 避免已完成的用户首次渲染时闪一下引导页
+    val oobeCompleted by ConfigRepository.getOobeCompletedFlow(context)
+        .collectAsState(initial = null)
+    // 委托属性无法智能转换，取局部值用于后续分支判断
+    val oobeDone = oobeCompleted
+    // 数据未就绪前不渲染任何 UI，防止闪烁
+    if (oobeDone == null) return
+
+    // ===== OOBE 未完成：渲染引导页（壳层不渲染底部导航栏） =====
+    // 完成后 saveOobeCompleted(true)，数据流变化触发重组自动切回下方主页 UI
+    if (!oobeDone) {
+        MiuixScaffold {
+            OobeScreen(
+                onRequestShizukuPermission = onRequestShizukuPermission,
+                onCompleted = {
+                    scope.launch {
+                        ConfigRepository.saveOobeCompleted(context, true)
+                    }
+                }
+            )
+        }
+        return
+    }
+
+    // ===== OOBE 已完成：现有 UI 原样 =====
     // 读取主题设置，获取模糊开关状态
     val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(
         androidx.compose.ui.platform.LocalContext.current

@@ -547,6 +547,20 @@ fun SettingsScreen() {
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
             )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            // 重新运行首次配置引导：仅重置 OOBE 标志（配置数据保留，可再次导入覆盖），
+            // 壳层监听到标志变 false 后自动切回 OOBE 页面
+            ArrowPreference(
+                title = "重新运行引导",
+                onClick = {
+                    scope.launch {
+                        ConfigRepository.saveOobeCompleted(context, false)
+                    }
+                },
+                startAction = { PreferenceLeadingPlaceholder() }
+            )
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -22,6 +23,7 @@ object ConfigRepository {
     private val LONG_PRESS_CUSTOM_APP = stringPreferencesKey("long_press_custom_app")
     private val WORDLESS_MODE_SYNC = booleanPreferencesKey("wordless_mode_sync")
     private val SMART_DEVICE_CONTROL_SYNC = booleanPreferencesKey("smart_device_control_sync")
+    private val OOBE_COMPLETED = booleanPreferencesKey("oobe_completed")
 
     private val DEFAULT_EXPANDED = listOf("wifi", "bt", "cell", "airplane", "flashlight", "hotspot")
     private val DEFAULT_COLLAPSED = listOf("wifi", "bt", "cell")
@@ -163,5 +165,98 @@ object ConfigRepository {
         context.dataStore.edit { preferences ->
             preferences[SMART_DEVICE_CONTROL_SYNC] = enabled
         }
+    }
+
+    // ==================== OOBE（首次使用引导） ====================
+
+    /**
+     * 获取「OOBE 是否已完成」标志流。
+     * 默认 false（首次安装/未完成引导时显示引导页面）。
+     * @param context Context
+     * @return OOBE 完成状态流
+     */
+    fun getOobeCompletedFlow(context: Context): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[OOBE_COMPLETED] ?: false
+        }
+    }
+
+    /**
+     * 保存「OOBE 是否已完成」标志。
+     * @param context Context
+     * @param completed true 表示引导已完成（下次启动直接进主页）；false 可触发「重新运行引导」
+     */
+    suspend fun saveOobeCompleted(context: Context, completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[OOBE_COMPLETED] = completed
+        }
+    }
+
+    /**
+     * 从系统导入磁贴配置（OOBE 首次配置专用）。
+     * 复用 [SecureSettingsHelper.getCurrentTiles] 读取系统 sysui_qs_tiles 完整列表
+     * （读取 secure settings 无需任何权限）。
+     *
+     * 规则：
+     * 1. 完整列表原样保存为展开配置 expandedTiles —— 小米固定磁贴（手机 wifi/cell，平板 wifi/bt）默认
+     *    就在最前，edit 默认在最后，无需任何移动处理，与编辑页派生逻辑天然对齐；
+     * 2. 收起配置 collapsedTiles = [0..exTileIndex]（exTile 及之前的保留部分）+ 末尾补 "edit"
+     *    （系统列表末尾通常有 edit，取前段后需补回，保证收起时仍有编辑入口）；
+     * 3. isExpanded 保存为 true —— 系统当前显示的正是完整（展开）布局，若存 false 则用户首次点击
+     *    exTile 时写入 expanded（系统无变化），体验困惑。
+     *
+     * @param context Context
+     * @return [SystemImportResult]：Success(保留数/收纳数 + 两组磁贴列表) / NoExtile / ReadFailed
+     */
+    suspend fun importSystemTiles(context: Context): SystemImportResult {
+        // 读取系统完整列表（读 secure settings 无需任何权限）
+        val tiles = SecureSettingsHelper.getCurrentTiles(context)
+        if (tiles.isEmpty()) return SystemImportResult.ReadFailed
+        // 校验是否含 exTile 锚点，否则无法确定展开/收起的边界
+        val extileIndex = tiles.indexOf(TileCatalog.EXTILE_CUSTOM)
+        if (extileIndex < 0) return SystemImportResult.NoExtile
+
+        // 展开 = 系统完整列表原样保存
+        val expandedTiles = tiles
+        // 收起 = exTile 及之前的保留部分 + 末尾补回编辑入口
+        val collapsedTiles = tiles.take(extileIndex + 1) + "edit"
+
+        // 保存四组值（展开/收起/展开状态）
+        saveExpandedTiles(context, expandedTiles)
+        saveCollapsedTiles(context, collapsedTiles)
+        saveIsExpanded(context, true)
+
+        return SystemImportResult.Success(
+            keepCount = collapsedTiles.size,
+            hideCount = expandedTiles.size - collapsedTiles.size,
+            expandedTiles = expandedTiles,
+            collapsedTiles = collapsedTiles,
+        )
+    }
+
+    /**
+     * 系统导入结果。
+     * @see importSystemTiles
+     */
+    sealed class SystemImportResult {
+        /**
+         * 导入成功。
+         * @param keepCount 保留磁贴数（收起时也可见）
+         * @param hideCount 收纳磁贴数（仅展开时可见）
+         * @param expandedTiles 展开配置
+         * @param collapsedTiles 收起配置
+         */
+        data class Success(
+            val keepCount: Int,
+            val hideCount: Int,
+            val expandedTiles: List<String>,
+            val collapsedTiles: List<String>,
+        ) : SystemImportResult()
+
+        /** 系统中未找到 exTile 磁贴（锚点缺失） */
+        data object NoExtile : SystemImportResult()
+
+        /** 读取系统配置失败 */
+        data object ReadFailed : SystemImportResult()
     }
 }
