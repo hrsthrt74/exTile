@@ -17,6 +17,13 @@ import com.hjq.device.compat.DeviceOs
 data class DeviceProfile(
     /** 是否为小米系系统（MIUI / HyperOS） */
     val isXiaomi: Boolean,
+    /**
+     * 是否为类原生 AOSP 系统（非厂商定制 ROM，如 Pixel 原版 Android、LineageOS、GSI 等）。
+     * 判定依据：[DeviceOs.getOsName()] 在厂商定制系统上返回非空系统名（如 "HyperOS" / "MIUI"），
+     * 而在类原生 AOSP 系统上返回空字符串，因此空串即视为 AOSP。
+     * 注意：存在个别冷门 ROM 不上报系统名导致误判的可能（见 OOBE 使用处的风险说明）。
+     */
+    val isAosp: Boolean,
     /** 是否为平板（屏幕尺寸 >= SCREENLAYOUT_SIZE_LARGE） */
     val isTablet: Boolean,
     /** Android SDK 版本 */
@@ -86,6 +93,9 @@ data class DeviceProfile(
                 val appContext = context.applicationContext
                 val profile = DeviceProfile(
                     isXiaomi = DeviceOs.isMiui() || DeviceOs.isHyperOs(),
+                    // 类原生 AOSP：DeviceOs.getOsName() 返回空字符串；
+                    // 与 isXiaomi 互补，任何厂商定制系统（MIUI/HyperOS/ColorOS/OneUI 等）都会返回非空系统名
+                    isAosp = DeviceOs.getOsName().isEmpty(),
                     isTablet = run {
                         val sizeMask = appContext.resources.configuration.screenLayout and
                             Configuration.SCREENLAYOUT_SIZE_MASK

@@ -146,6 +146,11 @@ fun OobeScreen(
     // 设备能力快照（P2 磁贴摘要的显示名映射用）
     val profile = remember { DeviceProfile.from(context) }
 
+    // 不支持设备的判断：类原生 AOSP 系统（非厂商定制 ROM）且 Android 15（SDK 35）及以上。
+    // 该场景下本应用依赖的 WRITE_SECURE_SETTINGS 磁贴切换方案不可用，因此在欢迎页（P0）直接拦截：
+    // 展示错误提示、禁用「开始使用」按钮、隐藏右上角「跳过」入口，阻止用户进入引导后续步骤。
+    val isUnsupportedDevice = profile.isAosp && profile.sdkInt >= 35
+
     // 导航栏 inset：OOBE 页最外层有统一 TopAppBar（自带状态栏安全区），
     // 但各页底部按钮仍需手动处理底部导航栏安全区
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -301,6 +306,11 @@ fun OobeScreen(
                         title = "简洁而又不失高效",
                         summary = "次级功能，点击即出"
                     )
+                    // 不支持的设备（类原生 AOSP + Android 15 及以上）：追加醒目错误提示卡片，
+                    // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用、「跳过」入口已隐藏）
+                    if (isUnsupportedDevice) {
+                        UnsupportedDeviceCard()
+                    }
                 }
             }
     }
@@ -532,7 +542,10 @@ fun OobeScreen(
                 }
             },
             actions = {
-                if (pagerState.currentPage == 0) {
+                // P0 欢迎页：右上角「跳过」入口（点击弹二次确认）。
+                // 不支持的设备（类原生 AOSP + Android 15 及以上）时直接隐藏该入口：
+                // 跳过后同样无法使用本应用，无需给用户提供继续入口
+                if (pagerState.currentPage == 0 && !isUnsupportedDevice) {
                     IconButton(onClick = { skipDialogState.show() }) {
                         Icon(MiuixIcons.Close, contentDescription = "跳过")
                     }
@@ -568,12 +581,15 @@ fun OobeScreen(
                 .padding(bottom = navBarBottom + 24.dp)
         ) {
             when (pagerState.currentPage) {
-                // P0 欢迎页：开始使用
+                // P0 欢迎页：开始使用。
+                // 不支持的设备（类原生 AOSP + Android 15 及以上）时禁用按钮（保留展示，置灰不可点），
+                // 阻止用户进入引导后续步骤
                 0 -> Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) }
                     },
+                    enabled = !isUnsupportedDevice,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("开始使用") }
@@ -714,6 +730,52 @@ private fun FeatureCard(
                     text = summary,
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 不支持设备提示卡片（P0 欢迎页）。
+ *
+ * 当设备为「类原生 AOSP 系统 + Android 15（SDK 35）及以上」时展示，版式与 [FeatureCard] 保持一致
+ * （图标 + 标题 + 说明两行），但改用 errorContainer 背景 + error 色图标做醒目错误提醒。
+ * 配合外层逻辑：此时「开始使用」按钮已禁用、「跳过」入口已隐藏，用户无法继续引导。
+ */
+@Composable
+private fun UnsupportedDeviceCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.errorContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Demibold.Close,
+                contentDescription = null,
+                // 图标用 error 色强调错误语义
+                tint = MiuixTheme.colorScheme.error,
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "本应用暂不支持类原生 Android 15 及以上，抱歉~",
+                    // 文字用 onErrorContainer，保证在 errorContainer 底上清晰可读
+                    color = MiuixTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "有误判？请联系作者",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onErrorContainer
                 )
             }
         }
