@@ -90,7 +90,15 @@ fun ExTileTheme(
         val window = (view.context as Activity).window
         WindowCompat.getInsetsController(window, view).apply {
             isAppearanceLightStatusBars = !effectiveDark
+            // 同步设置导航栏图标亮暗，让三键导航的按钮颜色与主题一致
+            isAppearanceLightNavigationBars = !effectiveDark
         }
+        // 关闭「导航栏对比度增强」：
+        // enableEdgeToEdge() 默认会开启它，导致三键导航模式下系统强制在导航栏
+        // 后面画一层黑色/白色的半透明 scrim（保证按钮对比度），看起来导航栏
+        // 就是实色不透明；手势导航无此需求所以正常透明。
+        // 这里显式关闭，让三键导航与手势导航一样保持透明，交由 Miuix NavigationBar 绘制背景。
+        window.isNavigationBarContrastEnforced = false
     }
 
     // 当设置变化时重新创建 ThemeController，驱动 MIUIX 主题切换
