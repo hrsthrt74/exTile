@@ -480,7 +480,7 @@ fun SettingsScreen() {
                     backupText = generateBackupJson()
                     backupSheetState.show()
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Import) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Remove) }
             )
 
             ArrowPreference(
@@ -490,7 +490,7 @@ fun SettingsScreen() {
                     importBackupJson = ""
                     importBackupSheetState.show()
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Remove) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Import) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
