@@ -1,6 +1,9 @@
 package com.hrsthrt74.qstile
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
@@ -75,6 +79,16 @@ fun MainApp(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // 预热 window insets：Compose 的 WindowInsets 是系统异步派发的，
+    // 首次组合读取常为 0（官方文档 "Insets and Jetpack Compose phases"：insets
+    // 在组合阶段之后、布局阶段之前更新）。这里在 OOBE 门控之前强制读取一次，
+    // 会向系统订阅 insets 变化：真实 insets 派发后触发重组（此时仍被门控 return，
+    // 不渲染界面），第二次读取即可拿到真实值并缓存，避免主界面首次组合时读到 0，
+    // 导致顶部栏/底部导航栏首帧不避让状态栏和导航栏（启动瞬间闪跳）。
+    val density = LocalDensity.current
+    WindowInsets.statusBars.getTop(density)
+    WindowInsets.navigationBars.getBottom(density)
 
     // OOBE 完成标志流：initial 用 null 表示「尚未读取到」，
     // 避免已完成的用户首次渲染时闪一下引导页
