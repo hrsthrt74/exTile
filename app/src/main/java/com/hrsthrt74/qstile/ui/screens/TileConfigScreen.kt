@@ -228,7 +228,7 @@ fun TileConfigScreen() {
      * - expanded = 固定卡片 + 全部磁贴 + edit
      * - collapsed = 固定卡片 + 框外磁贴（exTile 及其之前）+ edit
      *
-     * 收起列表由「框外」自动派生，不再独立编辑；独立列表结构保留，供后续「切层」高级功能使用。
+     * 收起列表由「框外」自动派生
      */
     fun updateGridTiles(newGridTiles: List<String>) {
         val exTileIndex = newGridTiles.indexOf(TileCatalog.EXTILE_CUSTOM)
@@ -278,7 +278,7 @@ fun TileConfigScreen() {
             scrollBehavior = scrollBehavior,
             actions = {
                     // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
-                    // 出现动画为缩放 0.8→1 + 透明度 0→1 + 模糊 4dp→0dp，消失动画为反向；
+                    // 出现动画为缩放 0.5→1 + 透明度 0→1 + 模糊 6dp→0dp，消失动画为反向；
                     // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
                     AnimatedVisibility(
                         visible = undoSnapshot != null,
@@ -396,11 +396,11 @@ fun TileConfigScreen() {
                                 )
                             }
 
-                            // 图标与文字之间的间距
-                            Spacer(modifier = Modifier.width(8.dp))
-
                             // 磁贴名 和 “固定磁贴”
-                            Column {
+                            Column(
+                                // 图标 <=> 文字 间距
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
                                 Text(
                                     text = TileCatalog.getDisplayName(tile, profile),
                                     style = MiuixTheme.textStyles.body1
@@ -477,7 +477,7 @@ fun TileConfigScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding())
+                .padding(top = paddingValues.calculateTopPadding() + 8.dp)
         ) {
             key(isXiaomi, fixedTileValues) {
                 // 单一数据源（过滤固定卡片和 edit），含 exTile
@@ -779,7 +779,7 @@ fun TileConfigScreen() {
                                 style = MiuixTheme.textStyles.subtitle,
                                 color = frameColor,
                             )
-                            // 说明图标：isPersistent 常驻 tooltip，点击显示（点击外部/再点图标自动关闭）
+                            // Info 图标，点击显示
                             val infoTooltipState = rememberTooltipState(isPersistent = true)
                             TooltipBox(
                                 positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
@@ -838,7 +838,7 @@ fun TileConfigScreen() {
                         // 底线按末行实际行底绘制（修复磁贴文本行数不同导致底线不齐）。
                         // 框位于 overscroll 渲染变换内部，回弹时与磁贴一起被系统拉伸跟随。
                         .drawBehind {
-                            // 存在 exTile 时显示「展开后」区域
+                            // 「展开后」区域（虚线框）
                             if (hasInner) {
                                 val layoutInfo = lazyGridState.layoutInfo
                                 val visible = layoutInfo.visibleItemsInfo
@@ -985,6 +985,8 @@ fun TileConfigScreen() {
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
+                                    // 图标 <=> 文字的间距
+                                    .padding(bottom = 8.dp)
                                     .clip(CircleShape)
                                     .background(MiuixTheme.colorScheme.secondaryVariant)
                                     .clickable {
@@ -1008,8 +1010,6 @@ fun TileConfigScreen() {
                                     )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
                                 text = tile.displayName,
