@@ -1,5 +1,6 @@
 package com.hrsthrt74.qstile.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,7 +39,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  *
  * @param status WRITE_SECURE_SETTINGS 权限状态机当前状态
  * @param modifier 作用于卡片根节点的 Modifier
- * @param isLoading 是否正在检查权限（加载中：图标置灰、显示「正在检查权限...」、隐藏操作按钮）
+ * @param isLoading 是否正在检查权限（加载中：图标置灰、显示「正在检查权限...」；按钮区域不渲染，
+ *   卡片保持紧凑矮高度；加载完成后若仍未授权，按钮区域通过 AnimatedVisibility 平滑展开出现）
  * @param onInstallShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED] 时主按钮点击回调（引导下载安装）
  * @param onLaunchShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING] 时主按钮点击回调（引导启动 Shizuku）
  * @param onRequestShizukuPermission 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED] 时主按钮点击回调（请求 Shizuku 权限）
@@ -118,46 +120,59 @@ fun PermissionStatusCard(
                 }
             }
 
-            // 未授权且非加载中时，按状态显示对应主操作按钮与 adb 兜底入口
-            if (status != ShizukuHelper.PermissionStatus.GRANTED && !isLoading) {
-                Spacer(modifier = Modifier.height(16.dp))
+            // 操作按钮区域：未授权（status != GRANTED）且不在加载中时，用 AnimatedVisibility 平滑展开显示
+            // 主操作按钮与 adb 兜底入口。
+            //
+            // 方案说明（已回退「加载中透明占位」方案）：
+            // - 加载中（isLoading=true）：不渲染任何按钮占位，卡片保持紧凑矮高度，不再有「透明占位大下巴」；
+            // - 加载完成且最终未授权（status != GRANTED）：visible 变 true，AnimatedVisibility 默认的
+            //   expandVertically + fadeIn 动画让按钮区域高度与透明度渐变出现，消除原「瞬间跳变 / 坍塌」感；
+            // - 加载完成且已授权（status == GRANTED）：visible 保持 false，按钮区域收起，卡片矮，无任何变化。
+            AnimatedVisibility(
+                visible = status != ShizukuHelper.PermissionStatus.GRANTED && !isLoading
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 主按钮回调：按状态机映射到调用方传入的对应动作
-                val mainAction: (() -> Unit)? = when (status) {
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> onInstallShizuku
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> onLaunchShizuku
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> onRequestShizukuPermission
-                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> onAutoGrant
-                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> onAutoGrant
-                    else -> null
-                }
-                // 主按钮文案：与回调一一对应
-                val mainText = when (status) {
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> "安装 Shizuku"
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> "启动 Shizuku"
-                    ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> "授予 Shizuku 权限"
-                    ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> "自动授权"
-                    ShizukuHelper.PermissionStatus.GRANT_FAILED -> "重试授权"
-                    else -> null
-                }
-
-                if (mainAction != null && mainText != null) {
-                    Button(
-                        onClick = mainAction,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(mainText)
+                    // 主按钮回调：按状态机映射到调用方传入的对应动作
+                    val mainAction: (() -> Unit)? = when (status) {
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> onInstallShizuku
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> onLaunchShizuku
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> onRequestShizukuPermission
+                        ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> onAutoGrant
+                        ShizukuHelper.PermissionStatus.GRANT_FAILED -> onAutoGrant
+                        else -> null
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                    // 主按钮文案：与回调一一对应
+                    val mainText = when (status) {
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> "安装 Shizuku"
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> "启动 Shizuku"
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> "授予 Shizuku 权限"
+                        ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> "自动授权"
+                        ShizukuHelper.PermissionStatus.GRANT_FAILED -> "重试授权"
+                        else -> null
+                    }
 
-                // 兜底方案：仅当调用方提供了 adb 手动授权入口（onShowAdbGuide 非空）时展示
-                if (onShowAdbGuide != null) {
-                    TextButton(
-                        text = "使用 adb 手动授权",
-                        onClick = onShowAdbGuide,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // 未授权状态必然映射到主按钮（上方映射全覆盖），因此主按钮始终渲染，无需占位逻辑。
+                    if (mainAction != null && mainText != null) {
+                        Button(
+                            onClick = mainAction,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(mainText)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // 兜底方案：仅当调用方提供了 adb 手动授权入口（onShowAdbGuide 非空）时展示。
+                    // onShowAdbGuide 在加载前后固定不变，随外层 AnimatedVisibility 一起展开收起。
+                    if (onShowAdbGuide != null) {
+                        TextButton(
+                            text = "使用 adb 手动授权",
+                            onClick = onShowAdbGuide,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
