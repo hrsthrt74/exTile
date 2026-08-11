@@ -985,8 +985,6 @@ fun TileConfigScreen() {
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
-                                    // 图标 <=> 文字的间距
-                                    .padding(bottom = 8.dp)
                                     .clip(CircleShape)
                                     .background(MiuixTheme.colorScheme.secondaryVariant)
                                     .clickable {
@@ -1016,7 +1014,8 @@ fun TileConfigScreen() {
                                 style = MiuixTheme.textStyles.footnote1,
                                 maxLines = 2,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
+                                //                                 ↓ 图标 <=> 文字的间距
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                             )
 
                             Text(
