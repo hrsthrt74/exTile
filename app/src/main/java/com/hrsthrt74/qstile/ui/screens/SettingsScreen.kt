@@ -235,7 +235,7 @@ fun SettingsScreen() {
     val systemTilesSheetState = rememberSheetState()
     val backupSheetState = rememberSheetState()
     val importBackupSheetState = rememberSheetState()
-    // 打赏（微信收款码）Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    // 支持作者（微信收款码）Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val donateSheetState = rememberSheetState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
@@ -574,20 +574,19 @@ fun SettingsScreen() {
             )
 
             ArrowPreference(
+                title = "支持作者",
+                summary = "给作者加个鸡腿",
+                onClick = { donateSheetState.show() },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
+            )
+
+            ArrowPreference(
                 title = "开源许可",
                 summary = "查看本应用使用的开源库及许可证",
                 onClick = {
                     context.startActivity(Intent(context, LicensesActivity::class.java))
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
-            )
-
-            // 打赏：点击弹出微信收款码图片
-            ArrowPreference(
-                title = "打赏",
-                summary = "如果这个应用对你有帮助，请我喝杯奶茶",
-                onClick = { donateSheetState.show() },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -660,12 +659,12 @@ fun SettingsScreen() {
         }
     }
 
-    /** 打赏 Sheet：展示微信收款码 */
+    /** 支持作者 Sheet：展示微信收款码 */
     @Composable
     fun DonateSheet() {
         AppBottomSheet(
             state = donateSheetState,
-            title = "打赏",
+            title = "支持作者",
         ) {
             Column(
                 modifier = Modifier
@@ -674,7 +673,7 @@ fun SettingsScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "如果这个应用对你有帮助，请我喝杯奶茶～",
+                    text = "感谢有你，我才能走得更远～",
                     style = MiuixTheme.textStyles.body2,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -999,7 +998,7 @@ fun SettingsScreen() {
     // ---- 备份结果 Sheet ----
     BackupSheet()
 
-    // ---- 打赏 Sheet ----
+    // ---- 支持作者 Sheet ----
     DonateSheet()
 
     // ---- 导入备份 Sheet ----
