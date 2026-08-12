@@ -1,8 +1,10 @@
 package com.hrsthrt74.qstile.tile
 
+import android.graphics.drawable.Icon
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
@@ -135,6 +137,15 @@ class ExTileService : TileService() {
                     isExpanded = config.isExpanded,
                     customName = customLabel
                 )
+
+                // 磁贴图标：读取预设选项，映射为对应 drawable 资源；默认时用 ic_tile 显式设置。
+                // TileService 在整个生命周期内复用同一个 Tile 对象：若默认分支不设置 icon，
+                // 会残留上一次的非默认图标，导致切回默认后不刷新；而显式 setIcon(null) 在
+                // 部分系统上 SystemUI 不回落默认图标，反而渲染灰色占位。故统一显式设置。
+                val tileIconRes = ConfigRepository.TileIcon.iconRes(
+                    ConfigRepository.getTileIcon(this@ExTileService)
+                ) ?: R.drawable.ic_tile
+                tile.icon = Icon.createWithResource(this@ExTileService, tileIconRes)
 
                 tile.updateTile()
             } catch (e: Exception) {

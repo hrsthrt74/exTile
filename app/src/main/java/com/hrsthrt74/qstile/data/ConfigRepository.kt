@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -23,6 +24,7 @@ object ConfigRepository {
     private val LONG_PRESS_CUSTOM_APP = stringPreferencesKey("long_press_custom_app")
     private val TILE_LABEL_PRESET = intPreferencesKey("tile_label_preset")
     private val TILE_LABEL_CUSTOM = stringPreferencesKey("tile_label_custom")
+    private val TILE_ICON = intPreferencesKey("tile_icon")
     private val WORDLESS_MODE_SYNC = booleanPreferencesKey("wordless_mode_sync")
     private val SMART_DEVICE_CONTROL_SYNC = booleanPreferencesKey("smart_device_control_sync")
     private val OOBE_COMPLETED = booleanPreferencesKey("oobe_completed")
@@ -119,6 +121,38 @@ object ConfigRepository {
         }
     }
 
+    /** exTile 磁贴图标（QS 面板中 exTile 磁贴显示的图标）的预设选项 */
+    object TileIcon {
+        const val DEFAULT = 0      // 默认图标（manifest 中声明的 ic_tile）
+        const val ADD = 1          // Add
+        const val ADD_CIRCLE = 2   // AddCircle
+        const val ALL = 3          // All
+        const val GRID_VIEW = 4    // GridView
+        const val EXPAND_MORE = 5  // ExpandMore
+
+        /** 合法的取值范围，用于数据校验 */
+        const val MAX = EXPAND_MORE
+
+        /** 预设选项对应的显示文案（与 SettingsScreen 下拉项顺序一致） */
+        val labels = listOf("默认", "Add", "AddCircle", "All", "GridView", "ExpandMore")
+
+        /**
+         * 根据预设选项返回对应的 drawable 资源 id。
+         * 纯静态查询，供 ExTileService / SettingsScreen 直接调用。
+         * @param preset 预设选项，见 [TileIcon]
+         * @return drawable 资源 id；DEFAULT 或非法值时返回 null（表示回落 manifest 默认图标）
+         */
+        fun iconRes(preset: Int): Int? = when (preset) {
+            DEFAULT -> null
+            ADD -> R.drawable.tile_icon_add
+            ADD_CIRCLE -> R.drawable.tile_icon_add_circle
+            ALL -> R.drawable.tile_icon_all
+            GRID_VIEW -> R.drawable.tile_icon_grid_view
+            EXPAND_MORE -> R.drawable.tile_icon_expand_more
+            else -> null
+        }
+    }
+
     /**
      * 获取磁贴名字的预设选项（int 值）
      * @param context Context
@@ -162,6 +196,30 @@ object ConfigRepository {
     suspend fun saveTileLabelCustom(context: Context, name: String) {
         context.dataStore.edit { preferences ->
             preferences[TILE_LABEL_CUSTOM] = name
+        }
+    }
+
+    /**
+     * 获取 exTile 磁贴图标的预设选项（int 值）
+     * @param context Context
+     * @return 预设选项，见 [TileIcon]
+     */
+    suspend fun getTileIcon(context: Context): Int {
+        return context.dataStore.data.map { preferences ->
+            val value = preferences[TILE_ICON] ?: TileIcon.DEFAULT
+            // 校验取值范围，防止旧版本残留数据导致索引越界
+            if (value in 0..TileIcon.MAX) value else TileIcon.DEFAULT
+        }.first()
+    }
+
+    /**
+     * 保存 exTile 磁贴图标的预设选项
+     * @param context Context
+     * @param preset 预设选项，见 [TileIcon]
+     */
+    suspend fun saveTileIcon(context: Context, preset: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[TILE_ICON] = preset
         }
     }
 

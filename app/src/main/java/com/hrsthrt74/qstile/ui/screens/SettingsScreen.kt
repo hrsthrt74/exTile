@@ -98,10 +98,15 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Album
+import top.yukonga.miuix.kmp.icon.extended.All
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.File
 import top.yukonga.miuix.kmp.icon.extended.Forward
@@ -221,6 +226,8 @@ fun SettingsScreen() {
     // 磁贴名（QS 面板中 exTile 磁贴显示标签）的预设选项与自定义名字
     var tileLabelPreset by remember { mutableIntStateOf(ConfigRepository.TileLabelPreset.MORE_TILES) }
     var tileLabelCustom by remember { mutableStateOf("") }
+    // exTile 磁贴图标（QS 面板中 exTile 磁贴显示的图标）的预设选项
+    var tileIcon by remember { mutableIntStateOf(ConfigRepository.TileIcon.DEFAULT) }
     // 自定义磁贴名弹窗的临时输入内容（仅在弹出时写入，关闭时清空）
     var customTileLabelInput by remember { mutableStateOf("") }
     // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
@@ -263,6 +270,7 @@ fun SettingsScreen() {
         customAppPackage = ConfigRepository.getLongPressCustomApp(context)
         tileLabelPreset = ConfigRepository.getTileLabelPreset(context)
         tileLabelCustom = ConfigRepository.getTileLabelCustom(context)
+        tileIcon = ConfigRepository.getTileIcon(context)
         wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
         autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
@@ -388,6 +396,38 @@ fun SettingsScreen() {
             SmallTitle(
                 text = "自定义",
                 insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
+            // ===== 磁贴图标：设置 QS 面板中 exTile 磁贴显示的图标 =====
+            // 每项带 icon：弹窗里逐项展示对应图标（默认项用 ic_tile，其余用 tile_icon_* 资源）
+            // 文本与图标资源均来自 ConfigRepository.TileIcon，保持单一数据源
+            val tileIconOptions = remember {
+                ConfigRepository.TileIcon.labels.mapIndexed { index, label ->
+                    val res = ConfigRepository.TileIcon.iconRes(index) ?: R.drawable.ic_tile
+                    DropdownItem(
+                        text = label,
+                        icon = { modifier ->
+                            Icon(
+                                painter = painterResource(res),
+                                contentDescription = null,
+                                tint = LocalContentColor.current,
+                                modifier = modifier,
+                            )
+                        },
+                    )
+                }
+            }
+            WindowSpinnerPreference(
+                title = "磁贴图标",
+                items = tileIconOptions,
+                selectedIndex = tileIcon,
+                onSelectedIndexChange = { index ->
+                    tileIcon = index
+                    scope.launch {
+                        ConfigRepository.saveTileIcon(context, index)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Copy) }
             )
 
             // ===== 磁贴名：设置 QS 面板中 exTile 磁贴显示的标签 =====
