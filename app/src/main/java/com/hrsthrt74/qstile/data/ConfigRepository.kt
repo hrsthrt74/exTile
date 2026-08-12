@@ -21,6 +21,8 @@ object ConfigRepository {
     private val IS_EXPANDED = booleanPreferencesKey("is_expanded")
     private val LONG_PRESS_BEHAVIOR = intPreferencesKey("long_press_behavior")
     private val LONG_PRESS_CUSTOM_APP = stringPreferencesKey("long_press_custom_app")
+    private val TILE_LABEL_PRESET = intPreferencesKey("tile_label_preset")
+    private val TILE_LABEL_CUSTOM = stringPreferencesKey("tile_label_custom")
     private val WORDLESS_MODE_SYNC = booleanPreferencesKey("wordless_mode_sync")
     private val SMART_DEVICE_CONTROL_SYNC = booleanPreferencesKey("smart_device_control_sync")
     private val OOBE_COMPLETED = booleanPreferencesKey("oobe_completed")
@@ -83,6 +85,84 @@ object ConfigRepository {
             // 校验取值范围，防止旧版本残留数据导致索引越界
             if (value in 0..LongPressBehavior.MAX) value else LongPressBehavior.OPEN_EXTILE
         }.first()
+    }
+
+    /** 磁贴名字（QS 面板中 exTile 磁贴显示的标签）的预设选项 */
+    object TileLabelPreset {
+        const val MORE_TILES = 0      // 更多磁贴
+        const val EXPAND_COLLAPSE = 1 // 展开 / 收起
+        const val SWITCH_TILES = 2    // 切换磁贴
+        const val CUSTOM = 3          // 自定义
+
+        /** 合法的取值范围，用于数据校验 */
+        const val MAX = CUSTOM
+
+        /** 预设选项对应的磁贴名字文案 */
+        val labels = listOf("更多磁贴", "展开 / 收起", "切换磁贴", "自定义")
+
+        /**
+         * 根据预设选项与当前展开状态计算磁贴名字。
+         * 无需 I/O，纯静态计算，供 ExTileService 直接调用。
+         * @param preset 预设选项，见 [TileLabelPreset]
+         * @param isExpanded 当前是否处于展开状态
+         * @param customName 自定义名字（仅 CUSTOM 预设使用）
+         * @return 磁贴名字文案
+         */
+        fun resolveLabel(preset: Int, isExpanded: Boolean, customName: String): String {
+            return when (preset) {
+                MORE_TILES -> labels[0]
+                EXPAND_COLLAPSE -> if (isExpanded) "收起" else "展开"
+                SWITCH_TILES -> labels[2]
+                CUSTOM -> if (customName.isNotBlank()) customName.trim() else labels[0]
+                else -> labels[0]
+            }
+        }
+    }
+
+    /**
+     * 获取磁贴名字的预设选项（int 值）
+     * @param context Context
+     * @return 预设选项，见 [TileLabelPreset]
+     */
+    suspend fun getTileLabelPreset(context: Context): Int {
+        return context.dataStore.data.map { preferences ->
+            val value = preferences[TILE_LABEL_PRESET] ?: TileLabelPreset.MORE_TILES
+            // 校验取值范围，防止旧版本残留数据导致索引越界
+            if (value in 0..TileLabelPreset.MAX) value else TileLabelPreset.MORE_TILES
+        }.first()
+    }
+
+    /**
+     * 保存磁贴名字的预设选项
+     * @param context Context
+     * @param preset 预设选项，见 [TileLabelPreset]
+     */
+    suspend fun saveTileLabelPreset(context: Context, preset: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[TILE_LABEL_PRESET] = preset
+        }
+    }
+
+    /**
+     * 获取自定义磁贴名字
+     * @param context Context
+     * @return 自定义名字，未设置时返回空字符串
+     */
+    suspend fun getTileLabelCustom(context: Context): String {
+        return context.dataStore.data.map { preferences ->
+            preferences[TILE_LABEL_CUSTOM] ?: ""
+        }.first()
+    }
+
+    /**
+     * 保存自定义磁贴名字
+     * @param context Context
+     * @param name 自定义名字
+     */
+    suspend fun saveTileLabelCustom(context: Context, name: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TILE_LABEL_CUSTOM] = name
+        }
     }
 
     /**

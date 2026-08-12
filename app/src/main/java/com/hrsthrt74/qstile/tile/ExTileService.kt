@@ -127,10 +127,14 @@ class ExTileService : TileService() {
                 val tile = qsTile ?: return@launch
 
                 tile.state = if (config.isExpanded) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-                // ↓ 这是源代码，备份
-                // tile.label = if (config.isExpanded) "收起" else "展开"
-                // ↓ 这是调试用的，最终要改的
-                tile.label = if (config.isExpanded) "更多磁贴" else "更多磁贴"
+                // 磁贴名字：读取预设选项与自定义名字，结合当前展开状态计算显示文案
+                val labelPreset = ConfigRepository.getTileLabelPreset(this@ExTileService)
+                val customLabel = ConfigRepository.getTileLabelCustom(this@ExTileService)
+                tile.label = ConfigRepository.TileLabelPreset.resolveLabel(
+                    preset = labelPreset,
+                    isExpanded = config.isExpanded,
+                    customName = customLabel
+                )
 
                 tile.updateTile()
             } catch (e: Exception) {

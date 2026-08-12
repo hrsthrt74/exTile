@@ -112,6 +112,7 @@ import top.yukonga.miuix.kmp.icon.extended.ListView
 import top.yukonga.miuix.kmp.icon.extended.Months
 import top.yukonga.miuix.kmp.icon.extended.Paste
 import top.yukonga.miuix.kmp.icon.extended.Remove
+import top.yukonga.miuix.kmp.icon.extended.Rename
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Tune
@@ -134,7 +135,9 @@ private val PreferenceIconSize = 24.dp
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
-private val longPressBehaviorLabels = listOf("exTile", "系统设置", "自定义应用")
+private val longPressBehaviorLabels = listOf("exTile", "系统设置", "自定义")
+// 磁贴名预设选项的文案：与 ConfigRepository.TileLabelPreset.labels 保持一致
+private val tileLabelPresetLabels = listOf("更多磁贴", "展开 / 收起", "切换磁贴", "自定义")
 
 /**
  * 设置页可展开分类的标识。
@@ -215,6 +218,11 @@ fun SettingsScreen() {
     // 长按 exTile 磁贴行为设置
     var longPressBehavior by remember { mutableIntStateOf(ConfigRepository.LongPressBehavior.OPEN_EXTILE) }
     var customAppPackage by remember { mutableStateOf("") }
+    // 磁贴名（QS 面板中 exTile 磁贴显示标签）的预设选项与自定义名字
+    var tileLabelPreset by remember { mutableIntStateOf(ConfigRepository.TileLabelPreset.MORE_TILES) }
+    var tileLabelCustom by remember { mutableStateOf("") }
+    // 自定义磁贴名弹窗的临时输入内容（仅在弹出时写入，关闭时清空）
+    var customTileLabelInput by remember { mutableStateOf("") }
     // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
     var wordlessModeSync by remember { mutableStateOf(false) }
     // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
@@ -226,6 +234,8 @@ fun SettingsScreen() {
 
     // 自定义应用选择器 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val appPickerSheetState = rememberSheetState()
+    // 自定义磁贴名输入 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val customTileLabelSheetState = rememberSheetState()
     // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
     var launchableApps by remember { mutableStateOf<List<LaunchableApp>?>(null) }
     // 应用选择器的搜索关键字：同时匹配应用名和包名
@@ -251,6 +261,8 @@ fun SettingsScreen() {
         currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
         longPressBehavior = ConfigRepository.getLongPressBehavior(context)
         customAppPackage = ConfigRepository.getLongPressCustomApp(context)
+        tileLabelPreset = ConfigRepository.getTileLabelPreset(context)
+        tileLabelCustom = ConfigRepository.getTileLabelCustom(context)
         wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
         autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
@@ -373,6 +385,51 @@ fun SettingsScreen() {
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+            SmallTitle(
+                text = "自定义",
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
+            // ===== 磁贴名：设置 QS 面板中 exTile 磁贴显示的标签 =====
+            val tileLabelOptions = remember { tileLabelPresetLabels.map { DropdownItem(text = it) } }
+            WindowSpinnerPreference(
+                title = "磁贴名显示",
+                items = tileLabelOptions,
+                selectedIndex = tileLabelPreset,
+                onSelectedIndexChange = { index ->
+                    tileLabelPreset = index
+                    scope.launch {
+                        ConfigRepository.saveTileLabelPreset(context, index)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Rename) }
+            )
+
+            // 仅当选择了「自定义」时显示自定义名字输入入口
+            // 使用 AnimatedVisibility 实现平滑的展开/收起动画
+            AnimatedVisibility(
+                visible = tileLabelPreset == ConfigRepository.TileLabelPreset.CUSTOM
+            ) {
+                ArrowPreference(
+                    title = "显示标题",
+                    endActions = {
+                        Text(
+                            tileLabelCustom.ifBlank { "未设置" },
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    },
+                    onClick = {
+                        // 打开输入 Sheet 前先用已保存的自定义名字填充输入框，方便用户直接修改
+                        customTileLabelInput = tileLabelCustom
+                        customTileLabelSheetState.show()
+                    },
+                    startAction = { PreferenceLeadingPlaceholder() }
+                )
+            }
+
+//            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
             WindowSpinnerPreference(
                 title = "长按 exTile 磁贴\n跳转到",
                 // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
@@ -393,10 +450,16 @@ fun SettingsScreen() {
                 visible = longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
             ) {
                 ArrowPreference(
-                    title = "自定义应用",
-                    summary = customAppLabel,
+                    title = "跳转目标",
                     onClick = { appPickerSheetState.show() },
-                    startAction = { PreferenceLeadingPlaceholder() }
+                    startAction = { PreferenceLeadingPlaceholder() },
+                    endActions = {
+                        Text(
+                            customAppLabel,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
+                    }
                 )
             }
         }
@@ -707,9 +770,10 @@ fun SettingsScreen() {
                     value = importBackupJson,
                     onValueChange = { importBackupJson = it },
                     label = "粘贴 JSON 备份数据",
+                    useLabelAsPlaceholder = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .height(360.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
@@ -732,6 +796,47 @@ fun SettingsScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("恢复")
+                }
+            }
+        }
+    }
+
+    /** 自定义磁贴名输入 Sheet */
+    @Composable
+    fun CustomTileLabelSheet() {
+        AppBottomSheet(
+            state = customTileLabelSheetState,
+            title = "自定义磁贴名",
+            // 关闭动画完成后清空临时输入，避免下次打开残留
+            onDismissed = { customTileLabelInput = "" },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding)
+            ) {
+                TextField(
+                    value = customTileLabelInput,
+                    onValueChange = { customTileLabelInput = it },
+                    label = "输入磁贴名",
+                    useLabelAsPlaceholder = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        // 去掉首尾空白后保存；空内容则视为未设置（显示时会回退到「更多磁贴」）
+                        val name = customTileLabelInput.trim()
+                        tileLabelCustom = name
+                        scope.launch {
+                            ConfigRepository.saveTileLabelCustom(context, name)
+                        }
+                        customTileLabelSheetState.dismiss()
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("保存")
                 }
             }
         }
@@ -1003,6 +1108,9 @@ fun SettingsScreen() {
 
     // ---- 导入备份 Sheet ----
     ImportBackupSheet()
+
+    // ---- 自定义磁贴名 Sheet ----
+    CustomTileLabelSheet()
 
     // ---- 系统导入确认 Dialog ----
     ImportSystemTilesDialog()
