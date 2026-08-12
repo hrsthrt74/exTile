@@ -113,6 +113,7 @@ import top.yukonga.miuix.kmp.icon.extended.Remove
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Tune
+import top.yukonga.miuix.kmp.icon.extended.Unpin
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
@@ -226,6 +227,8 @@ fun SettingsScreen() {
     var wordlessModeSync by remember { mutableStateOf(false) }
     // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
     var smartDeviceControlSync by remember { mutableStateOf(false) }
+    // 收起 QS 面板时自动收起磁贴布局（见 ExTileService.onStopListening）
+    var autoCollapseOnClose by remember { mutableStateOf(false) }
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -236,6 +239,7 @@ fun SettingsScreen() {
         customAppPackage = ConfigRepository.getLongPressCustomApp(context)
         wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
+        autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
     }
 
     // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
@@ -335,6 +339,19 @@ fun SettingsScreen() {
                     }
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.GridView) }
+            )
+
+            SwitchPreference(
+                title = "自动收起",
+                summary = "收起控制中心时，自动折叠",
+                checked = autoCollapseOnClose,
+                onCheckedChange = { enabled ->
+                    autoCollapseOnClose = enabled
+                    scope.launch {
+                        ConfigRepository.saveAutoCollapseOnClose(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Unpin) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -899,7 +916,8 @@ fun SettingsScreen() {
                     )
                 ) {
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                    // 写 0 是因为 item 之间有间距
+            item { Spacer(modifier = Modifier.height(0.dp)) }
 
             // ===== 通用分类：磁贴行为设置 =====
             item { GeneralCategoryCard() }
@@ -913,7 +931,8 @@ fun SettingsScreen() {
             // ===== 关于分类 =====
             item { AboutCategoryCard() }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                    // 同上面那个 Spacer
+            item { Spacer(modifier = Modifier.height(0.dp)) }
                 }
             }
         }

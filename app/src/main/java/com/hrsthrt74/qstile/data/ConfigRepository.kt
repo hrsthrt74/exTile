@@ -24,6 +24,8 @@ object ConfigRepository {
     private val WORDLESS_MODE_SYNC = booleanPreferencesKey("wordless_mode_sync")
     private val SMART_DEVICE_CONTROL_SYNC = booleanPreferencesKey("smart_device_control_sync")
     private val OOBE_COMPLETED = booleanPreferencesKey("oobe_completed")
+    /** 收起 QS 面板时自动收起磁贴布局的开关 key */
+    private val AUTO_COLLAPSE_ON_CLOSE = booleanPreferencesKey("auto_collapse_on_close")
 
     private val DEFAULT_EXPANDED = listOf("wifi", "bt", "cell", "airplane", "flashlight", "hotspot")
     private val DEFAULT_COLLAPSED = listOf("wifi", "bt", "cell")
@@ -164,6 +166,30 @@ object ConfigRepository {
     suspend fun saveSmartDeviceControlSync(context: Context, enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[SMART_DEVICE_CONTROL_SYNC] = enabled
+        }
+    }
+
+    // ==================== 收起面板时自动收起 ====================
+
+    /**
+     * 获取「收起面板时自动收起」开关状态
+     * @param context Context
+     * @return 是否启用：启用后用户收起 QS 面板时，若磁贴处于展开布局会自动执行收起操作
+     */
+    suspend fun getAutoCollapseOnClose(context: Context): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUTO_COLLAPSE_ON_CLOSE] ?: false
+        }.first()
+    }
+
+    /**
+     * 保存「收起面板时自动收起」开关状态
+     * @param context Context
+     * @param enabled 是否启用
+     */
+    suspend fun saveAutoCollapseOnClose(context: Context, enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_COLLAPSE_ON_CLOSE] = enabled
         }
     }
 
