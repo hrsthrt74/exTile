@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -67,12 +69,14 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
+import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
@@ -278,7 +282,8 @@ fun OobeScreen(
                 // APP 图标
                 Column(
                     verticalArrangement = Arrangement.spacedBy(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 48.dp)
                     ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_settings_extile),
@@ -319,26 +324,43 @@ fun OobeScreen(
     @Composable
     fun PermissionStep() {
         Column(modifier = Modifier.fillMaxSize()) {
-            // 内容区（标题「授权权限」与返回按钮已由外层统一 TopAppBar 提供）
+            // 内容区
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // 插图
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(R.drawable.illus_permission),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                // 标题
                 Text(
-                    text = "exTile 需要 WRITE_SECURE_SETTINGS 权限才能切换磁贴布局",
+                    text = "授权权限",
+                    style = MiuixTheme.textStyles.title1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "exTile 需要 WRITE_SECURE_SETTINGS 权限\n来切换磁贴布局",
                     style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 // 醒目提醒
                 Text(
-                    text = "未授权将无法使用磁贴切换等核心功能",
-                    style = MiuixTheme.textStyles.body1,
+                    text = "*未授权将无法使用磁贴切换等核心功能",
+                    style = MiuixTheme.textStyles.footnote1,
                     fontWeight = FontWeight.Bold,
                     color = MiuixTheme.colorScheme.error,
                     textAlign = TextAlign.Center
@@ -393,60 +415,61 @@ fun OobeScreen(
         // 避免在 onClick（普通 lambda）里查资源触发 lint 警告
         val tileLabel = stringResource(R.string.tile_label)
         Column(modifier = Modifier.fillMaxSize()) {
-            // 内容区（标题「排列磁贴」与返回按钮已由外层统一 TopAppBar 提供）
+            // 内容区
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // 插图
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(R.drawable.illus_sort),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                // 标题
+                Text(
+                    text = "排列磁贴",
+                    style = MiuixTheme.textStyles.title1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "打开控制中心，进入磁贴编辑界面，\n把 exTile 磁贴拖动到一行的末尾。",
                     style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
                 )
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // 锚点规则说明（两条要点）
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.surfaceContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(16.dp),
+                        ) {
                         RuleRow(
-                            icon = MiuixIcons.Ok,
+                            icon = MiuixIcons.ChevronForward,
                             title = "exTile 之前的磁贴",
-                            summary = "始终保留显示（收起时也可见）"
+                            summary = "始终显示"
                         )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        HorizontalDivider()
                         RuleRow(
-                            icon = MiuixIcons.Ok,
+                            icon = MiuixIcons.ChevronBackward,
                             title = "exTile 之后的磁贴",
-                            summary = "仅展开时显示（收起时隐藏）"
+                            summary = "展开显示，收起隐藏"
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // 一键引导在系统里添加 exTile 磁贴（SDK 33+ 系统弹窗）
-                // 已确认添加过（回调返回 TILE_ADDED/ALREADY_ADDED）则按钮置灰禁用
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        requestAddTile(tileLabel)
-                    },
-                    enabled = !tileAddRequested,
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("添加 exTile 磁贴")
-                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // 导入进度：异步操作加载中
@@ -475,11 +498,26 @@ fun OobeScreen(
                         profile = profile
                     )
                 }
+
+                // 一键引导在系统里添加 exTile 磁贴（SDK 33+ 系统弹窗）
+                // 已确认添加过（回调返回 TILE_ADDED/ALREADY_ADDED）则按钮置灰禁用
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        requestAddTile(tileLabel)
+                    },
+                    enabled = !tileAddRequested,
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("添加 exTile 磁贴")
+                }
+                Spacer(modifier = Modifier.height(48.dp))
             }
         }
     }
 
-    /** P3 配置完成页：大对勾 + 文案（底部按钮由外层统一提供，点击「开始使用」完成整个 OOBE） */
+    /** P3 配置完成页：对勾 + 文案（点击「开始使用」完成 OOBE） */
     @Composable
     fun DoneStep() {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -489,7 +527,7 @@ fun OobeScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -519,17 +557,13 @@ fun OobeScreen(
 
     // ==================== 最外层结构：统一 TopAppBar + 页面切换区 ====================
     Column(modifier = Modifier.fillMaxSize()) {
-        // 统一 TopAppBar：按当前页动态配置
-        // - P0 欢迎页：无标题，actions 显示「跳过」Close 图标（点击弹二次确认）
-        // - P1 权限页：标题「授权权限」+ 返回按钮（回 P0）
-        // - P2 配置页：标题「排列磁贴」+ 返回按钮（回 P1）
+        // 统一 TopAppBar：仅承载交互元素，标题文字已移入各页面内容区
+        // - P0 欢迎页：actions 显示「跳过」Close 图标（点击弹二次确认）
+        // - P1 权限页：返回按钮（回 P0）
+        // - P2 配置页：返回按钮（回 P1）
         // - P3 完成页：全空（避免遮挡大对勾与文案）
-        TopAppBar(
-            title = when (pagerState.currentPage) {
-                1 -> "授权权限"
-                2 -> "排列磁贴"
-                else -> ""
-            },
+        SmallTopAppBar(
+            title = "",
             navigationIcon = {
                 if (pagerState.currentPage == 1) {
                     IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(0, animationSpec = pageChangeSpec) } }) {
@@ -793,16 +827,14 @@ private fun RuleRow(
     summary: String
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.graphicsLayer(rotationZ = -90f)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -812,7 +844,7 @@ private fun RuleRow(
             )
             Text(
                 text = summary,
-                style = MiuixTheme.textStyles.footnote2,
+                style = MiuixTheme.textStyles.footnote1,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary
             )
         }
@@ -821,7 +853,7 @@ private fun RuleRow(
 
 /**
  * 系统导入结果预览卡片（P2 首次配置页）。
- * 展示「保留 N 个 / 收纳 M 个」及两组磁贴的显示名摘要。
+ * 两行布局：每行左侧为计数（标签 + 大数字），右侧为该组磁贴的显示名摘要。
  *
  * @param result 系统导入成功结果
  * @param profile 设备能力快照（磁贴显示名映射用）
@@ -834,59 +866,70 @@ private fun ImportPreviewCard(
     // 收纳磁贴 = 展开配置中去掉保留部分（去掉补回的 edit 后即 exTile 之后的磁贴）
     val hiddenTiles = result.expandedTiles.filter { it !in result.collapsedTiles }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "保留",
-                    style = MiuixTheme.textStyles.body1
-                )
-                Text(
-                    text = "${result.keepCount} 个",
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.primary
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "收纳",
-                    style = MiuixTheme.textStyles.body1
-                )
-                Text(
-                    text = "${result.hideCount} 个",
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 磁贴摘要：保留 / 收纳两组显示名
-            Text(
-                text = "保留：${result.collapsedTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }}",
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+        Column(modifier = Modifier.padding(16.dp)) {
+            // 第一行：保留组（左侧计数 + 右侧磁贴名）
+            ImportPreviewRow(
+                label = "保留",
+                count = result.keepCount,
+                tileNames = result.collapsedTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "收纳：${if (hiddenTiles.isEmpty()) "无" else hiddenTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }}",
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 第二行：收纳组（左侧计数 + 右侧磁贴名）
+            ImportPreviewRow(
+                label = "收纳",
+                count = result.hideCount,
+                tileNames = if (hiddenTiles.isEmpty()) "无" else hiddenTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }
             )
         }
+    }
+}
+
+/**
+ * 导入预览单行（保留 / 收纳各一行）。
+ * 左侧为计数 Column（标签 + 主题色大数字），右侧为磁贴显示名摘要，顶部对齐。
+ *
+ * @param label 行标签（保留 / 收纳）
+ * @param count 该组磁贴数量
+ * @param tileNames 该组磁贴的显示名摘要文本
+ */
+@Composable
+private fun ImportPreviewRow(
+    label: String,
+    count: Int,
+    tileNames: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 计数列：标签在上、大数字在下，与右侧磁贴名区分主次
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                style = MiuixTheme.textStyles.footnote2
+            )
+            Text(
+                text = "$count",
+                style = MiuixTheme.textStyles.title2,
+                color = MiuixTheme.colorScheme.primary
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        // 磁贴名摘要：占据剩余宽度，可折行
+        Text(
+            text = tileNames,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
