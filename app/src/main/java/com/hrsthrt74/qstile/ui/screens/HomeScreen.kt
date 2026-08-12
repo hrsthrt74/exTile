@@ -48,6 +48,7 @@ import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -80,9 +81,8 @@ fun HomeScreen(
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
     // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
-    val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(context)
-        .collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
-    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    // 主题设置由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
+    val backdrop = rememberBlurBackdrop(enabled = LocalThemeSettings.current.enableBlur)
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 

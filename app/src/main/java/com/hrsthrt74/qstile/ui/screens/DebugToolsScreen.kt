@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.CircleShape
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,13 +64,12 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.data.ThemeRepository
-import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hrsthrt74.qstile.data.TileRequirement
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -102,9 +100,7 @@ fun DebugToolsScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
-    // 主题设置（读取「模糊效果」总开关，动画演示与其联动）
-    val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
-        .collectAsState(initial = ThemeSettings())
+    // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
     val haptic = LocalHapticFeedback.current
     // 模糊浮现动画演示状态：初始激活（图标常驻显示），「禁用 icon」播放退出动画（模糊缩小消失），「激活 icon」播放进入动画（模糊缩小浮现）
     var demoActive by remember { mutableStateOf(true) }
@@ -173,7 +169,7 @@ fun DebugToolsScreen() {
             ) {
                 // 模糊半径随进出过渡：隐藏 6dp、显示 0dp。
                 // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
-                val blurRadius by if (themeSettings.enableBlur) {
+                val blurRadius by if (LocalThemeSettings.current.enableBlur) {
                     transition.animateFloat(
                         transitionSpec = {
                             if (targetState == EnterExitState.Visible) {

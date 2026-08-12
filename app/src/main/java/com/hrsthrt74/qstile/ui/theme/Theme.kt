@@ -3,10 +3,12 @@ package com.hrsthrt74.qstile.ui.theme
 import android.app.Activity
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -63,8 +65,23 @@ private fun Int.toColorSpec(): ThemeColorSpec = when (this) {
 }
 
 /**
+ * 当前生效的主题设置。
+ * 由 [ExTileTheme] 在 DataStore 数据就绪后通过 [CompositionLocalProvider] 提供给整个 UI 树，
+ * 供 App 壳层及各页面同步读取（如模糊开关、动态取色等），
+ * 避免各自重复订阅 DataStore 导致「初始渲染默认值、次帧才切到真实值」的闪烁。
+ */
+val LocalThemeSettings = staticCompositionLocalOf<ThemeSettings> {
+    error("LocalThemeSettings 尚未提供：请在 ExTileTheme 作用域内读取")
+}
+
+/**
  * 应用的自定义主题包装器。
  * 从 DataStore 读取用户主题偏好，构建 MIUIX ThemeController，然后包裹内容。
+ *
+ * 防闪烁策略：主题数据是异步读取的，若像原来那样用 `initial = ThemeSettings()`
+ * 渲染，首屏会先按默认主题画一帧、再切到用户保存的主题（闪一下默认设置）。
+ * 因此这里初始值用 null，数据就绪前直接 return 不渲染 content；
+ * DataStore 读盘极快（毫秒级），信息到达后即以正确主题渲染，用户感知不到空白。
  *
  * @param content 需要被主题包裹的 Compose 内容
  */
@@ -76,11 +93,15 @@ fun ExTileTheme(
     val view = LocalView.current
     val configuration = LocalConfiguration.current
 
+    // 主题设置数据流：initial=null 表示「尚未读取到」，就绪前不渲染任何 UI
     val settings by ThemeRepository.getThemeSettingsFlow(context)
-        .collectAsState(initial = ThemeSettings())
+        .collectAsState(initial = null)
+    // 委托属性无法智能转换，取局部值用于后续分支判断
+    val currentSettings = settings
+    if (currentSettings == null) return
 
     val isSystemDark = configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-    val effectiveDark = when (settings.dayNightMode) {
+    val effectiveDark = when (currentSettings.dayNightMode) {
         1 -> false
         2 -> true
         else -> isSystemDark
@@ -102,17 +123,25 @@ fun ExTileTheme(
     }
 
     // 当设置变化时重新创建 ThemeController，驱动 MIUIX 主题切换
-    val controller = remember(settings.dayNightMode, settings.isDynamicColorMode, settings.paletteStyle, settings.colorSpec) {
+    val controller = remember(
+        currentSettings.dayNightMode,
+        currentSettings.isDynamicColorMode,
+        currentSettings.paletteStyle,
+        currentSettings.colorSpec
+    ) {
         ThemeController(
-            colorSchemeMode = mapColorSchemeMode(settings.dayNightMode, settings.isDynamicColorMode),
-            isDark = dayNightModeToIsDark(settings.dayNightMode),
-            paletteStyle = settings.paletteStyle.toPaletteStyle(),
-            colorSpec = settings.colorSpec.toColorSpec()
+            colorSchemeMode = mapColorSchemeMode(currentSettings.dayNightMode, currentSettings.isDynamicColorMode),
+            isDark = dayNightModeToIsDark(currentSettings.dayNightMode),
+            paletteStyle = currentSettings.paletteStyle.toPaletteStyle(),
+            colorSpec = currentSettings.colorSpec.toColorSpec()
         )
     }
 
-    MiuixTheme(
-        controller = controller,
-        content = content
-    )
+    // 通过 CompositionLocal 向下提供主题设置，各页面改为同步读取
+    CompositionLocalProvider(LocalThemeSettings provides currentSettings) {
+        MiuixTheme(
+            controller = controller,
+            content = content
+        )
+    }
 }

@@ -49,7 +49,6 @@ import androidx.compose.foundation.withoutEventHandling
 import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -87,8 +86,6 @@ import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
-import com.hrsthrt74.qstile.data.ThemeRepository
-import com.hrsthrt74.qstile.data.ThemeSettings
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
@@ -97,6 +94,7 @@ import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -150,17 +148,16 @@ fun TileConfigScreen() {
     val profile = remember { DeviceProfile.from(context) }
     val isXiaomi = profile.isXiaomi
 
-    // 主题设置（用于判断动态取色、模糊开关是否启用）
-    val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
-        .collectAsState(initial = ThemeSettings())
-
+    // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
     // 顶部栏模糊：效果不佳，故禁用（模糊开关关闭或 RuntimeShader 不支持时退回纯色）
-    val isDynamicColor = themeSettings.isDynamicColorMode
+    val isDynamicColor = LocalThemeSettings.current.isDynamicColorMode
 
     val haptic = LocalHapticFeedback.current
 
     // 本地可变状态：拖动排序时同步更新，保证 reorderable 库数据源即时一致（避免抽搐）
     var config by remember { mutableStateOf(TileConfig()) }
+    // 配置是否已从 DataStore 读取：false 时返回不渲染（避免闪空网格），首次收到真实配置后置为 true
+    var isConfigLoaded by remember { mutableStateOf(false) }
     // 撤销快照：记录最近一次「一步操作」之前的网格磁贴列表（不含固定卡片/edit）。
     // null 表示当前无可撤销操作；每次新操作会覆盖为最新快照，故天然只保留「上一步」。
     var undoSnapshot by remember { mutableStateOf<List<String>?>(null) }
@@ -210,8 +207,13 @@ fun TileConfigScreen() {
     LaunchedEffect(Unit) {
         ConfigRepository.getConfigFlow(context).collect { newConfig ->
             config = newConfig
+            // 首次收到持久化配置后再放行渲染，避免首帧闪一下空的默认网格（config 初始是空 TileConfig()）
+            isConfigLoaded = true
         }
     }
+
+    // 配置尚未从 DataStore 读出前不渲染页面主体（未就绪就空白，与主题/OOBE 的门控策略一致）
+    if (!isConfigLoaded) return
 
     // 通用保存：直接写入给定的完整配置（恢复默认设置使用）
     fun updateConfig(newConfig: TileConfig) {
@@ -291,7 +293,7 @@ fun TileConfigScreen() {
                         // 与 fade/scale 共用同一个 transition，进出完全同步；
                         // 时长与现有动画一致（进入 200ms / 退出 150ms）。
                         // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
-                        val blurRadius by if (themeSettings.enableBlur) {
+                        val blurRadius by if (LocalThemeSettings.current.enableBlur) {
                             transition.animateFloat(
                                 transitionSpec = {
                                     if (targetState == EnterExitState.Visible) {

@@ -28,6 +28,7 @@ import com.hrsthrt74.qstile.ui.screens.HomeScreen
 import com.hrsthrt74.qstile.ui.screens.OobeScreen
 import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -116,11 +117,9 @@ fun MainApp(
     }
 
     // ===== OOBE 已完成：现有 UI 原样 =====
-    // 读取主题设置，获取模糊开关状态
-    val themeSettings by com.hrsthrt74.qstile.data.ThemeRepository.getThemeSettingsFlow(
-        androidx.compose.ui.platform.LocalContext.current
-    ).collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
-    val blurEnabled = themeSettings.enableBlur
+    // 主题设置由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才会组合到这里，
+    // 不存在「先闪默认值再切到用户值」的问题），直接读取模糊开关状态
+    val blurEnabled = LocalThemeSettings.current.enableBlur
 
     // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
     val backdrop = rememberLayerBackdrop()

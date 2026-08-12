@@ -35,7 +35,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +71,7 @@ import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -192,8 +192,8 @@ fun SettingsScreen() {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
-    val themeSettings by ThemeRepository.getThemeSettingsFlow(context)
-        .collectAsState(initial = com.hrsthrt74.qstile.data.ThemeSettings())
+    // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
+    val themeSettings = LocalThemeSettings.current
 
     // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
     val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
@@ -204,9 +204,24 @@ fun SettingsScreen() {
     var currentSysuiTiles by remember { mutableStateOf("") }
     var backupText by remember { mutableStateOf("") }
 
+    // ===== 设置项状态：本地可写状态 + 首次加载门控（防闪烁） =====
+    // 这些开关 UI 会「乐观更新」（点击立即改本地 + 写 DataStore），因此需要可写变量，
+    // 不能直接用 flow 的只读状态。防闪烁做法：初始均为各设置的默认值仅作占位，
+    // 在 LaunchedEffect 从 DataStore 读回真实值并置 settingsLoaded=true 之前 return 不渲染，
+    // 因此用户看不到默认值闪现（未就绪就空白）。
+
     // 长按 exTile 磁贴行为设置
     var longPressBehavior by remember { mutableIntStateOf(ConfigRepository.LongPressBehavior.OPEN_EXTILE) }
     var customAppPackage by remember { mutableStateOf("") }
+    // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
+    var wordlessModeSync by remember { mutableStateOf(false) }
+    // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
+    var smartDeviceControlSync by remember { mutableStateOf(false) }
+    // 收起 QS 面板时自动收起磁贴布局（见 ExTileService.onStopListening）
+    var autoCollapseOnClose by remember { mutableStateOf(false) }
+    // 设置是否已全部从 DataStore 读出：false 时不渲染页面主体，避免闪默认值
+    var settingsLoaded by remember { mutableStateOf(false) }
+
     // 自定义应用选择器 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val appPickerSheetState = rememberSheetState()
     // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
@@ -223,15 +238,10 @@ fun SettingsScreen() {
     var importBackupJson by remember { mutableStateOf("") }
     // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
     var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
-    // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
-    var wordlessModeSync by remember { mutableStateOf(false) }
-    // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
-    var smartDeviceControlSync by remember { mutableStateOf(false) }
-    // 收起 QS 面板时自动收起磁贴布局（见 ExTileService.onStopListening）
-    var autoCollapseOnClose by remember { mutableStateOf(false) }
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
+    // 首次进入页面：一次性读回全部设置项后再放行渲染（未就绪就空白，与主题/OOBE 门控策略一致）
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
         currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
@@ -240,7 +250,10 @@ fun SettingsScreen() {
         wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
         autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
+        settingsLoaded = true
     }
+
+    if (!settingsLoaded) return
 
     // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
     LaunchedEffect(appPickerSheetState.show) {
