@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -101,6 +102,7 @@ import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.File
 import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.GridView
@@ -233,6 +235,8 @@ fun SettingsScreen() {
     val systemTilesSheetState = rememberSheetState()
     val backupSheetState = rememberSheetState()
     val importBackupSheetState = rememberSheetState()
+    // 打赏（微信收款码）Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val donateSheetState = rememberSheetState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
     var importBackupJson by remember { mutableStateOf("") }
@@ -578,6 +582,14 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
             )
 
+            // 打赏：点击弹出微信收款码图片
+            ArrowPreference(
+                title = "打赏",
+                summary = "如果这个应用对你有帮助，请我喝杯奶茶",
+                onClick = { donateSheetState.show() },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
+            )
+
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             // 重新运行首次配置引导：仅重置 OOBE 标志（配置数据保留，可再次导入覆盖），
@@ -644,6 +656,36 @@ fun SettingsScreen() {
                     ) {
                         Text("复制")
                     }
+            }
+        }
+    }
+
+    /** 打赏 Sheet：展示微信收款码 */
+    @Composable
+    fun DonateSheet() {
+        AppBottomSheet(
+            state = donateSheetState,
+            title = "打赏",
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "如果这个应用对你有帮助，请我喝杯奶茶～",
+                    style = MiuixTheme.textStyles.body2,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                Image(
+                    painter = painterResource(R.drawable.pic_donate_wx),
+                    contentDescription = "微信收款码",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                        .squircleClip(16.dp)
+                )
             }
         }
     }
@@ -956,6 +998,9 @@ fun SettingsScreen() {
 
     // ---- 备份结果 Sheet ----
     BackupSheet()
+
+    // ---- 打赏 Sheet ----
+    DonateSheet()
 
     // ---- 导入备份 Sheet ----
     ImportBackupSheet()
