@@ -24,14 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,23 +34,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
-import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
+import com.hrsthrt74.qstile.ui.components.rememberPermissionState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -81,7 +71,6 @@ fun HomeScreen(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     // 顶部栏滚动行为，标题会根据滚动折叠
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
@@ -93,75 +82,13 @@ fun HomeScreen(
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     // ---- 状态声明 ----
-    /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖） */
-    var permissionStatus by remember { mutableStateOf(ShizukuHelper.PermissionStatus.GRANTED) }
     /** adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理） */
     val adbGuideDialogState = rememberDialogState()
-    /** 是否在返回前台时自动请求 Shizuku 权限（用户点击「启动 Shizuku」后置位） */
-    var autoRequestAfterResume by remember { mutableStateOf(false) }
     /** 使用统计（累计展开/收起次数），实时订阅 DataStore */
     val stats by StatsRepository.getStatsFlow(context)
         .collectAsState(initial = TileStats())
-    /** 是否正在加载 */
-    var isLoading by remember { mutableStateOf(true) }
-
-    /**
-     * 刷新所有状态。
-     * 权限检查在主线程完成（轻量查询），其余状态读取走协程。
-     */
-    fun refreshStatus() {
-        permissionStatus = ShizukuHelper.checkPermissionStatus(context)
-        scope.launch {
-            isLoading = false
-        }
-    }
-
-    /**
-     * 请求 Shizuku 权限；授予后自动执行 pm grant 并刷新状态。
-     * 供按钮点击和「从 Shizuku 返回自动衔接」复用。
-     */
-    fun requestShizukuPermission() {
-        onRequestShizukuPermission { granted ->
-            if (granted) {
-                scope.launch {
-                    val success = ShizukuHelper.grantWriteSecureSettings(context)
-                    if (success) {
-                        Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
-                    }
-                    refreshStatus()
-                }
-            } else {
-                Toast.makeText(context, "Shizuku 授权被拒绝", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    // 首次进入屏幕时加载状态
-    LaunchedEffect(Unit) {
-        refreshStatus()
-    }
-
-    // 监听生命周期：应用回到前台时自动刷新权限状态
-    // 用户从「启动 Shizuku」返回后，若 Shizuku 已运行但未授权，自动衔接请求授权
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                refreshStatus()
-                // 刚引导用户启动 Shizuku 且返回后 Shizuku 已运行但未授权 → 自动请求
-                if (autoRequestAfterResume) {
-                    autoRequestAfterResume = false
-                    if (permissionStatus == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED) {
-                        requestShizukuPermission()
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖），含初始加载与前台自动衔接 */
+    val permState = rememberPermissionState(onRequestShizukuPermission)
 
     Scaffold(
         topBar = {
@@ -211,8 +138,8 @@ fun HomeScreen(
                 // 权限状态卡片：按状态机展示引导文案和对应操作按钮
                 item {
                     PermissionStatusCard(
-                        status = permissionStatus,
-                        isLoading = isLoading,
+                        status = permState.status,
+                        isLoading = permState.isLoading,
                         onInstallShizuku = {
                             // 未安装 Shizuku：引导到 GitHub Releases 下载
                             context.startActivity(
@@ -225,28 +152,14 @@ fun HomeScreen(
                                 .getLaunchIntentForPackage("moe.shizuku.privileged.api")
                             if (launchIntent != null) {
                                 // 标记：用户从 Shizuku 返回后自动衔接请求授权
-                                autoRequestAfterResume = true
+                                permState.markAutoRequestAfterResume()
                                 context.startActivity(launchIntent)
                             } else {
                                 Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        onRequestShizukuPermission = {
-                            // 请求 Shizuku 权限，授予后自动执行 pm grant
-                            requestShizukuPermission()
-                        },
-                        onAutoGrant = {
-                            // Shizuku 已授权，直接执行 pm grant
-                            scope.launch {
-                                val success = ShizukuHelper.grantWriteSecureSettings(context)
-                                if (success) {
-                                    Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
-                                }
-                                refreshStatus()
-                            }
-                        },
+                        onRequestShizukuPermission = { permState.request() },
+                        onAutoGrant = { permState.autoGrant() },
                         onShowAdbGuide = { adbGuideDialogState.show() }
                     )
                 }

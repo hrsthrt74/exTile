@@ -29,8 +29,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,14 +41,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
@@ -60,6 +55,7 @@ import com.hrsthrt74.qstile.tile.ExTileService
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
+import com.hrsthrt74.qstile.ui.components.rememberPermissionState
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -135,10 +131,8 @@ fun OobeScreen(
     // P2 无收纳磁贴提示对话框（收纳数 <=0 时阻止进入下一步）
     val noHiddenTileDialogState = rememberDialogState()
 
-    // P1 权限状态（Shizuku 完全可选，授权后不再依赖）
-    var permissionStatus by remember { mutableStateOf(ShizukuHelper.PermissionStatus.GRANTED) }
-    // 是否在返回前台时自动请求 Shizuku 权限（用户点击「启动 Shizuku」后置位）
-    var autoRequestAfterResume by remember { mutableStateOf(false) }
+    // P1 权限状态机（Shizuku 完全可选，授权后不再依赖），含初始加载与前台自动衔接
+    val permState = rememberPermissionState(onRequestShizukuPermission)
 
     // P2 系统导入结果与加载状态（异步操作必须加 isLoading 防闪烁）
     var importResult by remember { mutableStateOf<ConfigRepository.SystemImportResult?>(null) }
@@ -158,33 +152,6 @@ fun OobeScreen(
     // 导航栏 inset：OOBE 页最外层有统一 TopAppBar（自带状态栏安全区），
     // 但各页底部按钮仍需手动处理底部导航栏安全区
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-    /** 刷新权限状态（轻量查询，主线程同步完成） */
-    fun refreshPermissionStatus() {
-        permissionStatus = ShizukuHelper.checkPermissionStatus(context)
-    }
-
-    /**
-     * 请求 Shizuku 权限；授予后自动执行 pm grant 并刷新状态。
-     * 复用 MainActivity 下传的 [onRequestShizukuPermission]。
-     */
-    fun requestShizukuPermission() {
-        onRequestShizukuPermission { granted ->
-            if (granted) {
-                scope.launch {
-                    val success = ShizukuHelper.grantWriteSecureSettings(context)
-                    if (success) {
-                        Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
-                    }
-                    refreshPermissionStatus()
-                }
-            } else {
-                Toast.makeText(context, "Shizuku 授权被拒绝", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     /** 执行系统导入（P2 主按钮） */
     fun runImport() {
@@ -238,30 +205,6 @@ fun OobeScreen(
                 }
             }
         )
-    }
-
-    // 进入页面时先检查一次权限
-    LaunchedEffect(Unit) {
-        refreshPermissionStatus()
-    }
-
-    // 监听生命周期：应用回到前台时自动刷新权限状态。
-    // 用户从「启动 Shizuku」返回后，若 Shizuku 已运行但未授权，自动衔接请求授权。
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                refreshPermissionStatus()
-                if (autoRequestAfterResume) {
-                    autoRequestAfterResume = false
-                    if (permissionStatus == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED) {
-                        requestShizukuPermission()
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // ==================== 局部 UI 函数（闭包捕获，不显式传参） ====================
@@ -370,7 +313,7 @@ fun OobeScreen(
                 // 权限引导卡片（通用组件）：OOBE 复用主页卡片，仅传 4 个回调；
                 // 不传 isLoading（默认 false）与 onShowAdbGuide（默认 null，隐藏 adb 入口）
                 PermissionStatusCard(
-                    status = permissionStatus,
+                    status = permState.status,
                     onInstallShizuku = {
                         // 未安装 Shizuku：引导到 GitHub Releases 下载
                         context.startActivity(
@@ -383,25 +326,14 @@ fun OobeScreen(
                             .getLaunchIntentForPackage("moe.shizuku.privileged.api")
                         if (launchIntent != null) {
                             // 标记：用户从 Shizuku 返回后自动衔接请求授权
-                            autoRequestAfterResume = true
+                            permState.markAutoRequestAfterResume()
                             context.startActivity(launchIntent)
                         } else {
                             Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onRequestShizukuPermission = { requestShizukuPermission() },
-                    onAutoGrant = {
-                        // Shizuku 已授权，直接执行 pm grant
-                        scope.launch {
-                            val success = ShizukuHelper.grantWriteSecureSettings(context)
-                            if (success) {
-                                Toast.makeText(context, "WRITE_SECURE_SETTINGS 权限已授予", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "权限授予失败，请重试或使用 adb 手动授权", Toast.LENGTH_SHORT).show()
-                            }
-                            refreshPermissionStatus()
-                        }
-                    }
+                    onRequestShizukuPermission = { permState.request() },
+                    onAutoGrant = { permState.autoGrant() }
                 )
             }
         }
@@ -629,7 +561,7 @@ fun OobeScreen(
                 ) { Text("开始使用") }
 
                 // P1 权限页：已授权→下一步；未授权→跳过（需二次确认）
-                1 -> if (permissionStatus == ShizukuHelper.PermissionStatus.GRANTED) {
+                1 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
