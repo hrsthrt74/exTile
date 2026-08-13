@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,12 +36,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
@@ -55,8 +61,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -160,9 +166,9 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             BlurredBar(backdrop, blurActive) {
-                TopAppBar(
-                    title = "exTile",
-                    largeTitle = "exTile",
+                SmallTopAppBar(
+                    title = "",
+//                    largeTitle = "exTile",
                     color = barColor,
                     scrollBehavior = scrollBehavior
                 )
@@ -185,6 +191,20 @@ fun HomeScreen(
                         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
                 )
             ) {
+
+                item {
+                    Image(
+                        imageVector = ImageVector.vectorResource(R.drawable.logo),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurface),
+                        modifier = Modifier
+                            .offset(y = (-8).dp)
+                            .padding(start = 8.dp)
+                    )
+                }
+
+                item { Spacer(modifier = Modifier.height(12.dp)) }
+
                 // 权限状态卡片：按状态机展示引导文案和对应操作按钮
                 item {
                     PermissionStatusCard(
@@ -228,7 +248,6 @@ fun HomeScreen(
                     )
                 }
 
-                // 间距
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
                 // 使用统计卡片：展示累计展开/收起次数（由磁贴切换成功时记录）
