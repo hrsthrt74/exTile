@@ -20,7 +20,7 @@
 关键代码位于 `app/src/main/java/com/hrsthrt74/qstile/`：
 
 - `ui/screens/` 页面（Home / TileConfig / Settings / Oobe / Licenses / DebugTools），另有三个独立 Activity（Licenses / DebugTools / TileLongClick）
-- `ui/components/` `AppBottomSheet` / `AppDialog` / `PermissionStatusCard`（主页与 OOBE 复用）
+- `ui/components/` `AppBottomSheet` / `AppDialog` / `PermissionStatusCard`（主页与 OOBE 复用）/ `PermissionState`（权限状态控制器：封装 WRITE_SECURE_SETTINGS 状态机 + Shizuku 授权/pm grant 流程编排 + 前台 ON_RESUME 自动衔接，主页与 OOBE 共用；仅 Compose 层状态，底层逻辑仍走 `ShizukuHelper`）
 - `data/` TileConfig / TileCatalog / TileRequirement / DeviceProfile / ConfigRepository / StatsRepository / ThemeSettings
 - `shizuku/` ShizukuHelper / SecureSettingsHelper / CommandService
 - `tile/ExTileService.kt` QS 磁贴服务
