@@ -13,12 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +39,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
@@ -53,13 +53,13 @@ import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
+import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
@@ -185,10 +185,13 @@ fun HomeScreen(
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = PaddingValues(
                     top = paddingValues.calculateTopPadding() + 12.dp,
-                    start = 16.dp,
-                    end = 16.dp,
-                    bottom = NavigationBarDefaults.ItemHeight +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                    // 水平边距 = Scaffold 已算好的挖孔/导航条 insets + 固定间距：
+                    // 竖屏挖孔在顶部、水平 insets 为 0（保持原 16dp 间距）；
+                    // 横屏/反向横屏挖孔在左右任一侧时自动避让（避免内容顶进挖孔区）；
+                    // 宽屏起始侧已被 App.kt 消费，这里自动为 0，不会与 NavigationRail 重复避让
+                    start = paddingValues.calculateStartPadding(LocalLayoutDirection.current) + 16.dp,
+                    end = paddingValues.calculateEndPadding(LocalLayoutDirection.current) + 16.dp,
+                    bottom = contentBottomPadding()
                 )
             ) {
 

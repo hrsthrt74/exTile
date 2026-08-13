@@ -35,7 +35,7 @@
 6. **配置备份/恢复**：JSON 导出/导入，支持从系统当前配置导入
 7. **主题定制**：MIUIX 动态取色引擎，Monet 取色、深色模式
 8. **小米设备特化**：DeviceCompat 检测 MIUI/HyperOS，固定卡片 WLAN+移动数据（平板 WLAN+蓝牙），编辑磁贴固定末尾
-9. **横滑切换**：HorizontalPager + MainPagerState + NavigationBar 联动
+9. **横滑切换**：HorizontalPager + MainPagerState 联动；**自适应导航**——窄屏（竖屏手机）底部 NavigationBar（带毛玻璃），宽屏（横屏/平板，`shouldShowSplitPane()`：width≥840dp 或 ≥600dp 且高/宽<1.2）左侧固定展开 NavigationRail（`state=null` 经典形态），两布局共享同一份 Pager 状态与 `Screen.allPages`，旋转不丢选中页；宽屏标志经 `LocalIsWideScreen` 注入，页面底部预留高度用 `contentBottomPadding()` 计算；横屏/反向横屏时左右摄像头挖孔的避让由各 screen 内容区取 Scaffold 传下的 `contentPadding` 的 start/end（`calculateStartPadding/calculateEndPadding` + 固定间距）实现——Scaffold 背景（Surface）保持铺满，仅内容避开挖孔、不露出黑边；宽屏起始侧已由 NavigationRail 避让，`WideScreenContent` 内容区对其 `consumeWindowInsets`，Scaffold 的 `contentWindowInsets`（默认 systemBars∪displayCutout）会自动 exclude 已消费部分，避免重复避让；宽屏内容区背景铺满（surface）并限宽水平居中（`MaxContentWidth`=840dp，定义于 `AdaptiveUtils.kt`，参照 M3 自适应导航标准），平板横屏内容不再摊得过宽；限宽实现在 `AppPager` 每个 page 的页面容器内（Pager 保持全宽 → 翻页动画全屏滑动，页面容器内 surface 背景全宽铺满 + 内容 `widthIn(max)`+`align(Center)` 居中），避免把 Pager 本身限宽导致翻页只在中间一段滑动、超出部分被裁切
 10. **开源许可页**：LicensesActivity，点击跳转浏览器
 11. **设备感知磁贴**：`TileRequirement` flag 集合（sealed interface）+ `DeviceProfile` 统一求值（AND 语义）；已接入 prop：实时字幕/对话翻译/单手模式；已接入 feature：NFC/自动亮度/振动/手电筒/移动数据；`TileCapabilityFlags` 调试覆盖优先（内存态）
 12. **触觉反馈**：LocalHapticFeedback + scrollEndHaptic + pressable/SinkFeedback
@@ -47,7 +47,7 @@
 
 ## UI 设计规范
 
-- **导航**：HorizontalPager + MainPagerState 实现横滑切换，底部 NavigationBar 联动；**不要**手动注入 NavigationEventDispatcherOwner（activity 1.13+ 自动提供，手动注入会覆盖导致返回不响应）
+- **导航**：HorizontalPager + MainPagerState 实现横滑切换；自适应导航——窄屏底部 NavigationBar 联动，宽屏（`shouldShowSplitPane()` 判定）切为左侧 NavigationRail，两布局共享同一份状态；**不要**手动注入 NavigationEventDispatcherOwner（activity 1.13+ 自动提供，手动注入会覆盖导致返回不响应）
 - **横滑动画**：`CubicBezierEasing(0.25, 0.1, 0.25, 1.0)` 350ms；`beyondViewportPageCount = Screen.allPages.size` 保留页面状态
 - **导航栏模糊**：`layerBackdrop` + `textureBlur`；底部 padding 只留 `calculateTopPadding()` 让内容延伸到导航栏后供模糊捕获
 - **子页面**：独立 Activity + Intent 跳转，需提供 `LocalNavigationEventDispatcherOwner`，TopAppBar 加返回按钮

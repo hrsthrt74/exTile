@@ -1,20 +1,32 @@
 package com.hrsthrt74.qstile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -22,12 +34,16 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.MaxContentWidth
 import com.hrsthrt74.qstile.ui.blurBarColors
+import com.hrsthrt74.qstile.ui.navigation.MainPagerState
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
 import com.hrsthrt74.qstile.ui.screens.OobeScreen
 import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
+import com.hrsthrt74.qstile.ui.shouldShowSplitPane
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -35,6 +51,10 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationRail
+import top.yukonga.miuix.kmp.basic.NavigationRailItem
+import top.yukonga.miuix.kmp.basic.NavigationRailState
+import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Edit
@@ -68,9 +88,10 @@ sealed class Screen(val title: String) {
 /**
  * 应用的 Compose 根组件（壳层）。
  * 参考 Miuix 官方示例的层级结构：
- * - 底部导航栏 [NavigationBar] 写在壳层，所有页面共享一份
+ * - 窄屏（竖屏手机）：底部 [NavigationBar] + HorizontalPager，导航栏带毛玻璃模糊
+ * - 宽屏（横屏/平板）：侧边 [NavigationRail] + HorizontalPager
+ * - 两个布局共享同一份 Pager 状态，切换窗口方向时选中页不丢失
  * - 每个页面（[HomeScreen]/[TileConfigScreen]/[SettingsScreen]）自己再包一层 Scaffold + TopAppBar
- * - 壳层创建 backdrop 捕获内容，导航栏通过 textureBlur 实现毛玻璃
  *
  * @param onRequestShizukuPermission Shizuku 权限请求的入口方法，接收一个结果回调
  */
@@ -116,11 +137,67 @@ fun MainApp(
         return
     }
 
-    // ===== OOBE 已完成：现有 UI 原样 =====
-    // 主题设置由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才会组合到这里，
-    // 不存在「先闪默认值再切到用户值」的问题），直接读取模糊开关状态
-    val blurEnabled = LocalThemeSettings.current.enableBlur
+    // ===== OOBE 已完成 =====
+    // Pager 状态管理：在分支之前统一创建，窄屏/宽屏两个布局共享同一份状态，
+    // 切换窗口方向（重组切换布局）时选中页不丢失
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { Screen.allPages.size }
+    )
+    val mainPagerState = rememberMainPagerState(pagerState)
 
+    // 同步页面状态：横滑翻页后把选中页回写到导航高亮
+    LaunchedEffect(pagerState.currentPage) {
+        mainPagerState.syncPage()
+    }
+
+    // 触觉反馈：两个布局的导航项点击都要用，提前取一次共享
+    val haptic = LocalHapticFeedback.current
+
+    // 宽屏判定：true=侧边 NavigationRail，false=底部 NavigationBar
+    val isWideScreen = shouldShowSplitPane()
+
+    // 注入宽屏标志，供各页面用 contentBottomPadding() 计算底部预留高度
+    CompositionLocalProvider(LocalIsWideScreen provides isWideScreen) {
+        if (isWideScreen) {
+            // 宽屏：侧边导航栏 + Pager（无模糊）
+            WideScreenContent(
+                pagerState = pagerState,
+                mainPagerState = mainPagerState,
+                haptic = haptic,
+                onRequestShizukuPermission = onRequestShizukuPermission
+            )
+        } else {
+            // 窄屏：底部导航栏 + Pager（带毛玻璃模糊）
+            CompactScreenContent(
+                blurEnabled = LocalThemeSettings.current.enableBlur,
+                pagerState = pagerState,
+                mainPagerState = mainPagerState,
+                haptic = haptic,
+                onRequestShizukuPermission = onRequestShizukuPermission
+            )
+        }
+    }
+}
+
+/**
+ * 窄屏（竖屏手机）内容布局。
+ * 底部 [NavigationBar] + [HorizontalPager]，导航栏带毛玻璃模糊（textureBlur + layerBackdrop）。
+ *
+ * @param blurEnabled 模糊总开关（来自主题设置）
+ * @param pagerState 三个主页共用的 Pager 状态
+ * @param mainPagerState 导航与 Pager 的联动状态（选中页高亮）
+ * @param haptic 触觉反馈实例，导航项点击时震动
+ * @param onRequestShizukuPermission Shizuku 权限请求入口
+ */
+@Composable
+private fun CompactScreenContent(
+    blurEnabled: Boolean,
+    pagerState: PagerState,
+    mainPagerState: MainPagerState,
+    haptic: HapticFeedback,
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
+) {
     // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
     val backdrop = rememberLayerBackdrop()
 
@@ -134,21 +211,6 @@ fun MainApp(
         MiuixTheme.colorScheme.surface
     }
 
-    // Pager 状态管理
-    val pagerState = rememberPagerState(
-        initialPage = 0,
-        pageCount = { Screen.allPages.size }
-    )
-    val mainPagerState = rememberMainPagerState(pagerState)
-
-    // 同步页面状态
-    LaunchedEffect(pagerState.currentPage) {
-        mainPagerState.syncPage()
-    }
-
-    // 导航事件 dispatcher 由 ComponentActivity 自动提供（activity 1.13+），
-    // 无需手动注入；miuix 弹窗组件内部已注册 NavigationBackHandler（预测式返回）
-    val haptic = LocalHapticFeedback.current
     MiuixScaffold(
         bottomBar = {
             NavigationBar(
@@ -176,20 +238,108 @@ fun MainApp(
             }
         }
     ) {
-        // 内容区域使用 HorizontalPager 实现横滑切换
-        HorizontalPager(
-            state = pagerState,
-            beyondViewportPageCount = Screen.allPages.size,
+        // 内容区域：Pager 挂载 backdrop，滚动内容供导航栏模糊捕获
+        AppPager(
+            pagerState = pagerState,
+            onRequestShizukuPermission = onRequestShizukuPermission,
             modifier = Modifier
                 .fillMaxSize()
                 .layerBackdrop(backdrop)
-        ) { page ->
-            when (page) {
-                0 -> HomeScreen(
-                    onRequestShizukuPermission = onRequestShizukuPermission
+        )
+    }
+}
+
+/**
+ * 宽屏（横屏/平板）内容布局。
+ * 侧边 [NavigationRail] + [HorizontalPager]。state=null 表示固定展开的经典形态
+ * （图标+文字、无折叠按钮）；NavigationRail 会自动处理 statusBar/navBar/cutout insets。
+ *
+ * @param pagerState 三个主页共用的 Pager 状态
+ * @param mainPagerState 导航与 Pager 的联动状态（选中页高亮）
+ * @param haptic 触觉反馈实例，导航项点击时震动
+ * @param onRequestShizukuPermission Shizuku 权限请求入口
+ */
+@Composable
+private fun WideScreenContent(
+    pagerState: PagerState,
+    mainPagerState: MainPagerState,
+    haptic: HapticFeedback,
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        // 侧边导航栏：state=null → 固定展开的经典形态（图标+文字，无折叠按钮）
+        NavigationRail(state = NavigationRailState(NavigationRailValue.Expanded)) {
+            Screen.allPages.forEachIndexed { index, screen ->
+                NavigationRailItem(
+                    selected = mainPagerState.selectedPage == index,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        mainPagerState.animateToPage(index)
+                    },
+                    icon = screen.icon(),
+                    label = screen.title,
                 )
-                1 -> TileConfigScreen()
-                2 -> SettingsScreen()
+            }
+        }
+        // 剩余区域交给 Pager（宽屏无毛玻璃，内容直铺）。
+        // 起始侧（横屏左侧摄像头挖孔/导航条区域）的 insets 已由 NavigationRail 自行避让并铺满背景，
+        // 这里在内容区消费掉同样的起始侧 insets，避免各页面自己的 TopAppBar/内容再重复叠加左边距
+        // （consumeWindowInsets 会沿 Modifier 树向下传播，windowInsetsPadding 会自动减去已消费部分）。
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .consumeWindowInsets(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
+                .consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Start))
+        ) {
+            AppPager(
+                pagerState = pagerState,
+                onRequestShizukuPermission = onRequestShizukuPermission,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+/**
+ * 三个主页的 Pager 内容（窄屏/宽屏两个布局共用）。
+ * 用 HorizontalPager 承载横滑切换；beyondViewportPageCount 保留所有页面的状态。
+ *
+ * @param pagerState Pager 状态
+ * @param onRequestShizukuPermission Shizuku 权限请求入口
+ * @param modifier 由调用方决定：窄屏挂 backdrop（供导航栏模糊捕获），宽屏直接铺满
+ */
+@Composable
+private fun AppPager(
+    pagerState: PagerState,
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    HorizontalPager(
+        state = pagerState,
+        beyondViewportPageCount = Screen.allPages.size,
+        modifier = modifier
+    ) { page ->
+        // 页面容器：全宽背景铺满（surface，与各 screen 的 Scaffold 背景同色）。
+        // Pager 本身保持全宽，翻页动画在整个屏幕上滑动；若把 Pager 直接限宽，
+        // 翻页会只在中间一段滑动、超出部分被裁切，因此限宽放在页面容器内部完成。
+        Box(modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface)) {
+            // 内容限宽并水平居中：平板横屏内容区很宽，限制最大宽度（MaxContentWidth=840dp）
+            // 避免摊得过宽影响阅读；小屏/横屏手机宽度未超限则自然铺满，行为不变。
+            // 宽度约束由 widthIn 提供，fillMaxHeight 撑满高度，align 负责水平居中
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = MaxContentWidth)
+                    .align(Alignment.Center)
+            ) {
+                when (page) {
+                    0 -> HomeScreen(
+                        onRequestShizukuPermission = onRequestShizukuPermission
+                    )
+                    1 -> TileConfigScreen()
+                    2 -> SettingsScreen()
+                }
             }
         }
     }

@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,6 +57,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
@@ -71,6 +75,8 @@ import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.Dispatchers
@@ -87,10 +93,10 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -1070,21 +1076,40 @@ fun SettingsScreen() {
 
     Scaffold(
         topBar = {
+            // 毛玻璃包裹层保持不动；内部按宽/窄屏选择顶栏形态
             BlurredBar(backdrop, blurActive) {
-                TopAppBar(
-                    title = "设置",
-                    largeTitle = "设置",
-                    color = barColor,
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
-                        IconButton(onClick = {
-                            context.startActivity(Intent(context, DebugToolsActivity::class.java))
-                        }) {
-                            Icon(MiuixIcons.Settings, contentDescription = "调试工具")
+                if (LocalIsWideScreen.current) {
+                    // 宽屏（侧边 NavigationRail）：无大标题的 SmallTopAppBar
+                    SmallTopAppBar(
+                        title = "设置",
+                        color = barColor,
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
+                            IconButton(onClick = {
+                                context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                            }) {
+                                Icon(MiuixIcons.Settings, contentDescription = "调试工具")
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    // 窄屏：保留大标题 TopAppBar
+                    TopAppBar(
+                        title = "设置",
+                        largeTitle = "设置",
+                        color = barColor,
+                        scrollBehavior = scrollBehavior,
+                        actions = {
+                            // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
+                            IconButton(onClick = {
+                                context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                            }) {
+                                Icon(MiuixIcons.Settings, contentDescription = "调试工具")
+                            }
+                        }
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -1110,8 +1135,12 @@ fun SettingsScreen() {
                             hapticFeedbackType = HapticFeedbackType.TextHandleMove
                         ),
                     contentPadding = PaddingValues(
-                        bottom = NavigationBarDefaults.ItemHeight +
-                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                        // 水平边距 = Scaffold 已算好的挖孔/导航条 insets（卡片自身另有 16dp 边距）：
+                        // 竖屏水平为 0 保持原样，横屏/反向横屏自动避让左右摄像头挖孔；
+                        // 宽屏起始侧已消费，自动为 0，不与 NavigationRail 重复避让
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
+                        bottom = contentBottomPadding()
                     )
                 ) {
 

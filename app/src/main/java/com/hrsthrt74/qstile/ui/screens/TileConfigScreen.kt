@@ -26,14 +26,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,6 +78,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -94,6 +95,8 @@ import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -113,10 +116,10 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
@@ -274,78 +277,91 @@ fun TileConfigScreen() {
      */
     @Composable
     fun TileTopAppBar() {
-        TopAppBar(
-            title = "磁贴配置",
-            largeTitle = "磁贴配置",
-            scrollBehavior = scrollBehavior,
-            actions = {
-                    // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
-                    // 出现动画为缩放 0.5→1 + 透明度 0→1 + 模糊 6dp→0dp，消失动画为反向；
-                    // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
-                    AnimatedVisibility(
-                        visible = undoSnapshot != null,
-                        enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
-                            scaleIn(initialScale = 0.5f, animationSpec = tween(durationMillis = 200)),
-                        exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
-                            scaleOut(targetScale = 0.5f, animationSpec = tween(durationMillis = 150))
-                    ) {
-                        // 模糊半径随进入/退出过渡：隐藏时 4dp，显示时 0dp。
-                        // 与 fade/scale 共用同一个 transition，进出完全同步；
-                        // 时长与现有动画一致（进入 200ms / 退出 150ms）。
-                        // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
-                        val blurRadius by if (LocalThemeSettings.current.enableBlur) {
-                            transition.animateFloat(
-                                transitionSpec = {
-                                    if (targetState == EnterExitState.Visible) {
-                                        tween(durationMillis = 200)
-                                    } else {
-                                        tween(durationMillis = 150)
-                                    }
-                                },
-                                label = "undoBlur"
-                            ) { state ->
-                                // 模糊半径 0 <=> 6
-                                if (state == EnterExitState.Visible) 0f else 6f
+        // 共享的 actions 内容：撤销上一步按钮 + 三点菜单（清除配置 / 恢复默认）。
+        // 抽成局部 lambda 变量，供宽/窄屏两个分支复用同一份实现，保证行为完全一致。
+        val topBarActions: @Composable RowScope.() -> Unit = {
+            // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
+            // 出现动画为缩放 0.5→1 + 透明度 0→1 + 模糊 6dp→0dp，消失动画为反向；
+            // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
+            AnimatedVisibility(
+                visible = undoSnapshot != null,
+                enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
+                    scaleIn(initialScale = 0.5f, animationSpec = tween(durationMillis = 200)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
+                    scaleOut(targetScale = 0.5f, animationSpec = tween(durationMillis = 150))
+            ) {
+                // 模糊半径随进入/退出过渡：隐藏时 4dp，显示时 0dp。
+                // 与 fade/scale 共用同一个 transition，进出完全同步；
+                // 时长与现有动画一致（进入 200ms / 退出 150ms）。
+                // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
+                val blurRadius by if (LocalThemeSettings.current.enableBlur) {
+                    transition.animateFloat(
+                        transitionSpec = {
+                            if (targetState == EnterExitState.Visible) {
+                                tween(durationMillis = 200)
+                            } else {
+                                tween(durationMillis = 150)
                             }
-                        } else {
-                            remember { mutableFloatStateOf(0f) }
-                        }
-                        IconButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
-                                undoSnapshot?.let { updateGridTiles(it) }
-                                // 只支持撤销一步：撤销后立即清空，避免重复撤销
-                                undoSnapshot = null
-                            },
-                            // 与右侧三点菜单保持间距
-                            modifier = Modifier.padding(end = 4.dp)
-                        ) {
-                            Icon(
-                                MiuixIcons.Undo,
-                                contentDescription = "撤销上一步",
-                                // 只模糊图标本体（矢量图形亦可模糊，blur 作用于绘制节点）
-                                modifier = Modifier.blur(blurRadius.dp)
-                            )
-                        }
+                        },
+                        label = "undoBlur"
+                    ) { state ->
+                        // 模糊半径 0 <=> 6
+                        if (state == EnterExitState.Visible) 0f else 6f
                     }
-                    val entry = DropdownEntry(
-                        items = listOf(
-                            DropdownItem(
-                                text = "清除当前配置的磁贴",
-                                onClick = { clearConfirmDialogState.show() }
-                            ),
-                            DropdownItem(
-                                text = "恢复默认设置",
-                                onClick = { resetConfirmDialogState.show() }
-                            )
-                        )
-                    )
-                    WindowIconDropdownMenu(entry = entry) {
-                        Icon(MiuixIcons.More, contentDescription = "更多操作")
-                    }
+                } else {
+                    remember { mutableFloatStateOf(0f) }
                 }
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
+                        undoSnapshot?.let { updateGridTiles(it) }
+                        // 只支持撤销一步：撤销后立即清空，避免重复撤销
+                        undoSnapshot = null
+                    },
+                    // 与右侧三点菜单保持间距
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    Icon(
+                        MiuixIcons.Undo,
+                        contentDescription = "撤销上一步",
+                        // 只模糊图标本体（矢量图形亦可模糊，blur 作用于绘制节点）
+                        modifier = Modifier.blur(blurRadius.dp)
+                    )
+                }
+            }
+            val entry = DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = "清除当前配置的磁贴",
+                        onClick = { clearConfirmDialogState.show() }
+                    ),
+                    DropdownItem(
+                        text = "恢复默认设置",
+                        onClick = { resetConfirmDialogState.show() }
+                    )
+                )
             )
+            WindowIconDropdownMenu(entry = entry) {
+                Icon(MiuixIcons.More, contentDescription = "更多操作")
+            }
+        }
+        // 宽屏（侧边 NavigationRail）用无大标题的 SmallTopAppBar，窄屏保留大标题 TopAppBar。
+        // 顶栏形态跟随 LocalIsWideScreen 切换，与底部/侧边导航的布局联动。
+        if (LocalIsWideScreen.current) {
+            SmallTopAppBar(
+                title = "磁贴配置",
+                scrollBehavior = scrollBehavior,
+                actions = topBarActions
+            )
+        } else {
+            TopAppBar(
+                title = "磁贴配置",
+                largeTitle = "磁贴配置",
+                scrollBehavior = scrollBehavior,
+                actions = topBarActions
+            )
+        }
     }
 
     // 小米设备特化：固定卡片（网格中占 1 个不可拖拽 item，不参与排序）
@@ -891,11 +907,12 @@ fun TileConfigScreen() {
                         .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
                     contentPadding = PaddingValues(
                         // 磁贴与屏幕边缘 10dp：与虚线框的 10dp 水平边距对应，
-                        // 使框贴边撑满时磁贴距框线正好 10dp
-                        start = 10.dp,
-                        end = 10.dp,
-                        bottom = NavigationBarDefaults.ItemHeight +
-                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+                        // 使框贴边撑满时磁贴距框线正好 10dp。
+                        // 加上 Scaffold 已算好的挖孔/导航条 insets：竖屏水平为 0 保持原间距，
+                        // 横屏/反向横屏自动避让左右摄像头挖孔；宽屏起始侧已消费，自动为 0
+                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current) + 10.dp,
+                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current) + 10.dp,
+                        bottom = contentBottomPadding()
                         )
                 ) {
                     // 固定卡片（小米特化，不参与拖拽）
