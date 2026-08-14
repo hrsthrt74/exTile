@@ -200,12 +200,6 @@ fun DebugToolsScreen() {
         scope.launch {
             isLoading = true
             config = ConfigRepository.getConfig(context)
-            // 确保 Shizuku 服务已绑定
-            if (!SecureSettingsHelper.isBound) {
-                SecureSettingsHelper.bindService()
-                // 等待服务绑定
-                kotlinx.coroutines.delay(500)
-            }
             currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: "无法获取"
             currentTiles = SecureSettingsHelper.getCurrentTiles(context)
             shizukuInstalled = ShizukuHelper.isShizukuInstalled(context)

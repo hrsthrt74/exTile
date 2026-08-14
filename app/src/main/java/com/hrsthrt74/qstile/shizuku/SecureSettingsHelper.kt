@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuRemoteProcess
 
 object SecureSettingsHelper {
     private const val TAG = "SecureSettingsHelper"
@@ -44,7 +45,7 @@ object SecureSettingsHelper {
             val userServiceArgs = Shizuku.UserServiceArgs(componentName)
                 .daemon(false)
                 .processNameSuffix("command")
-                .debuggable(true)
+                // 不设置 debuggable（默认 false）：若置 true，Shizuku 会要求 app 为 debuggable 构建，release 包会被拒绝绑定
                 .version(1)
 
             Shizuku.bindUserService(userServiceArgs, serviceConnection)
@@ -74,16 +75,38 @@ object SecureSettingsHelper {
      * @return 是否绑定成功
      */
     suspend fun ensureBound(): Boolean = withContext(Dispatchers.IO) {
+        // 前置检查（快速失败）：Shizuku 未运行、或本应用未被 Shizuku 授权时，
+        // bindUserService 必然无法连接（未授权时 onServiceConnected 永远不会回调），
+        // 若直接进入下面的等待循环会白白空转 10 秒（100×100ms），必须提前放弃。
+        if (!ShizukuHelper.isShizukuRunning()) {
+            Log.w(TAG, "ensureBound aborted: Shizuku is not running")
+            return@withContext false
+        }
+        if (!ShizukuHelper.checkPermission()) {
+            Log.w(TAG, "ensureBound aborted: Shizuku permission not granted")
+            return@withContext false
+        }
         // 已绑定则直接返回成功
         if (isBound && commandService != null) {
             return@withContext true
         }
-        // 尝试绑定并等待连接
+        // 尝试绑定并等待连接（最多 10 秒，覆盖慢设备首次冷启动绑定的情况）
         bindService()
         var waitCount = 0
-        while (!isBound && waitCount < 10) {
+        while (!isBound && waitCount < 100) {
             delay(100)
             waitCount++
+        }
+        if (!isBound) {
+            // 超时/失败时打印诊断，便于区分「绑定被拒」与「绑定过慢」
+            Log.e(
+                TAG,
+                "ensureBound failed. isBound=$isBound " +
+                    "shizukuRunning=${ShizukuHelper.isShizukuRunning()} " +
+                    "ping=${try { Shizuku.pingBinder() } catch (e: Exception) { "ERR:${e.message}" }} " +
+                    "version=${try { Shizuku.getVersion() } catch (e: Exception) { "ERR:${e.message}" }} " +
+                    "selfPerm=${try { Shizuku.checkSelfPermission() } catch (e: Exception) { "ERR:${e.message}" }}"
+            )
         }
         isBound && commandService != null
     }
@@ -118,8 +141,8 @@ object SecureSettingsHelper {
                 return@withContext null
             }
 
-            // 使用 Shizuku UserService 读取
-            val result = commandService?.executeCommand("settings get secure $SYSUI_QS_TILES")
+            // 使用 Shizuku 特权执行读取
+            val result = executeCommand("settings get secure $SYSUI_QS_TILES")
             Log.d(TAG, "getSysuiQsTiles via UserService: $result")
             if (result != null && !result.startsWith("ERROR") && result != "null") {
                 return@withContext result
@@ -162,8 +185,8 @@ object SecureSettingsHelper {
                 return@withContext false
             }
 
-            // 使用 Shizuku UserService 写入
-            val result = commandService?.executeCommand("settings put secure $SYSUI_QS_TILES $value")
+            // 使用 Shizuku 特权执行写入
+            val result = executeCommand("settings put secure $SYSUI_QS_TILES $value")
             Log.d(TAG, "setSysuiQsTiles via UserService: $result")
             result == null || !result.startsWith("ERROR")
         } catch (e: Exception) {
@@ -173,18 +196,53 @@ object SecureSettingsHelper {
     }
 
     suspend fun executeCommand(command: String): String? = withContext(Dispatchers.IO) {
+        // 1. 优先：反射调用 Shizuku.newProcess 直接经 Shizuku 特权执行命令。
+        //    Shizuku API 13 起 newProcess 被私有化（计划 v14 移除），但仍是唯一
+        //    不依赖 UserService 独立进程的执行方式——可绕开小米 HyperOS (Android 14)
+        //    等 ROM 上 UserService 独立进程启动时 Application 创建崩溃的兼容性问题。
+        runCatching {
+            executeViaNewProcess(command)
+        }.getOrNull()?.let { return@withContext it }
+
+        // 2. 兜底：Shizuku UserService 绑定后执行（在能正常启动独立进程的 ROM 上可用）
         try {
-            // 统一使用协程友好的绑定逻辑
             if (!ensureBound()) {
-                Log.w(TAG, "Shizuku service not bound")
+                Log.e(TAG, "Shizuku service not bound, command='$command'")
                 return@withContext null
             }
-
             commandService?.executeCommand(command)
         } catch (e: Exception) {
             Log.e(TAG, "executeCommand failed", e)
             null
         }
+    }
+
+    /**
+     * 通过反射调用 Shizuku.newProcess 在 Shizuku 特权环境下执行命令。
+     * 不依赖 UserService 独立进程，规避小米 ROM 上独立进程 Application 创建崩溃。
+     * @param command 要执行的 shell 命令
+     * @return 命令输出；执行失败时以 "ERROR" 开头
+     * @throws Exception 反射或执行失败时抛出（由调用方决定是否回退 UserService）
+     */
+    private fun executeViaNewProcess(command: String): String {
+        @Suppress("DEPRECATION", "JAVA_9_REFLECTION")
+        val method = Shizuku::class.java.getDeclaredMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java
+        )
+        method.isAccessible = true
+        val process = method.invoke(null, arrayOf("sh", "-c", command), null, null) as ShizukuRemoteProcess
+        val output = process.inputStream.bufferedReader().readText().trim()
+        val error = process.errorStream.bufferedReader().readText().trim()
+        val exitCode = process.waitFor()
+
+        Log.d(TAG, "executeCommand via newProcess($command): $output")
+        if (error.isNotEmpty()) {
+            Log.e(TAG, "Command error: $error")
+        }
+        return if (exitCode == 0) output else "ERROR: $error"
     }
 
     suspend fun getCurrentTiles(context: Context): List<String> {
@@ -229,8 +287,8 @@ object SecureSettingsHelper {
                 return@withContext false
             }
 
-            // 使用 Shizuku UserService 写入
-            val result = commandService?.executeCommand("settings put secure $key $value")
+            // 使用 Shizuku 特权执行写入
+            val result = executeCommand("settings put secure $key $value")
             Log.d(TAG, "putSecureSetting($key) via UserService: $result")
             result == null || !result.startsWith("ERROR")
         } catch (e: Exception) {

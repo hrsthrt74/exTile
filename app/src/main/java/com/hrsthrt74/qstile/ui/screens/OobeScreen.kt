@@ -333,7 +333,9 @@ fun OobeScreen(
                         }
                     },
                     onRequestShizukuPermission = { permState.request() },
-                    onAutoGrant = { permState.autoGrant() }
+                    onAutoGrant = { permState.autoGrant() },
+                    // OOBE 同样开启 adb 手动授权入口（指引对话框内置于 PermissionStatusCard）
+                    showAdbGuide = true
                 )
             }
         }
@@ -407,7 +409,9 @@ fun OobeScreen(
                 // 导入进度：异步操作加载中
                 AnimatedVisibility(visible = isImporting) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {

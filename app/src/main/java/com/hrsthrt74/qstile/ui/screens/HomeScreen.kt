@@ -1,8 +1,5 @@
 package com.hrsthrt74.qstile.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -40,9 +37,7 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.ui.BlurredBar
-import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
-import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberPermissionState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
@@ -82,8 +77,6 @@ fun HomeScreen(
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     // ---- 状态声明 ----
-    /** adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理） */
-    val adbGuideDialogState = rememberDialogState()
     /** 使用统计（累计展开/收起次数），实时订阅 DataStore */
     val stats by StatsRepository.getStatsFlow(context)
         .collectAsState(initial = TileStats())
@@ -160,7 +153,8 @@ fun HomeScreen(
                         },
                         onRequestShizukuPermission = { permState.request() },
                         onAutoGrant = { permState.autoGrant() },
-                        onShowAdbGuide = { adbGuideDialogState.show() }
+                        // 开启 adb 手动授权入口（指引对话框内置于 PermissionStatusCard）
+                        showAdbGuide = true
                     )
                 }
 
@@ -175,32 +169,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
-
-    // ---- adb 手动授权指引对话框 ----
-    // Shizuku 完全可选的兜底方案：用户不装 Shizuku 时，可通过 adb 手动授权后使用核心功能
-    val adbGrantCommand = "adb shell pm grant com.hrsthrt74.qstile android.permission.WRITE_SECURE_SETTINGS"
-    AppDialog(
-        state = adbGuideDialogState,
-        title = "adb 手动授权",
-        summary = "不使用 Shizuku 时，可通过以下命令手动授予 WRITE_SECURE_SETTINGS 权限：",
-        cancelText = "关闭",
-        confirmText = "复制命令",
-        onConfirm = {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("exTile adb grant", adbGrantCommand))
-            Toast.makeText(context, "命令已复制", Toast.LENGTH_SHORT).show()
-        }
-    ) {
-        Text(
-            text = adbGrantCommand,
-            style = MiuixTheme.textStyles.footnote1,
-            color = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-        
     }
 }
 

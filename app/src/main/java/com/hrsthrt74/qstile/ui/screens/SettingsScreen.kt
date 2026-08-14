@@ -271,7 +271,6 @@ fun SettingsScreen() {
     // 首次进入页面：一次性读回全部设置项后再放行渲染（未就绪就空白，与主题/OOBE 门控策略一致）
     LaunchedEffect(Unit) {
         config = ConfigRepository.getConfig(context)
-        currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
         longPressBehavior = ConfigRepository.getLongPressBehavior(context)
         customAppPackage = ConfigRepository.getLongPressCustomApp(context)
         tileLabelPreset = ConfigRepository.getTileLabelPreset(context)
@@ -281,6 +280,13 @@ fun SettingsScreen() {
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
         autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
         settingsLoaded = true
+    }
+
+    // 系统磁贴配置（currentSysuiTiles）只在「查看系统磁贴 / 备份」时用到，属次要数据。
+    // 单独后台加载，不参与上方渲染门控——否则 Shizuku 绑定异常（如未授权时
+    // bindUserService 空等超时）会拖到整页空白，即便有了 ensureBound 快速失败也要彻底解耦。
+    LaunchedEffect(Unit) {
+        currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
     }
 
     if (!settingsLoaded) return

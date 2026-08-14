@@ -1,5 +1,9 @@
 package com.hrsthrt74.qstile.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import top.yukonga.miuix.kmp.basic.Button
@@ -33,9 +38,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 自动授权；未安装 Shizuku 时可使用 adb 手动授权兜底。
  *
  * 复用说明：
- * - 主页（HomeScreen）使用完整能力：传入 [isLoading]（防闪烁）与 [onShowAdbGuide]（adb 手动授权入口）。
- * - OOBE（OobeScreen）使用简化形态：省略 [isLoading] 与 [onShowAdbGuide]，两个参数均有默认值，
- *   不传即隐藏加载态与 adb 入口。
+ * - 主页（HomeScreen）与 OOBE（OobeScreen）均使用完整能力：传入 [isLoading]（防闪烁）与
+ *   [showAdbGuide]（adb 手动授权入口）；两个参数均有默认值，不传即隐藏加载态与 adb 入口。
+ * - adb 手动授权指引对话框已内置于本组件（[AppDialog]），由 [showAdbGuide] 开启。
  *
  * @param status WRITE_SECURE_SETTINGS 权限状态机当前状态
  * @param modifier 作用于卡片根节点的 Modifier
@@ -46,7 +51,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * @param onRequestShizukuPermission 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED] 时主按钮点击回调（请求 Shizuku 权限）
  * @param onAutoGrant 状态为 [ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT] 或
  *   [ShizukuHelper.PermissionStatus.GRANT_FAILED] 时主按钮点击回调（直接执行 pm grant）
- * @param onShowAdbGuide 展示 adb 手动授权指引的回调；为 null 时不显示 adb 入口（OOBE 场景）
+ * @param showAdbGuide 是否显示 adb 手动授权入口（「使用 adb 手动授权」按钮 + 指引对话框）；
+ *   默认 false（隐藏）
  */
 @Composable
 fun PermissionStatusCard(
@@ -57,8 +63,12 @@ fun PermissionStatusCard(
     onLaunchShizuku: () -> Unit,
     onRequestShizukuPermission: () -> Unit,
     onAutoGrant: () -> Unit,
-    onShowAdbGuide: (() -> Unit)? = null,
+    showAdbGuide: Boolean = false,
 ) {
+    val context = LocalContext.current
+    // adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理）
+    val adbGuideDialogState = rememberDialogState()
+
     Card(
         modifier = modifier.fillMaxWidth()
     ) {
@@ -164,17 +174,41 @@ fun PermissionStatusCard(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // 兜底方案：仅当调用方提供了 adb 手动授权入口（onShowAdbGuide 非空）时展示。
-                    // onShowAdbGuide 在加载前后固定不变，随外层 AnimatedVisibility 一起展开收起。
-                    if (onShowAdbGuide != null) {
+                    // 兜底方案：仅当调用方开启了 adb 手动授权入口（showAdbGuide=true）时展示。
+                    // showAdbGuide 在加载前后固定不变，随外层 AnimatedVisibility 一起展开收起。
+                    if (showAdbGuide) {
                         TextButton(
                             text = "使用 adb 手动授权",
-                            onClick = onShowAdbGuide,
+                            onClick = { adbGuideDialogState.show() },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
         }
+    }
+
+    // ---- adb 手动授权指引对话框（内置于卡片组件）----
+    // Shizuku 完全可选的兜底方案：用户不装 Shizuku 时，可通过 adb 手动授权后使用核心功能
+    val adbGrantCommand = "adb shell pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
+    AppDialog(
+        state = adbGuideDialogState,
+        title = "adb 手动授权",
+        summary = "不使用 Shizuku 时，可通过以下命令手动授予 WRITE_SECURE_SETTINGS 权限：",
+        cancelText = "关闭",
+        confirmText = "复制命令",
+        onConfirm = {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("exTile adb grant", adbGrantCommand))
+            Toast.makeText(context, "命令已复制", Toast.LENGTH_SHORT).show()
+        }
+    ) {
+        Text(
+            text = adbGrantCommand,
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
