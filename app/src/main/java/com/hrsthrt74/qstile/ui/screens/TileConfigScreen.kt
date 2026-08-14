@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
@@ -675,13 +674,22 @@ fun TileConfigScreen() {
                                         ) {
                                             ListPopupColumn {
                                                 // 磁贴名称（不可点击）
-                                                DropdownImpl(
+//                                                DropdownImpl(
+//                                                    text = TileCatalog.getDisplayName(tile, profile),
+//                                                    optionSize = 1,
+//                                                    isSelected = false,
+//                                                    index = 0,
+//                                                    enabled = false,
+//                                                    onSelectedIndexChange = {}
+//                                                )
+                                                Text(
                                                     text = TileCatalog.getDisplayName(tile, profile),
-                                                    optionSize = 1,
-                                                    isSelected = false,
-                                                    index = 0,
-                                                    enabled = false,
-                                                    onSelectedIndexChange = {}
+                                                    style = MiuixTheme.textStyles.footnote1,
+                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                                    modifier = Modifier
+                                                        .padding(top = 20.dp)
+                                                        .padding(start = 20.dp)
+                                                        .padding(bottom = 16.dp)
                                                 )
                                                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                                                 // 移动到顶端（框外第一个，收起时最先显示）
