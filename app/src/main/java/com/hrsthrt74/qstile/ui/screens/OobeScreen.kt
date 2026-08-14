@@ -10,7 +10,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +59,7 @@ import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberPermissionState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -130,6 +134,21 @@ fun OobeScreen(
     val noExtileDialogState = rememberDialogState()
     // P2 无收纳磁贴提示对话框（收纳数 <=0 时阻止进入下一步）
     val noHiddenTileDialogState = rememberDialogState()
+    // 不支持设备：长按「不支持」提示卡片后弹出的跳过确认对话框（确定需等倒计时结束）
+    val unsupportedSkipDialogState = rememberDialogState()
+
+    // 跳过确认倒计时：弹窗弹出后需等待 5 秒才能点击「确定」，防止误触强制跳过
+    var skipCountdown by remember { mutableStateOf(5) }
+    // 弹窗显示时启动倒计时，每秒递减；关闭时协程随 key 变化自动取消，下次打开重置为 5
+    LaunchedEffect(unsupportedSkipDialogState.show) {
+        if (unsupportedSkipDialogState.show) {
+            skipCountdown = 5
+            while (skipCountdown > 0) {
+                delay(1000)
+                skipCountdown--
+            }
+        }
+    }
 
     // P1 权限状态机（Shizuku 完全可选，授权后不再依赖），含初始加载与前台自动衔接
     val permState = rememberPermissionState(onRequestShizukuPermission)
@@ -255,9 +274,16 @@ fun OobeScreen(
                         summary = "次级功能，点击即出"
                     )
                     // 不支持的设备（类原生 AOSP + Android 15 及以上）：追加醒目错误提示卡片，
-                    // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用、「跳过」入口已隐藏）
+                    // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用、「跳过」入口已隐藏）。
+                    // 长按该卡片可弹出跳过确认对话框，等待 5 秒后即可强制完成引导
                     if (isUnsupportedDevice) {
-                        UnsupportedDeviceCard()
+                        UnsupportedDeviceCard(
+                            onLongPress = {
+                                // 长按触发触觉反馈（与全局长按交互手感一致）
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                unsupportedSkipDialogState.show()
+                            }
+                        )
                     }
                 }
             }
@@ -663,6 +689,19 @@ fun OobeScreen(
         confirmText = "知道了",
         onConfirm = {}
     )
+
+    // 不支持设备：长按「不支持」卡片后的强制跳过确认对话框。
+    // 确定按钮在倒计时（5 秒）结束前禁用，防止误触强制跳过 OOBE；
+    // 倒计时数字实时显示在按钮文案后缀「(n)」，倒计时结束后按钮自动可点
+    AppDialog(
+        state = unsupportedSkipDialogState,
+        title = "确定要跳过引导？",
+        summary = "当前系统下本应用的磁贴切换方案可能不可用，强制继续可能出现功能异常。确定要跳过引导直接进入应用吗？",
+        // 倒计时期间按钮文案带上剩余秒数后缀，倒计时结束恢复纯文案
+        confirmText = if (skipCountdown > 0) "跳过引导 ($skipCountdown)" else "跳过引导",
+        confirmEnabled = skipCountdown <= 0,
+        onConfirm = { onCompleted() }
+    )
 }
 
 /**
@@ -712,11 +751,24 @@ private fun FeatureCard(
  * 当设备为「类原生 AOSP 系统 + Android 15（SDK 35）及以上」时展示，版式与 [FeatureCard] 保持一致
  * （图标 + 标题 + 说明两行），但改用 errorContainer 背景 + error 色图标做醒目错误提醒。
  * 配合外层逻辑：此时「开始使用」按钮已禁用、「跳过」入口已隐藏，用户无法继续引导。
+ *
+ * 长按本卡片（[onLongPress]）可绕过拦截弹出跳过确认，等待倒计时结束后强制完成引导——
+ * 这是为「误判为不支持」的设备准备的逃生通道，需要 5 秒冷静期防止误触。
+ *
+ * @param onLongPress 长按回调（由外层弹出跳过确认对话框）
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun UnsupportedDeviceCard() {
+private fun UnsupportedDeviceCard(onLongPress: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // combinedClickable 同时接管普通点击与长按：普通点击不做事（保持原「不可点」外观，
+            // 仅长按有效），长按触发 onLongPress；涟漪提示本卡片可交互
+            .combinedClickable(
+                onClick = { },
+                onLongClick = onLongPress
+            ),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.errorContainer
         )

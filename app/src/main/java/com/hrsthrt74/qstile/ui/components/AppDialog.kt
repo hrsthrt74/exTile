@@ -81,6 +81,8 @@ fun rememberDialogState(initialShow: Boolean = false): DialogState =
  * @param summary 说明文字
  * @param cancelText 取消按钮文案（默认「取消」）
  * @param confirmText 确认按钮文案
+ * @param confirmEnabled 确认按钮是否可点击（默认 true）；为 false 时置灰禁用，
+ *   常用于需要等待一段时间（如倒计时）后才允许确认的场景
  * @param destructive 是否为破坏性操作；为 true 时确认按钮使用错误色（红色）
  * @param onConfirm 点击确认按钮时的回调；确认后对话框由本组件自动关闭
  * @param onDismissed 关闭动画完成后的回调（用于清理临时状态）；注意 show 为 false 但从未显示时不会触发
@@ -94,6 +96,7 @@ fun AppDialog(
     summary: String? = null,
     cancelText: String = "取消",
     confirmText: String,
+    confirmEnabled: Boolean = true,
     destructive: Boolean = false,
     onConfirm: () -> Unit,
     onDismissed: (() -> Unit)? = null,
@@ -131,6 +134,7 @@ fun AppDialog(
                         color = MiuixTheme.colorScheme.error,
                         contentColor = MiuixTheme.colorScheme.onError,
                     ),
+                    enabled = confirmEnabled,
                     onClick = {
                         onConfirm()
                         state.dismiss()
@@ -144,6 +148,7 @@ fun AppDialog(
                 TextButton(
                     text = confirmText,
                     colors = ButtonDefaults.textButtonColorsPrimary(),
+                    enabled = confirmEnabled,
                     onClick = {
                         onConfirm()
                         state.dismiss()
