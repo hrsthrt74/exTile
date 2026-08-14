@@ -99,13 +99,13 @@ object ShizukuHelper {
      */
     suspend fun grantWriteSecureSettings(context: Context): Boolean = withContext(Dispatchers.IO) {
         try {
-            // 确保 UserService 已绑定（协程友好，不再阻塞主线程）
-            if (!SecureSettingsHelper.ensureBound()) {
-                Log.e(TAG, "grantWriteSecureSettings failed: cannot bind UserService")
-                return@withContext false
-            }
-
             val command = "pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
+            // 不要在这里预先调用 ensureBound()。
+            // Android 14 的部分小米/HyperOS 设备会在创建 UserService 独立进程时
+            // 触发 LoadedApk.makeApplicationInner 的系统级空指针，导致绑定必然超时。
+            // SecureSettingsHelper.executeCommand() 会先尝试 Shizuku.newProcess，
+            // 该路径不需要创建应用侧独立进程，正是这类设备所需的兼容方案；只有
+            // newProcess 不可用时，才会继续回退到 UserService。
             val result = SecureSettingsHelper.executeCommand(command)
             Log.d(TAG, "grantWriteSecureSettings result: $result")
 

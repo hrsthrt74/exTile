@@ -70,12 +70,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Shizuku UserService：由 Shizuku 服务进程以不同 uid 绑定，必须 exported=true；
-             android:process 与 SecureSettingsHelper 中 UserServiceArgs.processNameSuffix("command") 对应 -->
+        <!-- Shizuku UserService：由 Shizuku 服务进程以不同 uid 绑定。
+             进程名由 UserServiceArgs.processNameSuffix("command") 统一控制，
+             这里不要再声明 android:process，避免与 Shizuku 的进程配置冲突。 -->
         <service
             android:name=".shizuku.CommandService"
-            android:exported="true"
-            android:process=":command" />
+            android:exported="true" />
 
         <service
             android:name=".tile.ExTileService"
