@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
@@ -113,11 +114,13 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
@@ -170,6 +173,10 @@ fun TileConfigScreen() {
     val addSheetState = rememberSheetState()
     val customSheetState = rememberSheetState()
     var customTileValue by remember { mutableStateOf("") }
+    // 「添加磁贴」Sheet 的搜索关键字（同时匹配磁贴显示名和 value）
+    var addSearchQuery by remember { mutableStateOf("") }
+    // 「添加第三方磁贴」Sheet 的搜索关键字（同时匹配磁贴 label、应用名和包名）
+    var customSearchQuery by remember { mutableStateOf("") }
     // 两个确认操作对话框的显示状态（统一由 AppDialog 管理）
     val clearConfirmDialogState = rememberDialogState()
     val resetConfirmDialogState = rememberDialogState()
@@ -963,6 +970,8 @@ fun TileConfigScreen() {
         AppBottomSheet(
             state = addSheetState,
             title = "添加磁贴",
+            // 关闭动画完成后清空搜索关键字，避免下次打开残留
+            onDismissed = { addSearchQuery = "" },
         ) {
             // 当前已添加的磁贴（含固定卡片、edit、exTile，用于过滤重复项）
             val currentTiles = config.expandedTiles
@@ -978,87 +987,141 @@ fun TileConfigScreen() {
                 TileCatalog.getAvailableTiles(profile).filter { it.value !in currentTiles }
             }
 
-            // 按分类分组
-            val tilesByCategory = remember(availableTiles) {
-                availableTiles.groupBy { it.category }
+            // 根据搜索关键字过滤：同时匹配磁贴显示名和 value（不区分大小写）
+            val query = addSearchQuery.trim()
+            val filteredTiles = remember(availableTiles, query) {
+                if (query.isEmpty()) {
+                    availableTiles
+                } else {
+                    availableTiles.filter { tile ->
+                        tile.displayName.contains(query, ignoreCase = true) ||
+                            tile.value.contains(query, ignoreCase = true)
+                    }
+                }
             }
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
-            ) {
-                tilesByCategory.forEach { (category, tiles) ->
-                    // 分类标题
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = category,
-                            style = MiuixTheme.textStyles.subtitle,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                        )
-                    }
+            // 按分类分组
+            val tilesByCategory = remember(filteredTiles) {
+                filteredTiles.groupBy { it.category }
+            }
 
-                    // 磁贴网格
-                    items(tiles.size) { index ->
-                        val tile = tiles[index]
-                        Column(
-                            modifier = Modifier
-                                // 竖向要比横向大一点
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.secondaryVariant)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
-                                        val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
-                                        // 操作前记录快照，供「撤销上一步」恢复
-                                        undoSnapshot = gridTiles
-                                        updateGridTiles(gridTiles + tile.value)
-                                        addSheetState.dismiss()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val icon = rememberTileIcon(tile.value)
-                                if (icon != null) {
-                                    Icon(
-                                        painter = icon,
-                                        contentDescription = tile.displayName,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 使用 Miuix SearchBar 提供胶囊搜索框（支持按磁贴名或 value 搜索）。
+                // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘。
+                // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
+                // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
+                // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                SearchBar(
+                    expanded = false,
+                    onExpandedChange = { expanded ->
+                        if (!expanded) {
+                            addSheetState.dismiss()
+                        }
+                    },
+                    insideMargin = DpSize(0.dp, 0.dp),
+                    inputField = {
+                        InputField(
+                            query = addSearchQuery,
+                            onQueryChange = { addSearchQuery = it },
+                            onSearch = {},
+                            expanded = false,
+                            onExpandedChange = {},
+                            label = "搜索",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { }
+
+                if (filteredTiles.isEmpty()) {
+                    // 无可添加磁贴 / 搜索无结果提示（区分文案）
+                    Text(
+                        text = if (query.isEmpty()) "没有可用的磁贴" else "没有匹配的磁贴",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp)
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
+                    ) {
+                        tilesByCategory.forEach { (category, tiles) ->
+                            // 分类标题
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    text = category,
+                                    style = MiuixTheme.textStyles.subtitle,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                                )
+                            }
+
+                            // 磁贴网格
+                            items(tiles.size) { index ->
+                                val tile = tiles[index]
+                                Column(
+                                    modifier = Modifier
+                                        // 竖向要比横向大一点
+                                        .padding(horizontal = 4.dp, vertical = 12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .background(MiuixTheme.colorScheme.secondaryVariant)
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
+                                                val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
+                                                // 操作前记录快照，供「撤销上一步」恢复
+                                                undoSnapshot = gridTiles
+                                                updateGridTiles(gridTiles + tile.value)
+                                                addSheetState.dismiss()
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val icon = rememberTileIcon(tile.value)
+                                        if (icon != null) {
+                                            Icon(
+                                                painter = icon,
+                                                contentDescription = tile.displayName,
+                                                tint = MiuixTheme.colorScheme.primary,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = tile.displayName,
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        //                                 ↓ 图标 <=> 文字的间距
+                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                    )
+
+                                    Text(
+                                        text = tile.value,
+                                        style = MiuixTheme.textStyles.footnote2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
                             }
 
-                            Text(
-                                text = tile.displayName,
-                                style = MiuixTheme.textStyles.footnote1,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                //                                 ↓ 图标 <=> 文字的间距
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                            )
-
-                            Text(
-                                text = tile.value,
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            // 分类结束分割线
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            }
                         }
-                    }
-
-                    // 分类结束分割线
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     }
                 }
             }
@@ -1071,8 +1134,11 @@ fun TileConfigScreen() {
         AppBottomSheet(
             state = customSheetState,
             title = "添加第三方磁贴",
-            // 关闭动画完成后清空上次输入的磁贴值，避免下次打开残留
-            onDismissed = { customTileValue = "" },
+            // 关闭动画完成后清空上次输入的磁贴值与搜索关键字，避免下次打开残留
+            onDismissed = {
+                customTileValue = ""
+                customSearchQuery = ""
+            },
         ) {
             // 检查是否有 QUERY_ALL_PACKAGES 权限
             val hasQueryPermission = remember {
@@ -1184,66 +1250,121 @@ fun TileConfigScreen() {
                 }
                 // 显示磁贴网格
                 else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
-                    ) {
-                        gridItems(availableTileServices, key = { it.packageName + "/" + it.className }) { service ->
-                            val tileValue = "custom(${service.packageName}/${service.className})"
-                            Column(
+                    // 根据搜索关键字过滤：同时匹配磁贴 label、应用名和包名（不区分大小写）
+                    val query = customSearchQuery.trim()
+                    val filteredServices = remember(availableTileServices, query) {
+                        if (query.isEmpty()) {
+                            availableTileServices
+                        } else {
+                            availableTileServices.filter { service ->
+                                service.label.contains(query, ignoreCase = true) ||
+                                    service.appName.contains(query, ignoreCase = true) ||
+                                    service.packageName.contains(query, ignoreCase = true)
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // 使用 Miuix SearchBar 提供胶囊搜索框（支持按磁贴名 / 应用名 / 包名搜索）。
+                        // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘。
+                        // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
+                        // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
+                        // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                        SearchBar(
+                            expanded = false,
+                            onExpandedChange = { expanded ->
+                                if (!expanded) {
+                                    customSheetState.dismiss()
+                                }
+                            },
+                            insideMargin = DpSize(0.dp, 0.dp),
+                            inputField = {
+                                InputField(
+                                    query = customSearchQuery,
+                                    onQueryChange = { customSearchQuery = it },
+                                    onSearch = {},
+                                    expanded = false,
+                                    onExpandedChange = {},
+                                    label = "搜索",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { }
+
+                        if (filteredServices.isEmpty()) {
+                            // 搜索无结果提示
+                            Text(
+                                text = "没有匹配的磁贴",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier
-                                    .padding(horizontal = 4.dp, vertical = 12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp)
+                            )
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(4),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.secondaryVariant)
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
-                                            // 操作前记录快照，供「撤销上一步」恢复
-                                            undoSnapshot = gridTiles
-                                            updateGridTiles(gridTiles + tileValue)
-                                            customSheetState.dismiss()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    // 图标已在后台批量预取，渲染时不再触发 IPC
-                                    val drawable = service.icon
-                                    if (drawable != null) {
-                                        val bitmap = remember(drawable) { drawable.toBitmap() }
-                                        Icon(
-                                            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                            contentDescription = service.label,
-                                            tint = MiuixTheme.colorScheme.primary,
-                                            modifier = Modifier.size(36.dp)
+                                gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
+                                    val tileValue = "custom(${service.packageName}/${service.className})"
+                                    Column(
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp, vertical = 12.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .clip(CircleShape)
+                                                .background(MiuixTheme.colorScheme.secondaryVariant)
+                                                .clickable {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
+                                                    // 操作前记录快照，供「撤销上一步」恢复
+                                                    undoSnapshot = gridTiles
+                                                    updateGridTiles(gridTiles + tileValue)
+                                                    customSheetState.dismiss()
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            // 图标已在后台批量预取，渲染时不再触发 IPC
+                                            val drawable = service.icon
+                                            if (drawable != null) {
+                                                val bitmap = remember(drawable) { drawable.toBitmap() }
+                                                Icon(
+                                                    painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                                    contentDescription = service.label,
+                                                    tint = MiuixTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(36.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Text(
+                                            text = service.label,
+                                            style = MiuixTheme.textStyles.footnote1,
+                                            maxLines = 2,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+
+                                        Text(
+                                            text = service.appName,
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                            maxLines = 2,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = service.label,
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Text(
-                                    text = service.appName,
-                                    style = MiuixTheme.textStyles.footnote2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                             }
                         }
                     }
