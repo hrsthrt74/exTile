@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -66,6 +68,8 @@ import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.data.BackupInfo
+import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.TileConfig
@@ -111,6 +115,7 @@ import top.yukonga.miuix.kmp.icon.extended.All
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Copy
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Favorites
@@ -201,6 +206,28 @@ private fun getLaunchableApps(context: Context): List<LaunchableApp> {
     }.distinctBy { it.packageName }.sortedBy { it.label }
 }
 
+/**
+ * 解析备份 JSON 字符串为 [TileConfig]。
+ * 使用正则匹配提取 expandedTiles 和 collapsedTiles 数组，容错性较弱。
+ * @param json 备份 JSON 字符串
+ * @return 解析后的磁贴配置，格式错误或解析失败返回 null
+ */
+private fun parseBackupJson(json: String): TileConfig? {
+    return try {
+        val expandedMatch = Regex("\"expandedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
+        val collapsedMatch = Regex("\"collapsedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
+        if (expandedMatch != null && collapsedMatch != null) {
+            val expanded = expandedMatch.groupValues[1].split(",")
+                .map { it.trim().removeSurrounding("\"") }
+                .filter { it.isNotBlank() }
+            val collapsed = collapsedMatch.groupValues[1].split(",")
+                .map { it.trim().removeSurrounding("\"") }
+                .filter { it.isNotBlank() }
+            TileConfig(expandedTiles = expanded, collapsedTiles = collapsed)
+        } else null
+    } catch (_: Exception) { null }
+}
+
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
@@ -263,6 +290,54 @@ fun SettingsScreen() {
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
     var importBackupJson by remember { mutableStateOf("") }
+    // 备份列表相关状态
+    val backupListSheetState = rememberSheetState()
+    val deleteBackupDialogState = rememberDialogState()
+    var backupList by remember { mutableStateOf<List<BackupInfo>>(emptyList()) }
+    var deleteTargetBackup by remember { mutableStateOf<BackupInfo?>(null) }
+    // 「另存为」系统文件保存的 launcher：用户选择保存位置后将 JSON 写入
+    val saveAsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.openOutputStream(it)?.use { stream ->
+                    stream.write(backupText.toByteArray())
+                }
+                Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+                backupSheetState.dismiss()
+            } catch (_: Exception) {
+                Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    // 「从文件导入」的 launcher：用户选择 JSON 文件后读取并恢复配置
+    val openFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            try {
+                val json = context.contentResolver.openInputStream(it)?.use { stream ->
+                    stream.bufferedReader().readText()
+                } ?: return@let
+                val restored = parseBackupJson(json)
+                if (restored != null) {
+                    scope.launch {
+                        ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
+                        ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
+                        config = restored
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
+                }
+            } catch (_: Exception) {
+                Toast.makeText(context, "读取失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
     var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
 
@@ -308,22 +383,6 @@ fun SettingsScreen() {
             append("  \"currentSysuiTiles\": \"$currentSysuiTiles\"\n")
             append("}")
         }
-    }
-
-    fun parseBackupJson(json: String): TileConfig? {
-        return try {
-            val expandedMatch = Regex("\"expandedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
-            val collapsedMatch = Regex("\"collapsedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
-            if (expandedMatch != null && collapsedMatch != null) {
-                val expanded = expandedMatch.groupValues[1].split(",")
-                    .map { it.trim().removeSurrounding("\"") }
-                    .filter { it.isNotBlank() }
-                val collapsed = collapsedMatch.groupValues[1].split(",")
-                    .map { it.trim().removeSurrounding("\"") }
-                    .filter { it.isNotBlank() }
-                TileConfig(expandedTiles = expanded, collapsedTiles = collapsed)
-            } else null
-        } catch (_: Exception) { null }
     }
 
     // ==================== 局部 UI 函数（闭包捕获，不显式传参） ====================
@@ -735,7 +794,7 @@ fun SettingsScreen() {
         }
     }
 
-    /** 备份结果 Sheet */
+    /** 备份结果 Sheet：显示 JSON 预览，支持「保存」「另存为」「复制」三种操作 */
     @Composable
     fun BackupSheet() {
         AppBottomSheet(
@@ -758,18 +817,60 @@ fun SettingsScreen() {
                         .verticalScroll(rememberScrollState())
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // 「保存」按钮：将配置保存到 app 内部存储
                 Button(
                     onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
-                            Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                            backupSheetState.dismiss()
-                        },
-                        colors = ButtonDefaults.buttonColorsPrimary(),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("复制")
-                    }
+                        scope.launch {
+                            val fileName = BackupRepository.saveBackup(
+                                context = context,
+                                expandedTiles = config.expandedTiles,
+                                collapsedTiles = config.collapsedTiles
+                            )
+                            if (fileName != null) {
+                                Toast.makeText(context, "已保存到本地", Toast.LENGTH_SHORT).show()
+                                backupSheetState.dismiss()
+                            } else {
+                                Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("保存")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 「另存为」按钮：拉起系统文件选择器，用户选择保存位置
+                Button(
+                    onClick = {
+                        // 生成默认文件名：exTile_backup_yyyyMMdd_HHmmss.json
+                        val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+                        val defaultName = "exTile_backup_${sdf.format(java.util.Date())}"
+                        saveAsLauncher.launch(defaultName)
+                        backupSheetState.dismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("另存为…")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 「复制」按钮：将 JSON 复制到剪贴板
+                Button(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
+                        Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                        backupSheetState.dismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("复制")
+                }
             }
         }
     }
@@ -804,7 +905,7 @@ fun SettingsScreen() {
         }
     }
 
-    /** 导入备份 Sheet */
+    /** 导入备份 Sheet：支持「粘贴 JSON」恢复和「从本地备份」恢复两种方式 */
     @Composable
     fun ImportBackupSheet() {
         AppBottomSheet(
@@ -818,14 +919,46 @@ fun SettingsScreen() {
                     .fillMaxWidth()
                     .padding(bottom = navBarBottomPadding)
             ) {
+                // 「从本地备份恢复」按钮：打开备份列表选择已有备份
+                Button(
+                    onClick = {
+                        // 关闭当前 Sheet 后打开备份列表 Sheet，避免多层 Sheet 堆叠
+                        importBackupSheetState.dismiss()
+                        scope.launch {
+                            backupList = BackupRepository.getBackupList(context)
+                        }
+                        backupListSheetState.show()
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("从本地备份恢复")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 「从文件导入」按钮：拉起系统文件选择器，读取外部 JSON 文件
+                Button(
+                    onClick = {
+                        importBackupSheetState.dismiss()
+                        openFileLauncher.launch(arrayOf("application/json", "text/plain"))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("从文件导入")
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // 以下为原有的「粘贴 JSON」恢复方式
                 TextField(
                     value = importBackupJson,
                     onValueChange = { importBackupJson = it },
-                    label = "粘贴 JSON 备份数据",
+                    label = "或粘贴 JSON 备份数据",
                     useLabelAsPlaceholder = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(360.dp)
+                        .height(100.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
@@ -844,7 +977,7 @@ fun SettingsScreen() {
                             Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
+//                    colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("恢复")
@@ -892,6 +1025,131 @@ fun SettingsScreen() {
                 }
             }
         }
+    }
+
+    /** 本地备份列表 Sheet：展示已保存的备份，支持恢复和删除 */
+    @Composable
+    fun BackupListSheet() {
+        AppBottomSheet(
+            state = backupListSheetState,
+            title = "本地备份",
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding)
+            ) {
+                if (backupList.isEmpty()) {
+                    // 空状态提示
+                    Text(
+                        text = "暂无备份",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                } else {
+                    // 备份列表：每条显示日期时间、磁贴数量，右侧有删除按钮
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                    ) {
+                        items(backupList, key = { it.fileName }) { backup ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                insideMargin = PaddingValues(16.dp),
+                                colors = CardDefaults.defaultColors(
+                                    color = MiuixTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // 左侧：点击恢复
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                scope.launch {
+                                                    val restored = BackupRepository.loadBackup(context, backup.fileName)
+                                                    if (restored != null) {
+                                                        ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
+                                                        ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
+                                                        config = restored
+                                                        withContext(Dispatchers.Main) {
+                                                            Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
+                                                            backupListSheetState.dismiss()
+                                                        }
+                                                    } else {
+                                                        withContext(Dispatchers.Main) {
+                                                            Toast.makeText(context, "加载失败", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                    ) {
+                                        Text(
+                                            text = BackupRepository.formatDate(backup.createdAt),
+                                            style = MiuixTheme.textStyles.body1
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "展开 ${backup.expandedCount} 个 / 收起 ${backup.collapsedCount} 个",
+                                            style = MiuixTheme.textStyles.footnote2,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        )
+                                    }
+
+                                    // 右侧：删除按钮
+                                    IconButton(onClick = {
+                                        deleteTargetBackup = backup
+                                        deleteBackupDialogState.show()
+                                    }) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Delete,
+                                            contentDescription = "删除",
+                                            tint = MiuixTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** 删除备份确认 Dialog */
+    @Composable
+    fun DeleteBackupDialog() {
+        AppDialog(
+            state = deleteBackupDialogState,
+            title = "删除备份",
+            summary = "确定要删除备份「${deleteTargetBackup?.let { BackupRepository.formatDate(it.createdAt) } ?: ""}」吗？此操作不可撤销。",
+            confirmText = "删除",
+            destructive = true,
+            onConfirm = {
+                val target = deleteTargetBackup ?: return@AppDialog
+                scope.launch {
+                    val success = BackupRepository.deleteBackup(context, target.fileName)
+                    if (success) {
+                        // 刷新备份列表
+                        backupList = BackupRepository.getBackupList(context)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                deleteTargetBackup = null
+            },
+            onDismissed = { deleteTargetBackup = null }
+        )
     }
 
     /** 系统导入确认 Dialog */
@@ -1187,8 +1445,14 @@ fun SettingsScreen() {
     // ---- 自定义磁贴名 Sheet ----
     CustomTileLabelSheet()
 
+    // ---- 本地备份列表 Sheet ----
+    BackupListSheet()
+
     // ---- 系统导入确认 Dialog ----
     ImportSystemTilesDialog()
+
+    // ---- 删除备份确认 Dialog ----
+    DeleteBackupDialog()
 
     // ---- 自定义应用选择器 Sheet ----
     AppPickerSheet()

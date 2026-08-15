@@ -21,7 +21,7 @@
 
 - `ui/screens/` 页面（Home / TileConfig / Settings / Oobe / Licenses / DebugTools），另有三个独立 Activity（Licenses / DebugTools / TileLongClick）
 - `ui/components/` `AppBottomSheet` / `AppDialog` / `PermissionStatusCard`（主页与 OOBE 复用）/ `PermissionState`（权限状态控制器：封装 WRITE_SECURE_SETTINGS 状态机 + Shizuku 授权/pm grant 流程编排 + 前台 ON_RESUME 自动衔接，主页与 OOBE 共用；仅 Compose 层状态，底层逻辑仍走 `ShizukuHelper`）
-- `data/` TileConfig / TileCatalog / TileRequirement / DeviceProfile / ConfigRepository / StatsRepository / ThemeSettings
+- `data/` TileConfig / TileCatalog / TileRequirement / DeviceProfile / ConfigRepository / StatsRepository / ThemeSettings / BackupRepository
 - `shizuku/` ShizukuHelper / SecureSettingsHelper / CommandService
 - `tile/ExTileService.kt` QS 磁贴服务
 
@@ -32,7 +32,7 @@
 3. **磁贴操作菜单**：`WindowListPopup` 移动到顶端/底端、删除
 4. **自定义磁贴图标**：通过 PackageManager 获取其他应用 TileService 图标
 5. **权限架构**：核心为 `WRITE_SECURE_SETTINGS`（写 sysui_qs_tiles）；Shizuku 仅用于 `pm grant` 自动授权，授权后可脱离 Shizuku；`PermissionStatus` 状态机驱动主页权限卡片引导；未装 Shizuku 时可 adb 手动授权
-6. **配置备份/恢复**：JSON 导出/导入，支持从系统当前配置导入
+6. **配置备份/恢复**：三种备份方式（保存到 app 内部存储 `files/backups/`、另存为系统文件、复制到剪贴板）；三种恢复方式（从本地备份列表恢复、从外部 JSON 文件导入、粘贴 JSON）；`BackupRepository` 管理备份文件 CRUD，支持多备份列表/删除确认
 7. **主题定制**：MIUIX 动态取色引擎，Monet 取色、深色模式
 8. **小米设备特化**：DeviceCompat 检测 MIUI/HyperOS，固定卡片 WLAN+移动数据（平板 WLAN+蓝牙），编辑磁贴固定末尾
 9. **横滑切换**：HorizontalPager + MainPagerState 联动；**自适应导航**——窄屏（竖屏手机）底部 NavigationBar（带毛玻璃），宽屏（横屏/平板，`shouldShowSplitPane()`：width≥840dp 或 ≥600dp 且高/宽<1.2）左侧固定展开 NavigationRail（`state=null` 经典形态），两布局共享同一份 Pager 状态与 `Screen.allPages`，旋转不丢选中页；宽屏标志经 `LocalIsWideScreen` 注入，页面底部预留高度用 `contentBottomPadding()` 计算；横屏/反向横屏时左右摄像头挖孔的避让由各 screen 内容区取 Scaffold 传下的 `contentPadding` 的 start/end（`calculateStartPadding/calculateEndPadding` + 固定间距）实现——Scaffold 背景（Surface）保持铺满，仅内容避开挖孔、不露出黑边；宽屏起始侧已由 NavigationRail 避让，`WideScreenContent` 内容区对其 `consumeWindowInsets`，Scaffold 的 `contentWindowInsets`（默认 systemBars∪displayCutout）会自动 exclude 已消费部分，避免重复避让；宽屏内容区背景铺满（surface）并限宽水平居中（`MaxContentWidth`=840dp，定义于 `AdaptiveUtils.kt`，参照 M3 自适应导航标准），平板横屏内容不再摊得过宽；限宽实现在 `AppPager` 每个 page 的页面容器内（Pager 保持全宽 → 翻页动画全屏滑动，页面容器内 surface 背景全宽铺满 + 内容 `widthIn(max)`+`align(Center)` 居中），避免把 Pager 本身限宽导致翻页只在中间一段滑动、超出部分被裁切
@@ -68,3 +68,4 @@
 - **主页权限卡片**：PermissionStatus 状态机渲染引导；ON_RESUME 自动刷新权限状态；`autoRequestAfterResume` 标记防重复弹窗；卡片抽为 `PermissionStatusCard` 供 OOBE 复用
 - **主页统计卡片**：StatsCard，`getStatsFlow` 实时订阅，数据由 ExTileService.onClick 成功切换时写入
 - **设置页「重新运行引导」**：仅重置 `oobe_completed=false`（配置数据保留），壳层监听到 false 自动切回 OOBE 页面，可再次导入覆盖
+- **设置页备份/恢复**：备份 Sheet 提供三种操作（保存/另存为/复制），恢复 Sheet 提供三种入口（本地备份/从文件导入/粘贴 JSON）；备份列表 Sheet 展示已保存备份（日期+磁贴数），支持点击恢复和删除（二次确认）；「另存为」使用 `ActivityResultContracts.CreateDocument`，「从文件导入」使用 `ActivityResultContracts.OpenDocument`
