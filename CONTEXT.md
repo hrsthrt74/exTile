@@ -19,6 +19,7 @@
 
 关键代码位于 `app/src/main/java/com/hrsthrt74/qstile/`：
 
+- `ExTileApplication.kt` 自定义 Application 类，管理 MS Clarity 生命周期
 - `ui/screens/` 页面（Home / TileConfig / Settings / Oobe / Licenses / DebugTools），另有三个独立 Activity（Licenses / DebugTools / TileLongClick）
 - `ui/components/` `AppBottomSheet` / `AppDialog` / `PermissionStatusCard`（主页与 OOBE 复用）/ `PermissionState`（权限状态控制器：封装 WRITE_SECURE_SETTINGS 状态机 + Shizuku 授权/pm grant 流程编排 + 前台 ON_RESUME 自动衔接，主页与 OOBE 共用；仅 Compose 层状态，底层逻辑仍走 `ShizukuHelper`）
 - `data/` TileConfig / TileCatalog / TileRequirement / DeviceProfile / ConfigRepository / StatsRepository / ThemeSettings / BackupRepository
@@ -44,6 +45,7 @@
 15. **使用统计**：StatsRepository 记录展开/收起次数（仅统计成功切换），主页 `StatsCard` 实时展示
 16. **首次使用引导 OOBE**：DataStore 存 `oobe_completed` 标志；壳层 `MainApp` 按标志分流——未完成渲染 `OobeScreen`（不渲染底部导航栏），完成切回主页；数据流 initial=null 防闪烁。OOBE 流程：请求权限 → 一键 `requestAddTileService` 添加 exTile 磁贴（回调返回 TILE_ADDED/ALREADY_ADDED 后按钮置灰）→ `importSystemTiles` 从系统导入配置 → 预览 → 完成
 17. **系统配置导入**：`ConfigRepository.importSystemTiles` 复用 `SecureSettingsHelper.getCurrentTiles` 读 `sysui_qs_tiles`（读 secure settings 免权限）；展开=完整列表原样保存，收起=[0..exTileIndex]+补 `edit`，`isExpanded=true`；返回 `SystemImportResult`（Success/NoExtile/ReadFailed）。配置合法性以 `Success.hideCount>0` 判定：无收纳磁贴时弹窗提示、不显示导入预览卡片、按钮停留「我已配置完成」
+18. **MS Clarity 匿名统计**：`ExTileApplication` 管理 Clarity 生命周期；默认不初始化，仅在用户同意隐私政策且前台启动时初始化（后台 TileService 不触发）；`ConfigRepository.clarity_consent` 存储同意状态；OOBE P1「数据与隐私」页用开关选择；设置页「关于」分类可随时修改；`setCustomTag` 上传展开/收起计数；`clarityMask()` 遮挡敏感信息（应用选择器、自定义磁贴名、跳转目标）
 
 ## UI 设计规范
 
@@ -69,3 +71,5 @@
 - **主页统计卡片**：StatsCard，`getStatsFlow` 实时订阅，数据由 ExTileService.onClick 成功切换时写入
 - **设置页「重新运行引导」**：仅重置 `oobe_completed=false`（配置数据保留），壳层监听到 false 自动切回 OOBE 页面，可再次导入覆盖
 - **设置页备份/恢复**：备份 Sheet 提供三种操作（保存/另存为/复制），恢复 Sheet 提供三种入口（本地备份/从文件导入/粘贴 JSON）；备份列表 Sheet 展示已保存备份（日期+磁贴数），支持点击恢复和删除（二次确认）；「另存为」使用 `ActivityResultContracts.CreateDocument`，「从文件导入」使用 `ActivityResultContracts.OpenDocument`
+- **OOBE 流程**：五步 HorizontalPager——P0 欢迎 → P1 数据与隐私（Clarity 开关）→ P2 权限 → P3 配置 → P4 完成；隐私页用 Card 包裹 SwitchPreference，说明收集/不收集的数据类型
+- **隐私 Masking**：`clarityMask()` 修饰符遮挡敏感信息——应用选择器整个 Sheet、自定义磁贴名文本、跳转目标文本
