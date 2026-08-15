@@ -291,6 +291,8 @@ fun SettingsScreen() {
     val importBackupSheetState = rememberSheetState()
     // 支持作者（微信收款码）Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val donateSheetState = rememberSheetState()
+    // 作者信息（hrsthrt74 各社交平台入口）Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    val authorSheetState = rememberSheetState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
     var importBackupJson by remember { mutableStateOf("") }
@@ -740,6 +742,26 @@ fun SettingsScreen() {
                 }
             }
         ) {
+            // 作者：头像 + 昵称 + 身份，点击弹出作者信息 Sheet 展示各社交平台入口
+            ArrowPreference(
+                title = "hrsthrt74",
+                summary = "开发 / 设计",
+                onClick = { authorSheetState.show() },
+                // 头像为彩色图片，需用 Color.Unspecified 保留原图颜色，不能走 PreferenceLeadingIcon 的染色逻辑
+                startAction = {
+                    Icon(
+                        painter = painterResource(R.drawable.avatar),
+                        contentDescription = "作者头像",
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .padding(start = PreferenceIconStartPadding - 4.dp, end = PreferenceIconEndPadding - 4.dp)
+                            .size(PreferenceIconSize + 8.dp)
+                            .squircleClip(8.dp)
+                    )
+                }
+            )
+
+            // 版本号
             ArrowPreference(
                 title = "版本",
                 summary = try {
@@ -753,6 +775,7 @@ fun SettingsScreen() {
                 modifier = Modifier.clarityUnmask()
             )
 
+            // Github Repo
             ArrowPreference(
                 title = "GitHub",
                 summary = "hrsthrt74/exTile",
@@ -762,6 +785,7 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(R.drawable.ic_github) }
             )
 
+            // 支持作者
             ArrowPreference(
                 title = "支持作者",
                 summary = "给作者加个鸡腿",
@@ -769,6 +793,7 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
             )
 
+            // 开源许可
             ArrowPreference(
                 title = "开源许可",
                 summary = "查看本应用使用的开源库及许可证",
@@ -942,6 +967,36 @@ fun SettingsScreen() {
                         .fillMaxWidth()
                         .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                         .squircleClip(16.dp)
+                )
+            }
+        }
+    }
+
+    /** 作者信息 Sheet：展示作者各社交平台入口，点击对应平台打开其主页链接 */
+    @Composable
+    fun AuthorSheet() {
+        AppBottomSheet(
+            state = authorSheetState,
+            title = "hrsthrt74",
+        ) {
+            // 平台入口 Row：每个平台一个 Column（上方图标 + 下方平台名），点击打开对应链接
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = navBarBottomPadding + 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                AuthorPlatformItem(
+                    iconRes = R.drawable.ic_github,
+                    label = "GitHub",
+                    url = "https://github.com/hrsthrt74"
+                )
+                AuthorPlatformItem(
+                    iconRes = R.drawable.coolapk,
+                    label = "酷安",
+                    url = "https://www.coolapk.com/u/972147",
+                    // 酷安图标是 webp 彩色图片，保留原图颜色不染色
+                    keepOriginalColor = true
                 )
             }
         }
@@ -1483,6 +1538,9 @@ fun SettingsScreen() {
     // ---- 支持作者 Sheet ----
     DonateSheet()
 
+    // ---- 作者信息 Sheet ----
+    AuthorSheet()
+
     // ---- 导入备份 Sheet ----
     ImportBackupSheet()
 
@@ -1524,6 +1582,54 @@ private fun DebugInfoRow(label: String, value: String) {
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurface
         )
+    }
+}
+
+/**
+ * 作者信息 Sheet 中的单个平台入口项。
+ * 纵向布局：上方为平台图标，下方为平台名，整体可点击打开对应链接。
+ * @param iconRes 平台图标 drawable 资源 id
+ * @param label 平台名
+ * @param url 点击后跳转的链接
+ * @param keepOriginalColor 是否为彩色图片（如 webp 图标），true 时保留原图颜色不染色；纯色矢量图标传 false（默认）用主题前景色染色
+ */
+@Composable
+private fun AuthorPlatformItem(
+    iconRes: Int,
+    label: String,
+    url: String,
+    keepOriginalColor: Boolean = false
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    Card(colors = CardDefaults.defaultColors(
+        color = MiuixTheme.colorScheme.secondaryContainerVariant
+    )) {
+        Column(
+            // 点击触发触觉反馈并打开平台主页链接（与设置页其他可点击项一致）
+            modifier = Modifier
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                }
+                .padding(horizontal = 48.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // 平台图标：纯色矢量图标（如 GitHub）用主题前景色染色以适配深浅色；
+            // 彩色图片（如 webp 酷安图标）保留原图颜色，避免被染成单色
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = label,
+                tint = if (keepOriginalColor) Color.Unspecified else LocalContentColor.current,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = label,
+                style = MiuixTheme.textStyles.body2
+            )
+        }
     }
 }
 
