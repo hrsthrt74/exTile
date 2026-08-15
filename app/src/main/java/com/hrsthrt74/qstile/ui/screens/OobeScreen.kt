@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,10 +51,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.state.ToggleableState
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.LegalDocumentsActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
@@ -70,6 +79,7 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -133,6 +143,9 @@ fun OobeScreen(
     // 默认 false，用户选择后立即保存到 DataStore
     val clarityConsent = ConfigRepository.getClarityConsentFlow(context)
         .collectAsState(initial = false)
+
+    // 用户协议确认只属于本次引导页面状态，使用 rememberSaveable 保证旋转屏幕时不丢失。
+    val legalDocumentsRead = rememberSaveable { mutableStateOf(false) }
 
     // 页面级返回：非弹窗场景，miuix 不提供，故手动注册。
     // 不在第 0 页时按系统返回键动画翻回上一页；第 0 页时不拦截（退出应用）。
@@ -410,6 +423,82 @@ fun OobeScreen(
                             ConfigRepository.saveClarityConsent(context, newValue)
                         }
                     }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 法律文档使用 App 内置的离线副本，用户无需联网即可阅读。
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    state = if (legalDocumentsRead.value) ToggleableState.On else ToggleableState.Off,
+                    onClick = { legalDocumentsRead.value = !legalDocumentsRead.value },
+                    modifier = Modifier.size(24.dp)
+                )
+
+                // 统一的链接点击处理：根据 LinkAnnotation 的 tag 解析文档类型并打开对应法律文档。
+                // 这里不再使用被弃用的 StringAnnotation + ClickableText，而是把点击行为与样式内嵌在
+                // LinkAnnotation.Clickable 中，由 Text 组件内部的 BasicText 自动渲染可点击区域并回调。
+                val openLegalDocument: (LinkAnnotation) -> Unit = { link ->
+                    if (link is LinkAnnotation.Clickable) {
+                        runCatching { LegalDocumentType.valueOf(link.tag) }
+                            .getOrNull()
+                            ?.let { type ->
+                                context.startActivity(
+                                    Intent(context, LegalDocumentsActivity::class.java).putExtra(
+                                        LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
+                                        type
+                                    )
+                                )
+                            }
+                    }
+                }
+
+                val legalText = AnnotatedString.Builder().apply {
+                    append("我已阅读并同意 ")
+                    pushLink(
+                        LinkAnnotation.Clickable(
+                            tag = LegalDocumentType.PRIVACY_POLICY.name,
+                            styles = TextLinkStyles(
+                                style = SpanStyle(
+                                    color = MiuixTheme.colorScheme.primary,
+                                    textDecoration = TextDecoration.Underline
+                                )
+                            ),
+                            linkInteractionListener = openLegalDocument
+                        )
+                    )
+                    append("隐私政策")
+                    pop()
+                    append(" 和 ")
+                    pushLink(
+                        LinkAnnotation.Clickable(
+                            tag = LegalDocumentType.TERMS_OF_SERVICE.name,
+                            styles = TextLinkStyles(
+                                style = SpanStyle(
+                                    color = MiuixTheme.colorScheme.primary,
+                                    textDecoration = TextDecoration.Underline
+                                )
+                            ),
+                            linkInteractionListener = openLegalDocument
+                        )
+                    )
+                    append("用户协议")
+                    pop()
+                }.toAnnotatedString()
+
+                // 使用 Text（内部为 BasicText）渲染带链接的文本，点击由 LinkAnnotation 的监听器处理
+                Text(
+                    text = legalText,
+                    style = TextStyle(
+                        color = MiuixTheme.colorScheme.onSurface,
+                        fontSize = MiuixTheme.textStyles.body2.fontSize
+                    ),
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
 
@@ -749,12 +838,13 @@ fun OobeScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("开始使用") }
 
-                    // P1 数据与隐私页：下一步（无论是否同意都可继续）
+                    // P1 数据与隐私页：阅读并勾选法律文档后才能进入下一步。
                     1 -> Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) }
                         },
+                        enabled = legalDocumentsRead.value,
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("下一步") }

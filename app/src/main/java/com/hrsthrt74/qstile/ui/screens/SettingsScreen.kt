@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.ExTileApplication
+import com.hrsthrt74.qstile.LegalDocumentsActivity
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.R
 import com.microsoft.clarity.modifiers.clarityMask
@@ -86,6 +87,7 @@ import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import com.hrsthrt74.qstile.ui.screens.LegalDocumentType
 import com.microsoft.clarity.modifiers.clarityUnmask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -793,6 +795,14 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
             )
 
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            // 文档
+            SmallTitle(
+                text = "文档",
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
             // 开源许可
             ArrowPreference(
                 title = "开源许可",
@@ -801,6 +811,33 @@ fun SettingsScreen() {
                     context.startActivity(Intent(context, LicensesActivity::class.java))
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
+            )
+
+            // 法律文档
+            ArrowPreference(
+                title = "隐私政策",
+                onClick = {
+                    context.startActivity(
+                        Intent(context, LegalDocumentsActivity::class.java).putExtra(
+                            LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
+                            LegalDocumentType.PRIVACY_POLICY.name
+                        )
+                    )
+                },
+                startAction = { PreferenceLeadingPlaceholder() }
+            )
+
+            ArrowPreference(
+                title = "用户协议",
+                onClick = {
+                    context.startActivity(
+                        Intent(context, LegalDocumentsActivity::class.java).putExtra(
+                            LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
+                            LegalDocumentType.TERMS_OF_SERVICE.name
+                        )
+                    )
+                },
+                startAction = { PreferenceLeadingPlaceholder() }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

@@ -19,6 +19,7 @@ navigationeventCompose = "1.1.2"
 reorderable = "3.1.0"
 devicecompat = "2.6"
 clarity = "3.+"
+markwon = "4.6.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -50,6 +51,7 @@ devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "
 androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
 miuix-navigation3-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuix" }
 clarity-compose = { group = "com.microsoft.clarity", name = "clarity-compose", version.ref = "clarity" }
+markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,6 +3,14 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// 将仓库中的 Markdown 法律文档复制到构建产物，保证 GitHub 与 App 使用同一份来源文件。
+val copyLegalDocuments by tasks.registering(Copy::class) {
+    from(rootProject.file("docs")) {
+        include("PRIVACY_POLICY.md", "TERMS_OF_SERVICE.md")
+    }
+    into(layout.buildDirectory.dir("generated/legalAssets"))
+}
+
 android {
     namespace = "com.hrsthrt74.qstile"
     compileSdk = 37
@@ -35,6 +43,14 @@ android {
         compose = true
         aidl = true
     }
+
+    // 使用确定的生成目录，避免 Android SourceSet API 拒绝 Provider 类型目录。
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/legalAssets").get().asFile)
+}
+
+// Android 资源任务不会自动依赖自定义 Copy 任务，因此显式建立构建顺序。
+tasks.named("preBuild") {
+    dependsOn(copyLegalDocuments)
 }
 
 dependencies {
@@ -59,6 +75,7 @@ dependencies {
     implementation(libs.reorderable)
     implementation(libs.devicecompat)
     implementation(libs.clarity.compose)
+    implementation(libs.markwon.core)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

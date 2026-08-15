@@ -51,6 +51,12 @@
             android:theme="@style/Theme.ExTile" />
 
         <activity
+            android:name=".LegalDocumentsActivity"
+            android:exported="false"
+            android:label="法律文档"
+            android:theme="@style/Theme.ExTile" />
+
+        <activity
             android:name=".DebugToolsActivity"
             android:exported="false"
             android:label="调试工具"
