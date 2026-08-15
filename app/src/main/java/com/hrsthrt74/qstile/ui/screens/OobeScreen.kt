@@ -14,11 +14,13 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +59,7 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.tile.ExTileService
+import com.hrsthrt74.qstile.ui.MaxContentWidth
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -182,6 +186,9 @@ fun OobeScreen(
     // 但各页底部按钮仍需手动处理底部导航栏安全区
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    // 各 Step 内容区底部间距：统一变量控制，便于后续全局调整
+    val stepContentBottomSpacing = 48.dp
+
     /** 执行系统导入（P2 主按钮） */
     fun runImport() {
         scope.launch {
@@ -247,7 +254,7 @@ fun OobeScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
@@ -267,6 +274,7 @@ fun OobeScreen(
                         text = "欢迎使用 exTile",
                         style = MiuixTheme.textStyles.title1,
                     )
+                    Spacer(Modifier.height(16.dp))
                 }
                 // 特性列表卡片
                 Column(
@@ -318,7 +326,7 @@ fun OobeScreen(
             //         modifier = Modifier.fillMaxWidth()
             //     )
             // }
-            Spacer(modifier = Modifier.height(24.dp))
+//            Spacer(modifier = Modifier.height(24.dp))
             // 标题
             Text(
                 text = "数据与隐私",
@@ -389,7 +397,6 @@ fun OobeScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 SwitchPreference(
                     title = "允许匿名数据收集",
-//                    summary = "开启后将帮助改进应用体验，关闭需重启应用生效",
                     checked = clarityConsent.value,
                     onCheckedChange = { newValue ->
                         scope.launch {
@@ -398,6 +405,9 @@ fun OobeScreen(
                     }
                 )
             }
+
+            // 内容区底部间距（与 PermissionStep / SetupStep 保持一致）
+            Spacer(modifier = Modifier.height(stepContentBottomSpacing))
         }
     }
 
@@ -475,6 +485,9 @@ fun OobeScreen(
                     // OOBE 同样开启 adb 手动授权入口（指引对话框内置于 PermissionStatusCard）
                     showAdbGuide = true
                 )
+
+                // 内容区底部间距（与 PrivacyStep / SetupStep 保持一致）
+                Spacer(modifier = Modifier.height(stepContentBottomSpacing))
             }
         }
     }
@@ -586,7 +599,9 @@ fun OobeScreen(
                 ) {
                     Text("添加 exTile 磁贴")
                 }
-                Spacer(modifier = Modifier.height(48.dp))
+
+                // 内容区底部间距（与 PrivacyStep / PermissionStep 保持一致）
+                Spacer(modifier = Modifier.height(stepContentBottomSpacing))
             }
         }
     }
@@ -675,104 +690,122 @@ fun OobeScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) { page ->
-            when (page) {
-                0 -> WelcomeStep()
-                1 -> PrivacyStep()
-                2 -> PermissionStep()
-                3 -> SetupStep()
-                4 -> DoneStep()
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = MaxContentWidth)
+                        .align(Alignment.Center)
+                ) {
+                    when (page) {
+                        0 -> WelcomeStep()
+                        1 -> PrivacyStep()
+                        2 -> PermissionStep()
+                        3 -> SetupStep()
+                        4 -> DoneStep()
+                    }
+                }
             }
         }
 
-        // 底部按钮区：固定在底部，不随 HorizontalPager 页面滑动切换。
-        // 各页按钮统一放在外层，按当前页 currentPage 动态渲染对应按钮。
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = navBarBottom + 24.dp)
-        ) {
-            when (pagerState.currentPage) {
-                // P0 欢迎页：开始使用。
-                // 不支持的设备（类原生 AOSP + Android 15 及以上）时禁用按钮（保留展示，置灰不可点），
-                // 阻止用户进入引导后续步骤
-                0 -> Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) }
-                    },
-                    enabled = !isUnsupportedDevice,
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("开始使用") }
-
-                // P1 数据与隐私页：下一步（无论是否同意都可继续）
-                1 -> Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) }
-                    },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("下一步") }
-
-                // P2 权限页：已授权→下一步；未授权→跳过（需二次确认）
-                2 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
-                    Button(
+        // 底部按钮（下一步等）
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ){
+            Column(
+                modifier = Modifier
+                    // 小屏设备的左右边距
+                    .padding(horizontal = 16.dp)
+                    // 下边距
+                    .padding(bottom = navBarBottom + 24.dp)
+                    // 防止突然被截断
+                    .padding(top = 16.dp)
+                    // 宽屏设计的最大宽度
+                    .widthIn(max = MaxContentWidth - 32.dp)
+            ) {
+                when (pagerState.currentPage) {
+                    // P0 欢迎页：开始使用。
+                    // 不支持的设备（类原生 AOSP + Android 15 及以上）时禁用按钮（保留展示，置灰不可点），
+                    // 阻止用户进入引导后续步骤
+                    0 -> Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) }
+                            scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) }
+                        },
+                        enabled = !isUnsupportedDevice,
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("开始使用") }
+
+                    // P1 数据与隐私页：下一步（无论是否同意都可继续）
+                    1 -> Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) }
                         },
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("下一步") }
-                } else {
-                    TextButton(
-                        text = "跳过",
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                        onClick = { skipNoPermissionDialogState.show() },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
 
-                // P3 配置页：导入成功且有收纳磁贴→确认保存；否则→我已配置完成（触发导入）。
-                // 只有 hideCount > 0（配置有效）才显示「确认保存」，无收纳时停留在「我已配置完成」。
-                3 -> {
-                    val successResult = importResult as? ConfigRepository.SystemImportResult.Success
-                    if (successResult != null
-                        && !isImporting
-                        && successResult.hideCount > 0
-                    ) {
+                    // P2 权限页：已授权→下一步；未授权→跳过（需二次确认）
+                    2 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
                         Button(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                scope.launch { pagerState.animateScrollToPage(4, animationSpec = pageChangeSpec) }
+                                scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) }
                             },
                             colors = ButtonDefaults.buttonColorsPrimary(),
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("确认保存") }
+                        ) { Text("下一步") }
                     } else {
-                        Button(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                runImport()
-                            },
-                            enabled = !isImporting,
-                            colors = ButtonDefaults.buttonColorsPrimary(),
+                        TextButton(
+                            text = "跳过",
+                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                            onClick = { skipNoPermissionDialogState.show() },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("我已配置完成") }
+                        )
                     }
-                }
 
-                // P4 完成页：开始使用（完成整个 OOBE）
-                4 -> Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onCompleted()
-                    },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("开始使用") }
+                    // P3 配置页：导入成功且有收纳磁贴→确认保存；否则→我已配置完成（触发导入）。
+                    // 只有 hideCount > 0（配置有效）才显示「确认保存」，无收纳时停留在「我已配置完成」。
+                    3 -> {
+                        val successResult = importResult as? ConfigRepository.SystemImportResult.Success
+                        if (successResult != null
+                            && !isImporting
+                            && successResult.hideCount > 0
+                        ) {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    scope.launch { pagerState.animateScrollToPage(4, animationSpec = pageChangeSpec) }
+                                },
+                                colors = ButtonDefaults.buttonColorsPrimary(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("确认保存") }
+                        } else {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    runImport()
+                                },
+                                enabled = !isImporting,
+                                colors = ButtonDefaults.buttonColorsPrimary(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("我已配置完成") }
+                        }
+                    }
+
+                    // P4 完成页：开始使用（完成整个 OOBE）
+                    4 -> Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCompleted()
+                        },
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("开始使用") }
+                }
             }
         }
     }
