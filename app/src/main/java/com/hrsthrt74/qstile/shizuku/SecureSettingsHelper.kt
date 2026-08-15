@@ -127,23 +127,32 @@ object SecureSettingsHelper {
                     return@withContext directResult
                 }
             } catch (e: SecurityException) {
-                Log.w(TAG, "Direct read failed, fallback to Shizuku")
+                Log.w(TAG,
+                    "Direct read failed: " +
+                            "writeSecure=${ShizukuHelper.hasWriteSecureSettingsPermission(context)} " +
+                            "shizukuPerm=${runCatching { Shizuku.checkSelfPermission() }.getOrNull()} " +
+                            "uid=${runCatching { Shizuku.getUid() }.getOrNull()}",
+                    e
+                )
             }
 
-            // 2. 兜底：Shizuku 不可用时放弃
+            // 2. 兜底：通过 Shizuku 执行 settings 命令读取。
+            //
+            // Android 14 起，系统会根据 targetSdkVersion 限制直接读取部分
+            // Secure Settings。sysui_qs_tiles 对 targetSdkVersion > 33 的应用
+            // 会直接抛出 SecurityException。
+            //
+            // 这里必须直接调用 executeCommand()，不能预先调用 ensureBound()：
+            // executeCommand() 会优先使用 Shizuku.newProcess，不依赖容易在部分
+            // 设备上启动失败的 UserService 独立进程。
             if (!ShizukuHelper.isShizukuRunning()) {
                 Log.w(TAG, "Shizuku is not running")
                 return@withContext null
             }
-            // 确保服务已绑定
-            if (!ensureBound()) {
-                Log.w(TAG, "Shizuku service not bound")
-                return@withContext null
-            }
 
-            // 使用 Shizuku 特权执行读取
+            // 使用 Shizuku 特权执行读取，规避 targetSdkVersion=34+ 的系统限制。
             val result = executeCommand("settings get secure $SYSUI_QS_TILES")
-            Log.d(TAG, "getSysuiQsTiles via UserService: $result")
+            Log.d(TAG, "getSysuiQsTiles via Shizuku command: $result")
             if (result != null && !result.startsWith("ERROR") && result != "null") {
                 return@withContext result
             }
