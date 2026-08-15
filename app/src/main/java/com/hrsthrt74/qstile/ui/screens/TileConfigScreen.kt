@@ -98,6 +98,8 @@ import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import com.microsoft.clarity.modifiers.clarityMask
+import com.microsoft.clarity.modifiers.clarityUnmask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -1307,7 +1309,8 @@ fun TileConfigScreen() {
                                 columns = GridCells.Fixed(4),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove)
+                                    .clarityMask(),
                                 contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
                             ) {
                                 gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->

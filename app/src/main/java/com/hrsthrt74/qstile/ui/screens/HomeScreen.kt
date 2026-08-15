@@ -42,6 +42,7 @@ import com.hrsthrt74.qstile.ui.components.rememberPermissionState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import com.microsoft.clarity.modifiers.clarityUnmask
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -225,7 +226,9 @@ private fun StatusRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            // 统计数据 -> Clarity
+            .clarityUnmask(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(

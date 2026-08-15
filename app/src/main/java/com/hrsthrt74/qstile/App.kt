@@ -130,6 +130,11 @@ fun MainApp(
                 onCompleted = {
                     scope.launch {
                         ConfigRepository.saveOobeCompleted(context, true)
+                        // 如果用户同意了隐私政策，初始化 Clarity
+                        // 注意：这里在 OOBE 完成后才初始化，而非用户选择开关时
+                        // 确保用户有机会完成整个引导流程后再开始数据收集
+                        val application = context.applicationContext as? ExTileApplication
+                        application?.initClarityIfNeeded()
                     }
                 }
             )

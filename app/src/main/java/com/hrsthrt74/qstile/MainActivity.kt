@@ -9,7 +9,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -23,6 +28,9 @@ class MainActivity : ComponentActivity() {
         /** Shizuku 权限请求码，用于回调中识别请求 */
         private const val REQUEST_CODE_SHIZUKU = 1001
     }
+
+    /** Activity 级别的协程作用域，用于统计数据读取 */
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     /** Shizuku 权限是否已授予（Compose 可观察状态） */
     private var shizukuPermissionGranted by mutableStateOf(false)
@@ -50,6 +58,13 @@ class MainActivity : ComponentActivity() {
         // 启用边到边显示，让内容延伸到系统栏区域
         enableEdgeToEdge()
 
+        // 前台启动时初始化 Clarity（仅在用户同意隐私政策后生效）
+        val application = applicationContext as? ExTileApplication
+        application?.initClarityIfNeeded()
+
+        // 前台启动时上传统计数据到 Clarity（只在前台时上传，后台不上传）
+        uploadStatsToClarity()
+
         // 注册 Shizuku 权限回调监听
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
 
@@ -73,5 +88,23 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         // 移除监听器，防止内存泄漏
         Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+    }
+
+    /**
+     * 上传统计数据到 Clarity。
+     * 只在前台启动时调用一次，后台不调用。
+     * 读取当前的展开/收起计数，发送到 Clarity 作为自定义标签。
+     */
+    private fun uploadStatsToClarity() {
+        val application = applicationContext as? ExTileApplication ?: return
+
+        activityScope.launch {
+            try {
+                val stats = StatsRepository.getStats(this@MainActivity)
+                application.sendStatsToClarity(stats.totalExpandCount, stats.totalCollapseCount)
+            } catch (e: Exception) {
+                // 静默失败，不影响用户体验
+            }
+        }
     }
 }

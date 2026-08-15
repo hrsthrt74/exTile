@@ -41,6 +41,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,8 +67,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
+import com.hrsthrt74.qstile.ExTileApplication
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.R
+import com.microsoft.clarity.modifiers.clarityMask
 import com.hrsthrt74.qstile.data.BackupInfo
 import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -83,6 +86,7 @@ import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import com.microsoft.clarity.modifiers.clarityUnmask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -527,7 +531,8 @@ fun SettingsScreen() {
                         Text(
                             tileLabelCustom.ifBlank { "未设置" },
                             style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            modifier = Modifier.clarityMask()
                         )
                     },
                     onClick = {
@@ -568,7 +573,8 @@ fun SettingsScreen() {
                         Text(
                             customAppLabel,
                             style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            modifier = Modifier.clarityMask()
                             )
                     }
                 )
@@ -673,15 +679,6 @@ fun SettingsScreen() {
             }
         ) {
             ArrowPreference(
-                title = "查看系统磁贴配置",
-                summary = "sysui_qs_tiles 值",
-                onClick = { systemTilesSheetState.show() },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            ArrowPreference(
                 title = "备份",
 //                summary = "将当前配置导出为 JSON 格式",
                 onClick = {
@@ -703,6 +700,18 @@ fun SettingsScreen() {
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+            SmallTitle(
+                text = "工具",
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
+            ArrowPreference(
+                title = "查看系统磁贴配置",
+                summary = "sysui_qs_tiles 值",
+                onClick = { systemTilesSheetState.show() },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
+            )
+
             ArrowPreference(
                 title = "从系统导入磁贴",
                 summary = "将当前系统磁贴配置保存为展开状态",
@@ -715,6 +724,10 @@ fun SettingsScreen() {
     /** 关于分类卡片：版本 / GitHub / 开源许可 */
     @Composable
     fun AboutCategoryCard() {
+        // MS Clarity 匿名统计同意状态
+        val clarityConsent by ConfigRepository.getClarityConsentFlow(context)
+            .collectAsState(initial = false)
+
         ExpandableSettingsCard(
             title = "关于",
             icon = MiuixIcons.Info,
@@ -735,7 +748,9 @@ fun SettingsScreen() {
                     "未知"
                 },
                 onClick = {},
-                startAction = { PreferenceLeadingIcon(R.drawable.ic_settings_extile) }
+                startAction = { PreferenceLeadingIcon(R.drawable.ic_settings_extile) },
+                // 版本号 -> Clarity
+                modifier = Modifier.clarityUnmask()
             )
 
             ArrowPreference(
@@ -764,6 +779,33 @@ fun SettingsScreen() {
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SmallTitle(
+                text = "其他",
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
+            // 允许匿名统计开关：开启时初始化 Clarity，关闭时标记停止状态
+            // Clarity SDK 不支持运行时停止，关闭后需重启应用才能完全停止数据收集
+            SwitchPreference(
+                title = "允许匿名统计",
+                summary = "使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。关闭需重启应用生效。",
+                checked = clarityConsent,
+                onCheckedChange = { newValue ->
+                    scope.launch {
+                        ConfigRepository.saveClarityConsent(context, newValue)
+                        val application = context.applicationContext as? ExTileApplication
+                        if (newValue) {
+                            // 同意：初始化 Clarity
+                            application?.initClarity()
+                        } else {
+                            // 撤销同意：标记停止状态
+                            application?.shutdownClarity()
+                        }
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Info) }
+            )
 
             // 重新运行首次配置引导：仅重置 OOBE 标志（配置数据保留，可再次导入覆盖），
             // 壳层监听到标志变 false 后自动切回 OOBE 页面
@@ -1189,150 +1231,152 @@ fun SettingsScreen() {
             val apps = launchableApps
             val isLoading = apps == null
 
-            when {
-                isLoading -> {
-                    // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
-                    // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        InfiniteProgressIndicator()
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "加载中...",
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-                apps.isEmpty() -> {
-                    Text(
-                        text = "没有可用的应用",
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp)
-                    )
-                }
-                else -> {
-                    // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
-                    val filteredApps = remember(apps, appSearchQuery) {
-                        val query = appSearchQuery.trim()
-                        if (query.isEmpty()) {
-                            apps
-                        } else {
-                            apps.filter {
-                                it.label.contains(query, ignoreCase = true) ||
-                                    it.packageName.contains(query, ignoreCase = true)
-                            }
+            Column(modifier = Modifier.clarityMask()) {
+                when {
+                    isLoading -> {
+                        // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
+                        // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            InfiniteProgressIndicator()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "加载中...",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
                         }
                     }
-                    // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）
-                    // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
-                    // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
-                    // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
-                    // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        SearchBar(
-                            expanded = false,
-                            onExpandedChange = { expanded ->
-                                if (!expanded) {
-                                    appPickerSheetState.dismiss()
+                    apps.isEmpty() -> {
+                        Text(
+                            text = "没有可用的应用",
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp)
+                        )
+                    }
+                    else -> {
+                        // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
+                        val filteredApps = remember(apps, appSearchQuery) {
+                            val query = appSearchQuery.trim()
+                            if (query.isEmpty()) {
+                                apps
+                            } else {
+                                apps.filter {
+                                    it.label.contains(query, ignoreCase = true) ||
+                                        it.packageName.contains(query, ignoreCase = true)
                                 }
-                            },
-                            insideMargin = DpSize(0.dp, 0.dp),
-                            inputField = {
-                                InputField(
-                                    query = appSearchQuery,
-                                    onQueryChange = { appSearchQuery = it },
-                                    onSearch = {},
-                                    expanded = false,
-                                    onExpandedChange = {},
-                                    label = "搜索",
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { }
+                            }
+                        }
+                        // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）
+                        // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
+                        // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
+                        // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
+                        // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SearchBar(
+                                expanded = false,
+                                onExpandedChange = { expanded ->
+                                    if (!expanded) {
+                                        appPickerSheetState.dismiss()
+                                    }
+                                },
+                                insideMargin = DpSize(0.dp, 0.dp),
+                                inputField = {
+                                    InputField(
+                                        query = appSearchQuery,
+                                        onQueryChange = { appSearchQuery = it },
+                                        onSearch = {},
+                                        expanded = false,
+                                        onExpandedChange = {},
+                                        label = "搜索",
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { }
 
-                        // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
+                            // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
 //                    Spacer(modifier = Modifier.height(4.dp))
 
-                        if (filteredApps.isEmpty()) {
-                            // 搜索无结果提示
-                            Text(
-                                text = "没有匹配的应用",
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 24.dp)
-                            )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp)
-                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                                contentPadding = PaddingValues(bottom = navBarBottomPadding)
-                            ) {
-                                items(filteredApps, key = { it.packageName }) { app ->
-                            // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        customAppPackage = app.packageName
-                                        scope.launch {
-                                            ConfigRepository.saveLongPressCustomApp(context, app.packageName)
-                                        }
-                                        appPickerSheetState.dismiss()
-                                    },
-                                insideMargin = PaddingValues(16.dp),
-                                colors = CardDefaults.defaultColors(
-                                    color = MiuixTheme.colorScheme.secondaryContainer
+                            if (filteredApps.isEmpty()) {
+                                // 搜索无结果提示
+                                Text(
+                                    text = "没有匹配的应用",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp)
                                 )
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                                    contentPadding = PaddingValues(bottom = navBarBottomPadding)
                                 ) {
-                                    // 应用图标
-                                    val icon = app.icon
-                                    val bitmap = remember(icon) { icon.toBitmap() }
-                                    Icon(
-                                        painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                        contentDescription = app.label,
-                                        tint = Color.Unspecified,
-                                        modifier = Modifier.size(48.dp)
+                                    items(filteredApps, key = { it.packageName }) { app ->
+                                // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            customAppPackage = app.packageName
+                                            scope.launch {
+                                                ConfigRepository.saveLongPressCustomApp(context, app.packageName)
+                                            }
+                                            appPickerSheetState.dismiss()
+                                        },
+                                    insideMargin = PaddingValues(16.dp),
+                                    colors = CardDefaults.defaultColors(
+                                        color = MiuixTheme.colorScheme.secondaryContainer
                                     )
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    Column {
-                                        Text(
-                                            text = app.label,
-                                            style = MiuixTheme.textStyles.body1
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // 应用图标
+                                        val icon = app.icon
+                                        val bitmap = remember(icon) { icon.toBitmap() }
+                                        Icon(
+                                            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                            contentDescription = app.label,
+                                            tint = Color.Unspecified,
+                                            modifier = Modifier.size(48.dp)
                                         )
-                                        Text(
-                                            text = app.packageName,
-                                            style = MiuixTheme.textStyles.footnote2,
-                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                        )
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column {
+                                            Text(
+                                                text = app.label,
+                                                style = MiuixTheme.textStyles.body1
+                                            )
+                                            Text(
+                                                text = app.packageName,
+                                                style = MiuixTheme.textStyles.footnote2,
+                                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    }
                 }
+            }
             }
         }
     }

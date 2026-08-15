@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +74,7 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
@@ -87,14 +89,15 @@ import android.graphics.drawable.Icon as AndroidIcon
 /**
  * OOBE（首次使用引导）页面。
  *
- * 四步用 [HorizontalPager] 右到左滑动翻页（0→1→2→3）；系统返回键在非首页时
+ * 五步用 [HorizontalPager] 右到左滑动翻页（0→1→2→3→4）；系统返回键在非首页时
  * 回到上一页，首页退出应用（页面级 BackHandler，非弹窗场景 miuix 不提供）。
- * P1/P2/P3 左上角 IconButton 仍保留，点击同样动画翻页。
+ * P1/P2/P3/P4 左上角 IconButton 仍保留，点击同样动画翻页。
  *
  * - P0 欢迎页：跳过（二次确认）或「开始使用」
- * - P1 权限页：WRITE_SECURE_SETTINGS 授权引导（Shizuku 可选），可跳过（二次提醒）
- * - P2 首次配置页：引导在控制中心摆放 exTile 磁贴，然后从系统导入生成展开/收起配置
- * - P3 配置完成页：onCompleted() 回调完成整个 OOBE
+ * - P1 数据与隐私页：MS Clarity 匿名统计同意开关
+ * - P2 权限页：WRITE_SECURE_SETTINGS 授权引导（Shizuku 可选），可跳过（二次提醒）
+ * - P3 首次配置页：引导在控制中心摆放 exTile 磁贴，然后从系统导入生成展开/收起配置
+ * - P4 配置完成页：onCompleted() 回调完成整个 OOBE
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口（由 MainActivity 下传，接收结果回调）
  * @param onCompleted OOBE 完成回调（由壳层标记 oobe_completed=true）
@@ -110,8 +113,8 @@ fun OobeScreen(
     // 触觉反馈：底部按钮按下时提供震动反馈，与主页交互手感一致
     val haptic = LocalHapticFeedback.current
 
-    // 四步 Pager 状态：0=欢迎 1=权限 2=首次配置 3=完成
-    val pagerState = rememberPagerState(initialPage = 0) { 4 }
+    // 五步 Pager 状态：0=欢迎 1=数据与隐私 2=权限 3=首次配置 4=完成
+    val pagerState = rememberPagerState(initialPage = 0) { 5 }
 
     // 翻页动画：统一使用较缓的 tween，避免默认动画过快，让引导页切换更从容。
     // 各翻页入口（按钮 / 返回键 / 对话框确认）共用此 spec，保持手感一致。
@@ -120,10 +123,17 @@ fun OobeScreen(
         easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1.0f)
     )
 
+    // P1 数据与隐私页：MS Clarity 匿名统计同意状态
+    // 默认 false，用户选择后立即保存到 DataStore
+    val clarityConsent = ConfigRepository.getClarityConsentFlow(context)
+        .collectAsState(initial = false)
+
     // 页面级返回：非弹窗场景，miuix 不提供，故手动注册。
     // 不在第 0 页时按系统返回键动画翻回上一页；第 0 页时不拦截（退出应用）。
     BackHandler(enabled = pagerState.currentPage > 0) {
-        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1, animationSpec = pageChangeSpec) }
+        scope.launch {
+            pagerState.animateScrollToPage(pagerState.currentPage - 1, animationSpec = pageChangeSpec)
+        }
     }
 
     // P0 跳过引导确认对话框
@@ -287,6 +297,108 @@ fun OobeScreen(
                     }
                 }
             }
+    }
+
+    /** P1 数据与隐私页：MS Clarity 匿名统计同意开关 */
+    @Composable
+    fun PrivacyStep() {
+        // 内容区
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // TODO: 插图 - 待添加（illus_privacy）
+            // Card(modifier = Modifier.fillMaxWidth()) {
+            //     Image(
+            //         painter = painterResource(R.drawable.illus_privacy),
+            //         contentDescription = null,
+            //         modifier = Modifier.fillMaxWidth()
+            //     )
+            // }
+            Spacer(modifier = Modifier.height(24.dp))
+            // 标题
+            Text(
+                text = "数据与隐私",
+                style = MiuixTheme.textStyles.title1,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "本应用使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。",
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "此选项是可选的，且默认关闭。\n如对此有疑虑，也完全可以禁止本应用联网。",
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 说明卡片
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    // 收集的数据说明
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "收集的数据",
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text =  "• 页面交互行为（有效/无效点击）\n" +
+                                    "• 设备基本信息（Android 版本、设备型号）\n" +
+                                    "• 本应用的信息（版本号等）",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    // 不收集的数据说明
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "不会收集",
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text =  "• 个人身份信息（联系方式等）\n" +
+                                    "• 敏感数据（应用列表、自定义磁贴的名称等）",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 同意开关
+            Card(modifier = Modifier.fillMaxWidth()) {
+                SwitchPreference(
+                    title = "允许匿名数据收集",
+//                    summary = "开启后将帮助改进应用体验，关闭需重启应用生效",
+                    checked = clarityConsent.value,
+                    onCheckedChange = { newValue ->
+                        scope.launch {
+                            ConfigRepository.saveClarityConsent(context, newValue)
+                        }
+                    }
+                )
+            }
+        }
     }
 
     /** P1 权限页：授权引导（底部按钮由外层统一提供，已授权显示「下一步」，未授权显示「跳过」） */
@@ -521,18 +633,21 @@ fun OobeScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         // 统一 TopAppBar：仅承载交互元素，标题文字已移入各页面内容区
         // - P0 欢迎页：actions 显示「跳过」Close 图标（点击弹二次确认）
-        // - P1 权限页：返回按钮（回 P0）
-        // - P2 配置页：返回按钮（回 P1）
-        // - P3 完成页：全空（避免遮挡大对勾与文案）
+        // - P1 数据与隐私页：返回按钮（回 P0）
+        // - P2 权限页：返回按钮（回 P1）
+        // - P3 配置页：返回按钮（回 P2）
+        // - P4 完成页：全空（避免遮挡大对勾与文案）
         SmallTopAppBar(
             title = "",
             navigationIcon = {
-                if (pagerState.currentPage == 1) {
-                    IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(0, animationSpec = pageChangeSpec) } }) {
+                when (pagerState.currentPage) {
+                    1 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(0, animationSpec = pageChangeSpec) } }) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
-                } else if (pagerState.currentPage == 2) {
-                    IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) } }) {
+                    2 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) } }) {
+                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                    }
+                    3 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) } }) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 }
@@ -549,22 +664,23 @@ fun OobeScreen(
             }
         )
 
-        // 页面切换区：HorizontalPager 右到左翻页动画（0→1→2→3），
+        // 页面切换区：HorizontalPager 右到左翻页动画（0→1→2→3→4），
         // userScrollEnabled=false 禁止用户手势滑动，翻页只由按钮/返回键触发；
         // beyondViewportPageCount 预加载相邻页面
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = false,
-            beyondViewportPageCount = 4,
+            beyondViewportPageCount = 5,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         ) { page ->
             when (page) {
                 0 -> WelcomeStep()
-                1 -> PermissionStep()
-                2 -> SetupStep()
-                3 -> DoneStep()
+                1 -> PrivacyStep()
+                2 -> PermissionStep()
+                3 -> SetupStep()
+                4 -> DoneStep()
             }
         }
 
@@ -590,12 +706,22 @@ fun OobeScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("开始使用") }
 
-                // P1 权限页：已授权→下一步；未授权→跳过（需二次确认）
-                1 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
+                // P1 数据与隐私页：下一步（无论是否同意都可继续）
+                1 -> Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) }
+                    },
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("下一步") }
+
+                // P2 权限页：已授权→下一步；未授权→跳过（需二次确认）
+                2 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) }
+                            scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) }
                         },
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
@@ -609,9 +735,9 @@ fun OobeScreen(
                     )
                 }
 
-                // P2 配置页：导入成功且有收纳磁贴→确认保存；否则→我已配置完成（触发导入）。
+                // P3 配置页：导入成功且有收纳磁贴→确认保存；否则→我已配置完成（触发导入）。
                 // 只有 hideCount > 0（配置有效）才显示「确认保存」，无收纳时停留在「我已配置完成」。
-                2 -> {
+                3 -> {
                     val successResult = importResult as? ConfigRepository.SystemImportResult.Success
                     if (successResult != null
                         && !isImporting
@@ -620,7 +746,7 @@ fun OobeScreen(
                         Button(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) }
+                                scope.launch { pagerState.animateScrollToPage(4, animationSpec = pageChangeSpec) }
                             },
                             colors = ButtonDefaults.buttonColorsPrimary(),
                             modifier = Modifier.fillMaxWidth()
@@ -638,8 +764,8 @@ fun OobeScreen(
                     }
                 }
 
-                // P3 完成页：开始使用（完成整个 OOBE）
-                3 -> Button(
+                // P4 完成页：开始使用（完成整个 OOBE）
+                4 -> Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onCompleted()
@@ -662,13 +788,13 @@ fun OobeScreen(
         onConfirm = { onCompleted() }
     )
 
-    // P1 未授权跳过确认（再次提醒后放行）
+    // P2 未授权跳过确认（再次提醒后放行）
     AppDialog(
         state = skipNoPermissionDialogState,
         title = "确定跳过？",
         summary = "不授权将无法使用核心功能，可稍后在主页完成授权",
         confirmText = "跳过",
-        onConfirm = { scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) } }
+        onConfirm = { scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) } }
     )
 
     // P2 未找到 exTile 磁贴提示

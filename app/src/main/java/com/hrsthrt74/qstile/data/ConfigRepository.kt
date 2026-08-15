@@ -30,6 +30,8 @@ object ConfigRepository {
     private val OOBE_COMPLETED = booleanPreferencesKey("oobe_completed")
     /** 收起 QS 面板时自动收起磁贴布局的开关 key */
     private val AUTO_COLLAPSE_ON_CLOSE = booleanPreferencesKey("auto_collapse_on_close")
+    /** MS Clarity 匿名统计的用户同意状态 key */
+    private val CLARITY_CONSENT = booleanPreferencesKey("clarity_consent")
 
     private val DEFAULT_EXPANDED = listOf("wifi", "bt", "cell", "airplane", "flashlight", "hotspot")
     private val DEFAULT_COLLAPSED = listOf("wifi", "bt", "cell")
@@ -328,6 +330,40 @@ object ConfigRepository {
     suspend fun saveAutoCollapseOnClose(context: Context, enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_COLLAPSE_ON_CLOSE] = enabled
+        }
+    }
+
+    // ==================== MS Clarity 匿名统计同意 ====================
+
+    /**
+     * 获取「MS Clarity 匿名统计」同意状态流。
+     * 默认 false（首次安装/未同意时不收集数据）。
+     * @param context Context
+     * @return 同意状态流
+     */
+    fun getClarityConsentFlow(context: Context): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[CLARITY_CONSENT] ?: false
+        }
+    }
+
+    /**
+     * 获取「MS Clarity 匿名统计」同意状态（挂起函数）。
+     * @param context Context
+     * @return 是否同意
+     */
+    suspend fun getClarityConsent(context: Context): Boolean {
+        return getClarityConsentFlow(context).first()
+    }
+
+    /**
+     * 保存「MS Clarity 匿名统计」同意状态。
+     * @param context Context
+     * @param consent true 表示同意收集数据；false 表示不同意
+     */
+    suspend fun saveClarityConsent(context: Context, consent: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[CLARITY_CONSENT] = consent
         }
     }
 

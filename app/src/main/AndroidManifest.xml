@@ -13,6 +13,7 @@
     </queries>
 
     <application
+        android:name=".ExTileApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"

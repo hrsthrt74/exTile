@@ -18,6 +18,7 @@ miuix = "0.9.3"
 navigationeventCompose = "1.1.2"
 reorderable = "3.1.0"
 devicecompat = "2.6"
+clarity = "3.+"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,6 +49,7 @@ reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reo
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
 androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
 miuix-navigation3-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuix" }
+clarity-compose = { group = "com.microsoft.clarity", name = "clarity-compose", version.ref = "clarity" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

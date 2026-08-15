@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.miuix.blur)
     implementation(libs.reorderable)
     implementation(libs.devicecompat)
+    implementation(libs.clarity.compose)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
