@@ -78,12 +78,14 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -260,9 +262,9 @@ fun OobeScreen(
             ) {
                 // APP 图标
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 48.dp)
+                    modifier = Modifier.padding(top = 36.dp)
                     ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_settings_extile),
@@ -282,14 +284,19 @@ fun OobeScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     FeatureCard(
-                        icon = MiuixIcons.Demibold.Lock,
-                        title = "本地工具，无需联网",
-                        summary = "所有数据仅存本机"
+                        icon = MiuixIcons.Demibold.GridView,
+                        title = "增强控制中心",
+                        summary = "为控制中心添加一系列高级功能"
                     )
                     FeatureCard(
                         icon = MiuixIcons.Demibold.Backup,
                         title = "简洁而又不失高效",
                         summary = "次级功能，点击即出"
+                    )
+                    FeatureCard(
+                        icon = MiuixIcons.Demibold.Lock,
+                        title = "本地工具，无需联网",
+                        summary = "可离线使用"
                     )
                     // 不支持的设备（类原生 AOSP + Android 15 及以上）：追加醒目错误提示卡片，
                     // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用、「跳过」入口已隐藏）。
@@ -452,8 +459,7 @@ fun OobeScreen(
                 Text(
                     text = "*未授权将无法使用磁贴切换等核心功能",
                     style = MiuixTheme.textStyles.footnote1,
-                    fontWeight = FontWeight.Bold,
-                    color = MiuixTheme.colorScheme.error,
+                    color = MiuixTheme.colorScheme.error.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -672,7 +678,12 @@ fun OobeScreen(
                 // 不支持的设备（类原生 AOSP + Android 15 及以上）时直接隐藏该入口：
                 // 跳过后同样无法使用本应用，无需给用户提供继续入口
                 if (pagerState.currentPage == 0 && !isUnsupportedDevice) {
-                    IconButton(onClick = { skipDialogState.show() }) {
+                    IconButton(
+                        onClick = {
+                        skipDialogState.show()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    ) {
                         Icon(MiuixIcons.Close, contentDescription = "跳过")
                     }
                 }
