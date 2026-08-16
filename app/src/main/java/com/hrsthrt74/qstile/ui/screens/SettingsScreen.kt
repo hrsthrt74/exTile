@@ -1532,16 +1532,19 @@ fun SettingsScreen() {
         Box(
             modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
-            // 卡片列表从顶部开始（只留 8dp 小间距）并撑满剩余高度：
-            // 1) 内容不足一屏时不再垂直居中——此前用 Arrangement.Center + weight(fill = false)
-            //    居中，顶栏下方（backdrop 采样区）是空白，顶栏模糊采样不到内容；
-            // 2) 不避让 topBar（Scaffold 内容区从 0 开始、topBar 叠在上方），若用
-            //    paddingValues.calculateTopPadding() 把内容推到 topBar 下方，顶栏模糊
-            //    采样的顶部区域仍是空白。内容顶部被 topBar 遮住的部分正是模糊层要采样的内容。
+            // 保持垂直居中布局（内容不足一屏时卡片居中显示，此时顶栏下方是空白，
+            // 顶栏模糊采样不到内容、看不到模糊——这是居中布局与「内容不足一屏就有模糊」
+            // 不可兼得的取舍，折叠状态下无模糊属预期）。
+            //
+            // 关键：把「避让顶栏」从 Column 的 padding 改到 LazyColumn 的 contentPadding.top。
+            // Scaffold 内容区从 (0,0) 开始、topBar 叠在上方，若用 Column padding(top=顶栏高度)
+            // 会把内容推到顶栏下方，backdrop 图层的 0~顶栏 区域始终是空白，顶栏模糊采不到内容；
+            // 改为 contentPadding.top 后，展开分类/滚动时内容会进入顶栏采样区，顶栏模糊即可见。
+            // （居中基准因 contentPadding.top 同时增大 LazyColumn 高度与卡片起始偏移而相互抵消，
+            //   折叠状态下卡片位置相对此前仅 ~2dp 变化，布局基本不变）
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding()),
+                    .fillMaxSize(),
                 verticalArrangement = Arrangement.Center
             ) {
                 LazyColumn(
@@ -1553,6 +1556,8 @@ fun SettingsScreen() {
                             hapticFeedbackType = HapticFeedbackType.TextHandleMove
                         ),
                     contentPadding = PaddingValues(
+                        // 顶部避让顶栏（与编辑页一致）：展开/滚动时内容进入顶栏采样区供模糊捕获
+                        top = paddingValues.calculateTopPadding() + 4.dp,
                         // 水平边距 = Scaffold 已算好的挖孔/导航条 insets（卡片自身另有 16dp 边距）：
                         // 竖屏水平为 0 保持原样，横屏/反向横屏自动避让左右摄像头挖孔；
                         // 宽屏起始侧已消费，自动为 0，不与 NavigationRail 重复避让
