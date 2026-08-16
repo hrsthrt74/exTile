@@ -86,10 +86,10 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            BlurredBar(backdrop, blurActive) {
+            // 渐进模糊开启时使用渐变模糊（顶部最强、向下过渡到清晰），关闭时回退普通模糊
+            BlurredBar(backdrop, blurActive, progressive = LocalThemeSettings.current.progressiveBlur) {
                 SmallTopAppBar(
                     title = "",
-//                    largeTitle = "exTile",
                     color = barColor,
                     scrollBehavior = scrollBehavior
                 )

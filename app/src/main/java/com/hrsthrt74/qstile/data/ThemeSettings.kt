@@ -14,7 +14,10 @@ data class ThemeSettings(
     val isDynamicColorMode: Boolean = false,
     val paletteStyle: Int = 0,
     val colorSpec: Int = 1,
-    val enableBlur: Boolean = true
+    val enableBlur: Boolean = true,
+    // 渐进模糊：开启后顶部栏使用渐变模糊（顶部最强、向下过渡到清晰），
+    // 需在 enableBlur 开启的前提下才生效（否则整体回退纯色）
+    val progressiveBlur: Boolean = false
 )
 
 object ThemeRepository {
@@ -23,6 +26,7 @@ object ThemeRepository {
     private val PALETTE_STYLE = intPreferencesKey("palette_style")
     private val COLOR_SPEC = intPreferencesKey("color_spec")
     private val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
+    private val PROGRESSIVE_BLUR = booleanPreferencesKey("progressive_blur")
 
     fun getThemeSettingsFlow(context: Context): Flow<ThemeSettings> {
         return context.dataStore.data.map { prefs ->
@@ -31,7 +35,8 @@ object ThemeRepository {
                 isDynamicColorMode = prefs[IS_DYNAMIC_COLOR_MODE] ?: false,
                 paletteStyle = prefs[PALETTE_STYLE] ?: 0,
                 colorSpec = prefs[COLOR_SPEC] ?: 1,
-                enableBlur = prefs[ENABLE_BLUR] ?: true
+                enableBlur = prefs[ENABLE_BLUR] ?: true,
+                progressiveBlur = prefs[PROGRESSIVE_BLUR] ?: false
             )
         }
     }
@@ -67,6 +72,12 @@ object ThemeRepository {
     suspend fun saveEnableBlur(context: Context, enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[ENABLE_BLUR] = enabled
+        }
+    }
+
+    suspend fun saveProgressiveBlur(context: Context, enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PROGRESSIVE_BLUR] = enabled
         }
     }
 }

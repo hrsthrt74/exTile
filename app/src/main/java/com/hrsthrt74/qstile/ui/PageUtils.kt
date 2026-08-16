@@ -17,13 +17,23 @@ import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 全局统一的模糊半径（dp），顶部栏与底部导航栏共用，保证视觉一致 */
 const val AppBlurRadius = 80f
+
+/**
+ * 渐进模糊（渐变模糊）的模糊半径（dp）。
+ * 参考 miuix 官方示例：渐进模糊在清晰端会做一次全分辨率锐利重绘，对 GPU 带宽消耗比
+ * 普通 [textureBlur] 更大，因此半径不宜过大；官方渐进模糊 demo 默认 20dp。
+ * （此前用 10dp 效果过弱——顶栏下方是纯色背景时几乎不可见，只有 overscroll 拉伸内容时才显形）
+ */
+const val AppProgressiveBlurRadius = 15f
 
 /**
  * 统一的模糊色彩配置（参考官方示例参数）。
@@ -34,6 +44,19 @@ const val AppBlurRadius = 80f
 fun blurBarColors(): BlurColors = BlurDefaults.blurColors(
     blendColors = listOf(
         BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.7f))
+    )
+)
+
+/**
+ * 渐进模糊的色彩配置。
+ * 渐进模糊的 colors 只作用于模糊区域、随渐变一起淡出（清晰端不染色、与内容无缝融合），
+ * 因此叠加 60% 的表面色作为「磨砂底色」——即使顶栏下方是纯色背景也能看到渐变毛玻璃，
+ * 又保留顶部→底部渐变的通透感（官方渐进模糊 demo 的 surface alpha 为 0.6f）。
+ */
+@Composable
+fun progressiveBlurBarColors(): BlurColors = BlurDefaults.blurColors(
+    blendColors = listOf(
+        BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))
     )
 )
 
@@ -126,20 +149,25 @@ fun asymmetricDropdownPositionProvider(
 /**
  * 包裹顶部栏的模糊容器。
  * 当 [blurEnabled] 且 [backdrop] 不为空时，对整个栏应用纹理模糊；否则栏原样渲染。
+ * [progressive] 为 true 时改用渐进模糊（渐变模糊）：顶部最强、向下过渡到清晰，
+ * 参考 miuix 官方示例（BlurredBar）——外层 Box 不套模糊，而是放一个铺满的模糊层
+ * 在内容下层，避免与内容同一层叠加。
  *
  * @param backdrop 由 [rememberBlurBackdrop] 创建的背景捕获层
- * @param blurEnabled 是否启用模糊
+ * @param blurEnabled 是否启用模糊（总开关，关闭时回退纯色）
+ * @param progressive 是否启用渐进模糊；为 true 时替代普通 [textureBlur]
  * @param content 实际的顶部栏内容（如 [top.yukonga.miuix.kmp.basic.TopAppBar]）
  */
 @Composable
 fun BlurredBar(
     backdrop: LayerBackdrop?,
     blurEnabled: Boolean,
+    progressive: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val blurActive = blurEnabled && backdrop != null
     Box(
-        modifier = if (blurActive) {
+        modifier = if (blurActive && !progressive) {
             Modifier.textureBlur(
                 backdrop = backdrop,
                 shape = RectangleShape,
@@ -150,6 +178,23 @@ fun BlurredBar(
             Modifier
         },
     ) {
+        if (blurActive && progressive) {
+            // 渐进模糊层：matchParentSize 铺满整个栏，位于内容下层。
+            // 顶部最强、向下渐变到清晰的梯度（参考官方 ProgressiveBlur.Top.copy(curve=2.2f)），
+            // 清晰端保持全分辨率锐利，视觉上比普通模糊更「透」。
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .progressiveTextureBlur(
+                        backdrop = backdrop,
+                        shape = RectangleShape,
+                        blurRadius = AppProgressiveBlurRadius,
+                        gradient = ProgressiveBlur(angle = 90f, startFraction = 0.5f, endFraction = 1f, curve = 0.8f),
+                        colors = progressiveBlurBarColors(),
+                        noiseCoefficient = 0.1f
+                    ),
+            )
+        }
         content()
     }
 }

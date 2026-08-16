@@ -641,6 +641,20 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Paste) }
             )
 
+            // 渐进模糊：开启后顶部栏改用渐变模糊（顶部最强、向下过渡到清晰），
+            // 需「模糊效果」开启时才生效（关闭模糊时整体回退纯色）
+            SwitchPreference(
+                title = "渐进模糊",
+                summary = "顶栏使用渐变模糊效果",
+                checked = themeSettings.progressiveBlur,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        ThemeRepository.saveProgressiveBlur(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingPlaceholder() }
+            )
+
             // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
             // if (themeSettings.isDynamicColorMode) {
             //     WindowSpinnerPreference(
@@ -1477,7 +1491,8 @@ fun SettingsScreen() {
     Scaffold(
         topBar = {
             // 毛玻璃包裹层保持不动；内部按宽/窄屏选择顶栏形态
-            BlurredBar(backdrop, blurActive) {
+            // 渐进模糊开启时使用渐变模糊，关闭时回退普通模糊
+            BlurredBar(backdrop, blurActive, progressive = themeSettings.progressiveBlur) {
                 if (LocalIsWideScreen.current) {
                     // 宽屏（侧边 NavigationRail）：无大标题的 SmallTopAppBar
                     SmallTopAppBar(
@@ -1517,9 +1532,12 @@ fun SettingsScreen() {
         Box(
             modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
-        // 外层 Column 将卡片列表整体垂直居中：
-            // LazyColumn 用 weight(fill = false) 只占内容实际高度，内容不足一屏时居中，
-            // 展开后超出屏幕时自动受限并可正常滚动
+            // 卡片列表从顶部开始（只留 8dp 小间距）并撑满剩余高度：
+            // 1) 内容不足一屏时不再垂直居中——此前用 Arrangement.Center + weight(fill = false)
+            //    居中，顶栏下方（backdrop 采样区）是空白，顶栏模糊采样不到内容；
+            // 2) 不避让 topBar（Scaffold 内容区从 0 开始、topBar 叠在上方），若用
+            //    paddingValues.calculateTopPadding() 把内容推到 topBar 下方，顶栏模糊
+            //    采样的顶部区域仍是空白。内容顶部被 topBar 遮住的部分正是模糊层要采样的内容。
             Column(
                 modifier = Modifier
                     .fillMaxSize()

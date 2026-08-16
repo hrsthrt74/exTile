@@ -90,6 +90,7 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
+import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -97,6 +98,7 @@ import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.contentBottomPadding
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.microsoft.clarity.modifiers.clarityMask
 import com.microsoft.clarity.modifiers.clarityUnmask
@@ -131,6 +133,7 @@ import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Info
@@ -156,8 +159,13 @@ fun TileConfigScreen() {
     val isXiaomi = profile.isXiaomi
 
     // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
-    // 顶部栏模糊：效果不佳，故禁用（模糊开关关闭或 RuntimeShader 不支持时退回纯色）
     val isDynamicColor = LocalThemeSettings.current.isDynamicColorMode
+
+    // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色。
+    // 渐进模糊开启时由 BlurredBar 内部切换为渐变模糊（顶部最强、向下过渡到清晰）。
+    val backdrop = rememberBlurBackdrop(enabled = LocalThemeSettings.current.enableBlur)
+    val blurActive = backdrop != null
+    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     val haptic = LocalHapticFeedback.current
 
@@ -356,9 +364,11 @@ fun TileConfigScreen() {
         }
         // 宽屏（侧边 NavigationRail）用无大标题的 SmallTopAppBar，窄屏保留大标题 TopAppBar。
         // 顶栏形态跟随 LocalIsWideScreen 切换，与底部/侧边导航的布局联动。
+        // color：模糊开启时透明（让 BlurredBar 的模糊层透出），关闭时回退纯色表面。
         if (LocalIsWideScreen.current) {
             SmallTopAppBar(
                 title = "磁贴配置",
+                color = barColor,
                 scrollBehavior = scrollBehavior,
                 actions = topBarActions
             )
@@ -366,6 +376,7 @@ fun TileConfigScreen() {
             TopAppBar(
                 title = "磁贴配置",
                 largeTitle = "磁贴配置",
+                color = barColor,
                 scrollBehavior = scrollBehavior,
                 actions = topBarActions
             )
@@ -500,11 +511,13 @@ fun TileConfigScreen() {
      */
     @Composable
     fun TileGridPane(paddingValues: PaddingValues) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding() + 8.dp)
-        ) {
+        // 网格内容顶部避让：Scaffold 内容区从 (0,0) 开始、topBar 叠在上方，
+        // 用 contentPadding 让内容从顶栏下方开始（同时内容顶部会进入顶栏采样区供模糊捕获）。
+        // 注意：LazyGrid 的 item offset 不包含 contentPadding——contentPadding 是在
+        // place 阶段作为 visualOffset 叠加的（见 Compose LazyGridMeasuredItem.place），
+        // 虚线框基于 item offset 绘制时必须补回该偏移才能与磁贴/标题行对齐。
+        val gridContentTopPadding = paddingValues.calculateTopPadding() + 4.dp
+        Column(modifier = Modifier.fillMaxSize()) {
             key(isXiaomi, fixedTileValues) {
                 // 单一数据源（过滤固定卡片和 edit），含 exTile
                 val gridTiles = config.expandedTiles.filter { it !in fixedTileValues && it != "edit" }
@@ -618,6 +631,7 @@ fun TileConfigScreen() {
                             label = "tileElevation"
                         )
                         Box {
+                            // 一个 Grid（图标+图标背景+名+名）
                             Column(
                                 modifier = Modifier
                                     .longPressDraggableHandle(
@@ -889,23 +903,27 @@ fun TileConfigScreen() {
                                 val headerItem = visible.find { it.key == headerKey }
                                 // 可见的框内磁贴 item
                                 val innerVisible = visible.filter { it.key in innerKeys }
+                                // LazyGrid 的 item offset 不含 contentPadding（contentPadding 在
+                                // place 阶段作为 visualOffset 叠加），这里补回 contentPadding.top，
+                                // 否则虚线框会比磁贴/标题行整体高出顶栏高度
+                                val contentTopOffset = gridContentTopPadding.toPx()
                                 val top: Float
                                 val bottom: Float
                                 if (innerVisible.isEmpty()) {
                                     // 框内无磁贴：空框只包住标题行
                                     if (headerItem == null) return@drawBehind
-                                    top = headerItem.offset.y.toFloat()
-                                    bottom = (headerItem.offset.y + headerItem.size.height).toFloat()
+                                    top = headerItem.offset.y.toFloat() + contentTopOffset
+                                    bottom = (headerItem.offset.y + headerItem.size.height).toFloat() + contentTopOffset
                                 } else {
                                     // 有框内磁贴：框顶用标题行，框底用末行实际行底
                                     val lastRowStart = ((innerTiles.size - 1) / 4) * 4
                                     val lastRowKeys = innerTiles.subList(lastRowStart, innerTiles.size).toSet()
                                     val lastRowVisible = innerVisible.filter { it.key in lastRowKeys }
                                     val lastRowComplete = lastRowVisible.size == lastRowKeys.size
-                                    top = if (headerItem != null) headerItem.offset.y.toFloat()
-                                          else innerVisible.minOf { it.offset.y }.toFloat()
-                                    bottom = if (lastRowComplete) lastRowVisible.maxOf { it.offset.y + it.size.height }.toFloat()
-                                             else innerVisible.maxOf { it.offset.y + it.size.height }.toFloat()
+                                    top = if (headerItem != null) headerItem.offset.y.toFloat() + contentTopOffset
+                                          else innerVisible.minOf { it.offset.y }.toFloat() + contentTopOffset
+                                    bottom = if (lastRowComplete) lastRowVisible.maxOf { it.offset.y + it.size.height }.toFloat() + contentTopOffset
+                                             else innerVisible.maxOf { it.offset.y + it.size.height }.toFloat() + contentTopOffset
                                 }
                                 // 绘制裁剪到网格视口内，滚出屏幕的部分被裁掉
                                 clipRect {
@@ -927,6 +945,7 @@ fun TileConfigScreen() {
                         // 使框贴边撑满时磁贴距框线正好 10dp。
                         // 加上 Scaffold 已算好的挖孔/导航条 insets：竖屏水平为 0 保持原间距，
                         // 横屏/反向横屏自动避让左右摄像头挖孔；宽屏起始侧已消费，自动为 0
+                        top = gridContentTopPadding,
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current) + 10.dp,
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current) + 10.dp,
                         bottom = contentBottomPadding()
@@ -1403,12 +1422,20 @@ fun TileConfigScreen() {
     }
 
     Scaffold(
-            topBar = {
+        topBar = {
+            // 渐进模糊开启时使用渐变模糊（顶部最强、向下过渡到清晰），关闭时回退普通模糊
+            BlurredBar(backdrop, blurActive, progressive = LocalThemeSettings.current.progressiveBlur) {
                 TileTopAppBar()
             }
-        ) { paddingValues ->
+        }
+    ) { paddingValues ->
+        // 滚动内容挂载 backdrop，供顶部栏模糊捕获
+        Box(
+            modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
+        ) {
             TileGridPane(paddingValues)
         }
+    }
 
     AddTileSheet()
 
