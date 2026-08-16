@@ -9,12 +9,11 @@ activityCompose = "1.13.0"
 kotlin = "2.4.0"
 composeBom = "2026.02.01"
 navigationCompose = "2.8.5"
-navigation3 = "1.1.4"
 datastorePreferences = "1.0.0"
 shizukuApi = "13.1.5"
 shizukuProvider = "13.1.5"
 materialIconsExtended = "1.6.0"
-miuix = "0.9.3"
+miuix = "0.9.4-rc01"
 navigationeventCompose = "1.1.2"
 reorderable = "3.1.0"
 devicecompat = "2.6"
@@ -48,8 +47,6 @@ miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", ver
 androidx-navigationevent-compose = { group = "androidx.navigationevent", name = "navigationevent-compose", version.ref = "navigationeventCompose" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
-androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigation3-runtime", version.ref = "navigation3" }
-miuix-navigation3-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-navigation3-ui-android", version.ref = "miuix" }
 clarity-compose = { group = "com.microsoft.clarity", name = "clarity-compose", version.ref = "clarity" }
 markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 
