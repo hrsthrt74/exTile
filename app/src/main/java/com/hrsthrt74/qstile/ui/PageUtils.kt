@@ -56,7 +56,7 @@ fun blurBarColors(): BlurColors = BlurDefaults.blurColors(
 @Composable
 fun progressiveBlurBarColors(): BlurColors = BlurDefaults.blurColors(
     blendColors = listOf(
-        BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.8f))
+        BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f))
     )
 )
 
