@@ -45,15 +45,9 @@
         </activity>
 
         <activity
-            android:name=".LicensesActivity"
+            android:name=".DocsActivity"
             android:exported="false"
-            android:label="开源许可"
-            android:theme="@style/Theme.ExTile" />
-
-        <activity
-            android:name=".LegalDocumentsActivity"
-            android:exported="false"
-            android:label="法律文档"
+            android:label="Docs"
             android:theme="@style/Theme.ExTile" />
 
         <activity

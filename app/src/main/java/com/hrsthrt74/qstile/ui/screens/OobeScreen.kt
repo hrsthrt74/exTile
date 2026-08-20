@@ -1,6 +1,5 @@
 package com.hrsthrt74.qstile.ui.screens
 
-// android.graphics.drawable.Icon 与 miuix 的 Icon 组件重名，故用别名 AndroidIcon 区分
 import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Intent
@@ -47,11 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -61,9 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.state.ToggleableState
+import com.hrsthrt74.qstile.DocsActivity
 import com.hrsthrt74.qstile.R
-import com.hrsthrt74.qstile.LegalDocumentsActivity
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
@@ -89,8 +87,6 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Album
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
@@ -99,6 +95,7 @@ import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.function.Consumer
 import android.graphics.drawable.Icon as AndroidIcon
@@ -375,20 +372,20 @@ fun OobeScreen(
                     modifier = Modifier.size(24.dp)
                 )
 
-                // 统一的链接点击处理：根据 LinkAnnotation 的 tag 解析文档类型并打开对应法律文档。
+                // 统一的链接点击处理：根据 LinkAnnotation 的 tag 解析文档类型并打开 Docs 对应 Tab。
                 // 这里不再使用被弃用的 StringAnnotation + ClickableText，而是把点击行为与样式内嵌在
                 // LinkAnnotation.Clickable 中，由 Text 组件内部的 BasicText 自动渲染可点击区域并回调。
                 val openLegalDocument: (LinkAnnotation) -> Unit = { link ->
                     if (link is LinkAnnotation.Clickable) {
-                        runCatching { LegalDocumentType.valueOf(link.tag) }
+                        runCatching { DocsTab.valueOf(link.tag) }
                             .getOrNull()
-                            ?.let { type ->
+                            ?.let { tab ->
                                 context.startActivity(
-                                    Intent(context, LegalDocumentsActivity::class.java).putExtra(
+                                    Intent(context, DocsActivity::class.java).putExtra(
                                         // 注意：EXTRA 以 String 形式传递（枚举序列化后 getStringExtra 取不到），
                                         // 与 SettingsScreen 的写法保持一致，避免点击「用户协议」被兜底为隐私政策。
-                                        LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
-                                        type.name
+                                        DocsActivity.EXTRA_TAB,
+                                        tab.name
                                     )
                                 )
                             }
@@ -399,7 +396,7 @@ fun OobeScreen(
                     append("我已阅读并同意 ")
                     pushLink(
                         LinkAnnotation.Clickable(
-                            tag = LegalDocumentType.PRIVACY_POLICY.name,
+                            tag = DocsTab.PRIVACY_POLICY.name,
                             styles = TextLinkStyles(
                                 style = SpanStyle(
                                     color = MiuixTheme.colorScheme.primary,
@@ -414,7 +411,7 @@ fun OobeScreen(
                     append(" 和 ")
                     pushLink(
                         LinkAnnotation.Clickable(
-                            tag = LegalDocumentType.TERMS_OF_SERVICE.name,
+                            tag = DocsTab.TERMS_OF_SERVICE.name,
                             styles = TextLinkStyles(
                                 style = SpanStyle(
                                     color = MiuixTheme.colorScheme.primary,

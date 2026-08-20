@@ -63,9 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.DebugToolsActivity
+import com.hrsthrt74.qstile.DocsActivity
 import com.hrsthrt74.qstile.ExTileApplication
-import com.hrsthrt74.qstile.LegalDocumentsActivity
-import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -119,7 +118,6 @@ import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Import
 import top.yukonga.miuix.kmp.icon.extended.Info
-import top.yukonga.miuix.kmp.icon.extended.ListView
 import top.yukonga.miuix.kmp.icon.extended.Months
 import top.yukonga.miuix.kmp.icon.extended.Paste
 import top.yukonga.miuix.kmp.icon.extended.Remove
@@ -618,49 +616,14 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
             )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            // 文档
-            SmallTitle(
-                text = "文档",
-                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
-            )
-
-            // 开源许可
+             // 文档：隐私政策 / 用户协议 / 开源许可 统一入口，进入 Docs 页用 Tab 切换
             ArrowPreference(
-                title = "开源许可",
-                summary = "查看本应用使用的开源库及许可证",
+                title = "查看文档",
+                summary = "隐私政策、用户协议与开源许可",
                 onClick = {
-                    context.startActivity(Intent(context, LicensesActivity::class.java))
+                    context.startActivity(Intent(context, DocsActivity::class.java))
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.ListView) }
-            )
-
-            // 法律文档
-            ArrowPreference(
-                title = "隐私政策",
-                onClick = {
-                    context.startActivity(
-                        Intent(context, LegalDocumentsActivity::class.java).putExtra(
-                            LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
-                            LegalDocumentType.PRIVACY_POLICY.name
-                        )
-                    )
-                },
-                startAction = { PreferenceLeadingPlaceholder() }
-            )
-
-            ArrowPreference(
-                title = "用户协议",
-                onClick = {
-                    context.startActivity(
-                        Intent(context, LegalDocumentsActivity::class.java).putExtra(
-                            LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
-                            LegalDocumentType.TERMS_OF_SERVICE.name
-                        )
-                    )
-                },
-                startAction = { PreferenceLeadingPlaceholder() }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
