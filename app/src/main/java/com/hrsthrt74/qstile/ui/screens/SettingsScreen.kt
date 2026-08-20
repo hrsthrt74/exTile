@@ -817,6 +817,11 @@ fun SettingsScreen() {
                     // 酷安图标是 webp 彩色图片，保留原图颜色不染色
                     keepOriginalColor = true
                 )
+                AuthorPlatformItem(
+                    iconRes = R.drawable.ic_bilibili,
+                    label = "Bilibili",
+                    url = "https://space.bilibili.com/12090372"
+                )
             }
         }
     }
@@ -1420,7 +1425,7 @@ private fun AuthorPlatformItem(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
                 }
-                .padding(horizontal = 48.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 平台图标：纯色矢量图标（如 GitHub）用主题前景色染色以适配深浅色；
