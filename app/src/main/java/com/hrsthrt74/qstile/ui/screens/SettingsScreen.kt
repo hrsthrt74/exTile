@@ -1133,11 +1133,7 @@ fun SettingsScreen() {
                                 }
                             }
                         }
-                        // 使用 Miuix SearchBar 提供胶囊搜索框（支持按应用名或包名搜索）
-                        // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘
-                        // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
-                        // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
-                        // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                        // 搜索框（支持按应用名或包名搜索）
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SearchBar(
                                 expanded = false,
@@ -1146,15 +1142,17 @@ fun SettingsScreen() {
                                         appPickerSheetState.dismiss()
                                     }
                                 },
-                                insideMargin = DpSize(0.dp, 0.dp),
+                                insideMargin = DpSize(0.dp, 4.dp),
                                 inputField = {
                                     InputField(
                                         query = viewModel.appSearchQuery,
                                         onQueryChange = { viewModel.appSearchQuery = it },
                                         onSearch = {},
+                                        // 避免打开 sheet 时自动聚焦弹键盘
                                         expanded = false,
                                         onExpandedChange = {},
                                         label = "搜索",
+                                        color = MiuixTheme.colorScheme.surfaceContainerHighest,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 },

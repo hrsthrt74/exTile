@@ -229,9 +229,7 @@ fun TileConfigScreen() {
         // 共享的 actions 内容：撤销上一步按钮 + 三点菜单（清除配置 / 恢复默认）。
         // 抽成局部 lambda 变量，供宽/窄屏两个分支复用同一份实现，保证行为完全一致。
         val topBarActions: @Composable RowScope.() -> Unit = {
-            // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）。
-            // 出现动画为缩放 0.5→1 + 透明度 0→1 + 模糊 6dp→0dp，消失动画为反向；
-            // 不可用时整个图标不显示，故无需置灰。用默认图标色（不强调）。
+            // 撤销上一步：仅在存在可撤销快照时显示（一次完整拖拽或一次增删移动算一步）
             AnimatedVisibility(
                 visible = viewModel.undoSnapshot != null,
                 enter = fadeIn(animationSpec = tween(durationMillis = 200)) +
@@ -239,10 +237,8 @@ fun TileConfigScreen() {
                 exit = fadeOut(animationSpec = tween(durationMillis = 150)) +
                     scaleOut(targetScale = 0.5f, animationSpec = tween(durationMillis = 150))
             ) {
-                // 模糊半径随进入/退出过渡：隐藏时 4dp，显示时 0dp。
-                // 与 fade/scale 共用同一个 transition，进出完全同步；
-                // 时长与现有动画一致（进入 200ms / 退出 150ms）。
-                // 联动「设置-外观-模糊效果」：enableBlur 关闭时恒定 0dp，总是不模糊。
+                // 模糊半径随进入/退出过渡
+                // 联动「设置-外观-模糊效果」：enableBlur 关闭时总是不模糊
                 val blurRadius by if (LocalThemeSettings.current.enableBlur) {
                     transition.animateFloat(
                         transitionSpec = {
@@ -272,7 +268,6 @@ fun TileConfigScreen() {
                     Icon(
                         MiuixIcons.Undo,
                         contentDescription = "撤销上一步",
-                        // 只模糊图标本体（矢量图形亦可模糊，blur 作用于绘制节点）
                         modifier = Modifier.blur(blurRadius.dp)
                     )
                 }
@@ -295,7 +290,6 @@ fun TileConfigScreen() {
         }
         // 宽屏（侧边 NavigationRail）用无大标题的 SmallTopAppBar，窄屏保留大标题 TopAppBar。
         // 顶栏形态跟随 LocalIsWideScreen 切换，与底部/侧边导航的布局联动。
-        // color：模糊开启时透明（让 BlurredBar 的模糊层透出），关闭时回退纯色表面。
         if (LocalIsWideScreen.current) {
             SmallTopAppBar(
                 title = "磁贴配置",
@@ -321,7 +315,7 @@ fun TileConfigScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 // 俩卡片的外边距
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
             // 俩卡片中间的间距
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -359,7 +353,8 @@ fun TileConfigScreen() {
                                 Icon(
                                     painter = icon,
                                     contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                    tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                    tint =  if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39)
+                                            else MiuixTheme.colorScheme.primary,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }
@@ -877,11 +872,7 @@ fun TileConfigScreen() {
             }
 
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 使用 Miuix SearchBar 提供胶囊搜索框（支持按磁贴名或 value 搜索）。
-                // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘。
-                // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
-                // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
-                // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                // 搜索框（支持按磁贴名或 value 搜索）
                 SearchBar(
                     expanded = false,
                     onExpandedChange = { expanded ->
@@ -889,15 +880,17 @@ fun TileConfigScreen() {
                             addSheetState.dismiss()
                         }
                     },
-                    insideMargin = DpSize(0.dp, 0.dp),
+                    insideMargin = DpSize(0.dp, 4.dp),
                     inputField = {
                         InputField(
                             query = viewModel.addSearchQuery,
                             onQueryChange = { viewModel.addSearchQuery = it },
                             onSearch = {},
+                            // 避免打开 sheet 时自动聚焦弹键盘
                             expanded = false,
                             onExpandedChange = {},
                             label = "搜索",
+                            color = MiuixTheme.colorScheme.surfaceContainerHighest,
                             modifier = Modifier.fillMaxWidth()
                         )
                     },
@@ -1133,11 +1126,7 @@ fun TileConfigScreen() {
                     }
 
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // 使用 Miuix SearchBar 提供胶囊搜索框（支持按磁贴名 / 应用名 / 包名搜索）。
-                        // insideMargin 设为 0 去掉左右边距；InputField expanded=false 避免打开 sheet 时自动聚焦弹键盘。
-                        // 注意：SearchBar 必须用 expanded=false，否则其内置 NavigationBackHandler（isBackEnabled=expanded）
-                        // 会优先消费返回事件（组合在 sheet 内容内层，后注册者优先），导致 sheet 自带的跟手返回动画失效。
-                        // 搜索结果列表因此放到 SearchBar 外部渲染，content 传空。
+                        // 搜索框（支持按磁贴名 / 应用名 / 包名搜索）
                         SearchBar(
                             expanded = false,
                             onExpandedChange = { expanded ->
@@ -1145,15 +1134,17 @@ fun TileConfigScreen() {
                                     customSheetState.dismiss()
                                 }
                             },
-                            insideMargin = DpSize(0.dp, 0.dp),
+                            insideMargin = DpSize(0.dp, 4.dp),
                             inputField = {
                                 InputField(
                                     query = viewModel.customSearchQuery,
                                     onQueryChange = { viewModel.customSearchQuery = it },
                                     onSearch = {},
+                                    // 避免打开 sheet 时自动聚焦弹键盘
                                     expanded = false,
                                     onExpandedChange = {},
                                     label = "搜索",
+                                    color = MiuixTheme.colorScheme.surfaceContainerHighest,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             },
