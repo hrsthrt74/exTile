@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -338,94 +339,28 @@ fun OobeScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // TODO: 插图 - 待添加（illus_privacy）
-            // Card(modifier = Modifier.fillMaxWidth()) {
-            //     Image(
-            //         painter = painterResource(R.drawable.illus_privacy),
-            //         contentDescription = null,
-            //         modifier = Modifier.fillMaxWidth()
-            //     )
-            // }
-//            Spacer(modifier = Modifier.height(24.dp))
+             Card(modifier = Modifier.fillMaxWidth()) {
+                 Image(
+                     painter = painterResource(R.drawable.illus_privacy),
+                     contentDescription = null,
+                     modifier = Modifier.height(152.dp).align(Alignment.CenterHorizontally)
+                 )
+             }
+            Spacer(modifier = Modifier.height(24.dp))
             // 标题
             Text(
-                text = "数据与隐私",
+                text = "隐私与数据",
                 style = MiuixTheme.textStyles.title1,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "本应用使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。",
+                text = "在开始前，请同意我们的使用政策。",
                 style = MiuixTheme.textStyles.body1,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "此选项是可选的，且默认关闭。\n如对此有疑虑，也完全可以禁止本应用联网。",
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 说明卡片
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    // 收集的数据说明
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "收集的数据",
-                            style = MiuixTheme.textStyles.body1,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text =  "• 页面交互行为（有效/无效点击）\n" +
-                                    "• 设备基本信息（Android 版本、设备型号）\n" +
-                                    "• 本应用的信息（版本号等）",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-
-                    HorizontalDivider()
-
-                    // 不收集的数据说明
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "不会收集",
-                            style = MiuixTheme.textStyles.body1,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text =  "• 个人身份信息（联系方式等）\n" +
-                                    "• 敏感数据（应用列表、自定义磁贴的名称等）",
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 同意开关
-            Card(modifier = Modifier.fillMaxWidth()) {
-                SwitchPreference(
-                    title = "允许匿名数据收集",
-                    checked = clarityConsent.value,
-                    onCheckedChange = { newValue ->
-                        scope.launch {
-                            ConfigRepository.saveClarityConsent(context, newValue)
-                        }
-                    }
-                )
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // 法律文档使用 App 内置的离线副本，用户无需联网即可阅读。
@@ -450,8 +385,10 @@ fun OobeScreen(
                             ?.let { type ->
                                 context.startActivity(
                                     Intent(context, LegalDocumentsActivity::class.java).putExtra(
+                                        // 注意：EXTRA 以 String 形式传递（枚举序列化后 getStringExtra 取不到），
+                                        // 与 SettingsScreen 的写法保持一致，避免点击「用户协议」被兜底为隐私政策。
                                         LegalDocumentsActivity.EXTRA_DOCUMENT_TYPE,
-                                        type
+                                        type.name
                                     )
                                 )
                             }
@@ -502,6 +439,66 @@ fun OobeScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 同意开关
+            Card(modifier = Modifier.fillMaxWidth()) {
+                SwitchPreference(
+                    title = "允许匿名数据收集",
+                    summary = "可选使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。" +
+                            "如对此有疑虑，也完全可以禁止本应用联网。",
+                    checked = clarityConsent.value,
+                    onCheckedChange = { newValue ->
+                        scope.launch {
+                            ConfigRepository.saveClarityConsent(context, newValue)
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 说明卡片
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    // 收集的数据说明
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "收集的数据",
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text =  "• 页面交互行为（有效/无效点击）\n" +
+                                    "• 设备基本信息（Android 版本、设备型号）\n" +
+                                    "• 本应用的信息（版本号等）",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    // 不收集的数据说明
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "不会收集",
+                            style = MiuixTheme.textStyles.body1,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text =  "• 个人身份信息（联系方式等）\n" +
+                                    "• 敏感数据（应用列表、自定义磁贴的名称等）",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+                }
+            }
+
             // 内容区底部间距（与 PermissionStep / SetupStep 保持一致）
             Spacer(modifier = Modifier.height(stepContentBottomSpacing))
         }
@@ -525,7 +522,7 @@ fun OobeScreen(
                     Image(
                         painter = painterResource(R.drawable.illus_permission),
                         contentDescription = null,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.height(152.dp).align(Alignment.CenterHorizontally)
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -609,7 +606,7 @@ fun OobeScreen(
                     Image(
                         painter = painterResource(R.drawable.illus_sort),
                         contentDescription = null,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.height(152.dp).align(Alignment.CenterHorizontally)
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -1114,7 +1111,7 @@ private fun ImportPreviewCard(
     // 收纳磁贴 = 展开配置中去掉保留部分（去掉补回的 edit 后即 exTile 之后的磁贴）
     val hiddenTiles = result.expandedTiles.filter { it !in result.collapsedTiles }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 64.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
         )
