@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -43,11 +41,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -66,28 +61,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.ExTileApplication
 import com.hrsthrt74.qstile.LegalDocumentsActivity
 import com.hrsthrt74.qstile.LicensesActivity
 import com.hrsthrt74.qstile.R
-import com.microsoft.clarity.modifiers.clarityMask
-import com.hrsthrt74.qstile.data.BackupInfo
 import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.ThemeRepository
-import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
-import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
-import com.hrsthrt74.qstile.ui.screens.LegalDocumentType
+import com.hrsthrt74.qstile.viewmodel.SettingsViewModel
+import com.microsoft.clarity.modifiers.clarityMask
 import com.microsoft.clarity.modifiers.clarityUnmask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -114,16 +107,12 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
-import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Album
-import top.yukonga.miuix.kmp.icon.extended.All
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
-import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.File
 import top.yukonga.miuix.kmp.icon.extended.Forward
@@ -161,85 +150,15 @@ private val longPressBehaviorLabels = listOf("exTile", "系统设置", "自定�
 // 磁贴名预设选项的文案：与 ConfigRepository.TileLabelPreset.labels 保持一致
 private val tileLabelPresetLabels = listOf("更多磁贴", "展开 / 收起", "切换磁贴", "自定义")
 
-/**
- * 设置页可展开分类的标识。
- * 用于手风琴互斥展开（同一时间仅一个分类展开，点击当前展开的分类则折叠）。
- * 调试工具分类点击直接跳转 Activity，不参与展开，故不在枚举中。
- */
-private enum class SettingsCategory {
-    /** 通用：磁贴行为设置 */
-    GENERAL,
-
-    /** 外观：主题设置 */
-    APPEARANCE,
-
-    /** 数据：备份 / 恢复 / 系统导入 */
-    DATA,
-
-    /** 关于：版本 / GitHub / 开源许可 */
-    ABOUT
-}
-
-/** 应用选择器数据模型：包名 + 显示名 + 图标 */
-private data class LaunchableApp(
-    val packageName: String,
-    val label: String,
-    val icon: Drawable
-)
-
-/**
- * 获取所有可启动的应用（有 LAUNCHER intent 的应用）
- * @param context Context
- * @return 可启动应用列表
- */
-private fun getLaunchableApps(context: Context): List<LaunchableApp> {
-    val pm = context.packageManager
-    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-    return pm.queryIntentActivities(intent, 0).mapNotNull { resolveInfo ->
-        val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
-        val packageName = activityInfo.packageName
-        val label = try {
-            activityInfo.loadLabel(pm).toString()
-        } catch (e: Exception) {
-            packageName
-        }
-        val icon = try {
-            activityInfo.loadIcon(pm)
-        } catch (e: Exception) {
-            null
-        }
-        if (icon != null) LaunchableApp(packageName, label, icon) else null
-    }.distinctBy { it.packageName }.sortedBy { it.label }
-}
-
-/**
- * 解析备份 JSON 字符串为 [TileConfig]。
- * 使用正则匹配提取 expandedTiles 和 collapsedTiles 数组，容错性较弱。
- * @param json 备份 JSON 字符串
- * @return 解析后的磁贴配置，格式错误或解析失败返回 null
- */
-private fun parseBackupJson(json: String): TileConfig? {
-    return try {
-        val expandedMatch = Regex("\"expandedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
-        val collapsedMatch = Regex("\"collapsedTiles\":\\s*\\[([^\\]]+)\\]").find(json)
-        if (expandedMatch != null && collapsedMatch != null) {
-            val expanded = expandedMatch.groupValues[1].split(",")
-                .map { it.trim().removeSurrounding("\"") }
-                .filter { it.isNotBlank() }
-            val collapsed = collapsedMatch.groupValues[1].split(",")
-                .map { it.trim().removeSurrounding("\"") }
-                .filter { it.isNotBlank() }
-            TileConfig(expandedTiles = expanded, collapsedTiles = collapsed)
-        } else null
-    } catch (_: Exception) { null }
-}
-
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
+
+    // 获取 ViewModel
+    val viewModel: SettingsViewModel = viewModel()
 
     // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
     val themeSettings = LocalThemeSettings.current
@@ -249,43 +168,10 @@ fun SettingsScreen() {
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
-    var config by remember { mutableStateOf(TileConfig()) }
-    var currentSysuiTiles by remember { mutableStateOf("") }
-    var backupText by remember { mutableStateOf("") }
-
-    // ===== 设置项状态：本地可写状态 + 首次加载门控（防闪烁） =====
-    // 这些开关 UI 会「乐观更新」（点击立即改本地 + 写 DataStore），因此需要可写变量，
-    // 不能直接用 flow 的只读状态。防闪烁做法：初始均为各设置的默认值仅作占位，
-    // 在 LaunchedEffect 从 DataStore 读回真实值并置 settingsLoaded=true 之前 return 不渲染，
-    // 因此用户看不到默认值闪现（未就绪就空白）。
-
-    // 长按 exTile 磁贴行为设置
-    var longPressBehavior by remember { mutableIntStateOf(ConfigRepository.LongPressBehavior.OPEN_EXTILE) }
-    var customAppPackage by remember { mutableStateOf("") }
-    // 磁贴名（QS 面板中 exTile 磁贴显示标签）的预设选项与自定义名字
-    var tileLabelPreset by remember { mutableIntStateOf(ConfigRepository.TileLabelPreset.MORE_TILES) }
-    var tileLabelCustom by remember { mutableStateOf("") }
-    // exTile 磁贴图标（QS 面板中 exTile 磁贴显示的图标）的预设选项
-    var tileIcon by remember { mutableIntStateOf(ConfigRepository.TileIcon.DEFAULT) }
-    // 自定义磁贴名弹窗的临时输入内容（仅在弹出时写入，关闭时清空）
-    var customTileLabelInput by remember { mutableStateOf("") }
-    // 展开收起同时控制无字模式：磁贴切换展开/收起布局时同步 wordless_mode（见 ExTileService）
-    var wordlessModeSync by remember { mutableStateOf(false) }
-    // 展开收起同时控制融合设备中心：磁贴切换展开/收起布局时同步 smart_device_control（见 ExTileService）
-    var smartDeviceControlSync by remember { mutableStateOf(false) }
-    // 收起 QS 面板时自动收起磁贴布局（见 ExTileService.onStopListening）
-    var autoCollapseOnClose by remember { mutableStateOf(false) }
-    // 设置是否已全部从 DataStore 读出：false 时不渲染页面主体，避免闪默认值
-    var settingsLoaded by remember { mutableStateOf(false) }
-
     // 自定义应用选择器 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val appPickerSheetState = rememberSheetState()
     // 自定义磁贴名输入 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val customTileLabelSheetState = rememberSheetState()
-    // 应用选择器数据：null 表示尚未加载，列表在后台线程加载避免阻塞主线程
-    var launchableApps by remember { mutableStateOf<List<LaunchableApp>?>(null) }
-    // 应用选择器的搜索关键字：同时匹配应用名和包名
-    var appSearchQuery by remember { mutableStateOf("") }
 
     // 系统磁贴查看 / 备份结果 / 导入备份 三个 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val systemTilesSheetState = rememberSheetState()
@@ -297,12 +183,9 @@ fun SettingsScreen() {
     val authorSheetState = rememberSheetState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
-    var importBackupJson by remember { mutableStateOf("") }
     // 备份列表相关状态
     val backupListSheetState = rememberSheetState()
     val deleteBackupDialogState = rememberDialogState()
-    var backupList by remember { mutableStateOf<List<BackupInfo>>(emptyList()) }
-    var deleteTargetBackup by remember { mutableStateOf<BackupInfo?>(null) }
     // 「另存为」系统文件保存的 launcher：用户选择保存位置后将 JSON 写入
     val saveAsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -310,7 +193,7 @@ fun SettingsScreen() {
         uri?.let {
             try {
                 context.contentResolver.openOutputStream(it)?.use { stream ->
-                    stream.write(backupText.toByteArray())
+                    stream.write(viewModel.backupText.toByteArray())
                 }
                 Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
                 backupSheetState.dismiss()
@@ -328,68 +211,37 @@ fun SettingsScreen() {
                 val json = context.contentResolver.openInputStream(it)?.use { stream ->
                     stream.bufferedReader().readText()
                 } ?: return@let
-                val restored = parseBackupJson(json)
-                if (restored != null) {
-                    scope.launch {
-                        ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
-                        ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
-                        config = restored
+                scope.launch {
+                    if (viewModel.restoreFromJson(context, json)) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
                         }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                } else {
-                    Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
                 }
             } catch (_: Exception) {
                 Toast.makeText(context, "读取失败", Toast.LENGTH_SHORT).show()
             }
         }
     }
-    // 当前展开的设置分类（手风琴模式：同一时间仅一个展开，null 表示全部折叠）
-    var expandedCategory by remember { mutableStateOf<SettingsCategory?>(null) }
 
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
     // 首次进入页面：一次性读回全部设置项后再放行渲染（未就绪就空白，与主题/OOBE 门控策略一致）
     LaunchedEffect(Unit) {
-        config = ConfigRepository.getConfig(context)
-        longPressBehavior = ConfigRepository.getLongPressBehavior(context)
-        customAppPackage = ConfigRepository.getLongPressCustomApp(context)
-        tileLabelPreset = ConfigRepository.getTileLabelPreset(context)
-        tileLabelCustom = ConfigRepository.getTileLabelCustom(context)
-        tileIcon = ConfigRepository.getTileIcon(context)
-        wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
-        smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
-        autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
-        settingsLoaded = true
+        viewModel.loadSettings(context)
+        viewModel.loadSystemTiles(context)
     }
 
-    // 系统磁贴配置（currentSysuiTiles）只在「查看系统磁贴 / 备份」时用到，属次要数据。
-    // 单独后台加载，不参与上方渲染门控——否则 Shizuku 绑定异常（如未授权时
-    // bindUserService 空等超时）会拖到整页空白，即便有了 ensureBound 快速失败也要彻底解耦。
-    LaunchedEffect(Unit) {
-        currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: ""
-    }
-
-    if (!settingsLoaded) return
+    if (!viewModel.settingsLoaded) return
 
     // 打开应用选择器时，在后台线程加载应用列表（查询所有应用 + 加载图标较耗时）
     LaunchedEffect(appPickerSheetState.show) {
-        if (appPickerSheetState.show && launchableApps == null) {
-            launchableApps = withContext(Dispatchers.IO) {
-                getLaunchableApps(context)
-            }
-        }
-    }
-
-    fun generateBackupJson(): String {
-        return buildString {
-            append("{\n")
-            append("  \"expandedTiles\": [${config.expandedTiles.joinToString(", ") { "\"$it\"" }}],\n")
-            append("  \"collapsedTiles\": [${config.collapsedTiles.joinToString(", ") { "\"$it\"" }}],\n")
-            append("  \"currentSysuiTiles\": \"$currentSysuiTiles\"\n")
-            append("}")
+        if (appPickerSheetState.show) {
+            viewModel.loadLaunchableApps(context)
         }
     }
 
@@ -401,15 +253,15 @@ fun SettingsScreen() {
     fun GeneralCategoryCard() {
         val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
         // 已选自定义应用的显示名（包名 → 应用名）
-        val customAppLabel = remember(customAppPackage) {
-            if (customAppPackage.isBlank()) {
+        val customAppLabel = remember(viewModel.customAppPackage) {
+            if (viewModel.customAppPackage.isBlank()) {
                 "未选择"
             } else {
                 try {
-                    context.packageManager.getApplicationInfo(customAppPackage, 0)
+                    context.packageManager.getApplicationInfo(viewModel.customAppPackage, 0)
                         .loadLabel(context.packageManager).toString()
                 } catch (e: Exception) {
-                    customAppPackage
+                    viewModel.customAppPackage
                 }
             }
         }
@@ -417,15 +269,8 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = "通用",
             icon = MiuixIcons.Tune,
-            expanded = expandedCategory == SettingsCategory.GENERAL,
-            onToggle = {
-                // 手风琴互斥：点击当前展开的分类则折叠，否则切换展开
-                expandedCategory = if (expandedCategory == SettingsCategory.GENERAL) {
-                    null
-                } else {
-                    SettingsCategory.GENERAL
-                }
-            }
+            expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.GENERAL,
+            onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.GENERAL) }
         ) {
             SmallTitle(
                 text = "磁贴联动",
@@ -434,12 +279,9 @@ fun SettingsScreen() {
             SwitchPreference(
                 title = "无字模式",
                 summary = "展开显示磁贴名，收起隐藏",
-                checked = wordlessModeSync,
+                checked = viewModel.wordlessModeSync,
                 onCheckedChange = { enabled ->
-                    wordlessModeSync = enabled
-                    scope.launch {
-                        ConfigRepository.saveWordlessModeSync(context, enabled)
-                    }
+                    viewModel.saveWordlessModeSync(context, enabled)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Months) }
             )
@@ -447,12 +289,9 @@ fun SettingsScreen() {
             SwitchPreference(
                 title = "融合设备中心",
                 summary = "展开显示设备中心，收起隐藏",
-                checked = smartDeviceControlSync,
+                checked = viewModel.smartDeviceControlSync,
                 onCheckedChange = { enabled ->
-                    smartDeviceControlSync = enabled
-                    scope.launch {
-                        ConfigRepository.saveSmartDeviceControlSync(context, enabled)
-                    }
+                    viewModel.saveSmartDeviceControlSync(context, enabled)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.GridView) }
             )
@@ -460,12 +299,9 @@ fun SettingsScreen() {
             SwitchPreference(
                 title = "自动收起",
                 summary = "收起控制中心时，自动折叠",
-                checked = autoCollapseOnClose,
+                checked = viewModel.autoCollapseOnClose,
                 onCheckedChange = { enabled ->
-                    autoCollapseOnClose = enabled
-                    scope.launch {
-                        ConfigRepository.saveAutoCollapseOnClose(context, enabled)
-                    }
+                    viewModel.saveAutoCollapseOnClose(context, enabled)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Unpin) }
             )
@@ -499,12 +335,9 @@ fun SettingsScreen() {
             WindowSpinnerPreference(
                 title = "磁贴图标",
                 items = tileIconOptions,
-                selectedIndex = tileIcon,
+                selectedIndex = viewModel.tileIcon,
                 onSelectedIndexChange = { index ->
-                    tileIcon = index
-                    scope.launch {
-                        ConfigRepository.saveTileIcon(context, index)
-                    }
+                    viewModel.saveTileIcon(context, index)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Copy) }
             )
@@ -514,12 +347,9 @@ fun SettingsScreen() {
             WindowSpinnerPreference(
                 title = "磁贴名显示",
                 items = tileLabelOptions,
-                selectedIndex = tileLabelPreset,
+                selectedIndex = viewModel.tileLabelPreset,
                 onSelectedIndexChange = { index ->
-                    tileLabelPreset = index
-                    scope.launch {
-                        ConfigRepository.saveTileLabelPreset(context, index)
-                    }
+                    viewModel.saveTileLabelPreset(context, index)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Rename) }
             )
@@ -527,13 +357,13 @@ fun SettingsScreen() {
             // 仅当选择了「自定义」时显示自定义名字输入入口
             // 使用 AnimatedVisibility 实现平滑的展开/收起动画
             AnimatedVisibility(
-                visible = tileLabelPreset == ConfigRepository.TileLabelPreset.CUSTOM
+                visible = viewModel.tileLabelPreset == ConfigRepository.TileLabelPreset.CUSTOM
             ) {
                 ArrowPreference(
                     title = "显示标题",
                     endActions = {
                         Text(
-                            tileLabelCustom.ifBlank { "未设置" },
+                            viewModel.tileLabelCustom.ifBlank { "未设置" },
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                             modifier = Modifier.clarityMask()
@@ -541,7 +371,7 @@ fun SettingsScreen() {
                     },
                     onClick = {
                         // 打开输入 Sheet 前先用已保存的自定义名字填充输入框，方便用户直接修改
-                        customTileLabelInput = tileLabelCustom
+                        viewModel.customTileLabelInput = viewModel.tileLabelCustom
                         customTileLabelSheetState.show()
                     },
                     startAction = { PreferenceLeadingPlaceholder() }
@@ -554,12 +384,9 @@ fun SettingsScreen() {
                 title = "长按 exTile 磁贴\n跳转到",
                 // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
                 items = longPressBehaviorOptions,
-                selectedIndex = longPressBehavior,
+                selectedIndex = viewModel.longPressBehavior,
                 onSelectedIndexChange = { index ->
-                    longPressBehavior = index
-                    scope.launch {
-                        ConfigRepository.saveLongPressBehavior(context, index)
-                    }
+                    viewModel.saveLongPressBehavior(context, index)
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Forward) }
             )
@@ -567,7 +394,7 @@ fun SettingsScreen() {
             // 仅当选择了「跳转到自定义应用」时显示应用选择入口
             // 使用 AnimatedVisibility 实现平滑的展开/收起动画
             AnimatedVisibility(
-                visible = longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
+                visible = viewModel.longPressBehavior == ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
             ) {
                 ArrowPreference(
                     title = "跳转目标",
@@ -594,14 +421,8 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = "外观",
             icon = MiuixIcons.Background,
-            expanded = expandedCategory == SettingsCategory.APPEARANCE,
-            onToggle = {
-                expandedCategory = if (expandedCategory == SettingsCategory.APPEARANCE) {
-                    null
-                } else {
-                    SettingsCategory.APPEARANCE
-                }
-            }
+            expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.APPEARANCE,
+            onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.APPEARANCE) }
         ) {
             WindowSpinnerPreference(
                 title = "配色模式",
@@ -687,20 +508,14 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = "数据",
             icon = MiuixIcons.Backup,
-            expanded = expandedCategory == SettingsCategory.DATA,
-            onToggle = {
-                expandedCategory = if (expandedCategory == SettingsCategory.DATA) {
-                    null
-                } else {
-                    SettingsCategory.DATA
-                }
-            }
+            expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.DATA,
+            onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.DATA) }
         ) {
             ArrowPreference(
                 title = "备份",
 //                summary = "将当前配置导出为 JSON 格式",
                 onClick = {
-                    backupText = generateBackupJson()
+                    viewModel.backupText = viewModel.generateBackupJson()
                     backupSheetState.show()
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Remove) }
@@ -710,7 +525,7 @@ fun SettingsScreen() {
                 title = "恢复",
 //                summary = "从 JSON 文本恢复磁贴配置",
                 onClick = {
-                    importBackupJson = ""
+                    viewModel.clearImportBackupJson()
                     importBackupSheetState.show()
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Import) }
@@ -749,14 +564,8 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = "关于",
             icon = MiuixIcons.Info,
-            expanded = expandedCategory == SettingsCategory.ABOUT,
-            onToggle = {
-                expandedCategory = if (expandedCategory == SettingsCategory.ABOUT) {
-                    null
-                } else {
-                    SettingsCategory.ABOUT
-                }
-            }
+            expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.ABOUT,
+            onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.ABOUT) }
         ) {
             // 作者：头像 + 昵称 + 身份，点击弹出作者信息 Sheet 展示各社交平台入口
             ArrowPreference(
@@ -905,7 +714,7 @@ fun SettingsScreen() {
             title = "系统磁贴配置",
         ) {
             Text(
-                text = currentSysuiTiles.ifEmpty { "无数据" },
+                text = viewModel.currentSysuiTiles.ifEmpty { "无数据" },
                 style = MiuixTheme.textStyles.body2,
                 modifier = Modifier.padding(bottom = navBarBottomPadding)
             )
@@ -925,7 +734,7 @@ fun SettingsScreen() {
                     .padding(bottom = navBarBottomPadding)
             ) {
                 Text(
-                    text = backupText,
+                    text = viewModel.backupText,
                     // 别问为什么是脚注2
                     style = MiuixTheme.textStyles.footnote2,
                     modifier = Modifier
@@ -940,11 +749,7 @@ fun SettingsScreen() {
                 Button(
                     onClick = {
                         scope.launch {
-                            val fileName = BackupRepository.saveBackup(
-                                context = context,
-                                expandedTiles = config.expandedTiles,
-                                collapsedTiles = config.collapsedTiles
-                            )
+                            val fileName = viewModel.saveBackup(context)
                             if (fileName != null) {
                                 Toast.makeText(context, "已保存到本地", Toast.LENGTH_SHORT).show()
                                 backupSheetState.dismiss()
@@ -981,7 +786,7 @@ fun SettingsScreen() {
                 Button(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", backupText))
+                        clipboard.setPrimaryClip(ClipData.newPlainText("exTile backup", viewModel.backupText))
                         Toast.makeText(context, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
                         backupSheetState.dismiss()
                     },
@@ -1060,7 +865,7 @@ fun SettingsScreen() {
             state = importBackupSheetState,
             title = "导入备份",
             // 关闭动画完成后清空输入的 JSON，避免下次打开残留
-            onDismissed = { importBackupJson = "" },
+            onDismissed = { viewModel.clearImportBackupJson() },
         ) {
             Column(
                 modifier = Modifier
@@ -1072,9 +877,7 @@ fun SettingsScreen() {
                     onClick = {
                         // 关闭当前 Sheet 后打开备份列表 Sheet，避免多层 Sheet 堆叠
                         importBackupSheetState.dismiss()
-                        scope.launch {
-                            backupList = BackupRepository.getBackupList(context)
-                        }
+                        viewModel.loadBackupList(context)
                         backupListSheetState.show()
                     },
                     colors = ButtonDefaults.buttonColorsPrimary(),
@@ -1100,8 +903,8 @@ fun SettingsScreen() {
 
                 // 以下为原有的「粘贴 JSON」恢复方式
                 TextField(
-                    value = importBackupJson,
-                    onValueChange = { importBackupJson = it },
+                    value = viewModel.importBackupJson,
+                    onValueChange = { viewModel.importBackupJson = it },
                     label = "或粘贴 JSON 备份数据",
                     useLabelAsPlaceholder = true,
                     modifier = Modifier
@@ -1111,18 +914,14 @@ fun SettingsScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = {
-                        val restored = parseBackupJson(importBackupJson)
-                        if (restored != null) {
-                            scope.launch {
-                                ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
-                                ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
-                                config = restored
+                        scope.launch {
+                            if (viewModel.restoreFromJson(context, viewModel.importBackupJson)) {
                                 Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
+                                importBackupSheetState.dismiss()
+                                viewModel.clearImportBackupJson()
+                            } else {
+                                Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
                             }
-                            importBackupSheetState.dismiss()
-                            importBackupJson = ""
-                        } else {
-                            Toast.makeText(context, "格式错误", Toast.LENGTH_SHORT).show()
                         }
                     },
 //                    colors = ButtonDefaults.buttonColorsPrimary(),
@@ -1141,7 +940,7 @@ fun SettingsScreen() {
             state = customTileLabelSheetState,
             title = "自定义磁贴名",
             // 关闭动画完成后清空临时输入，避免下次打开残留
-            onDismissed = { customTileLabelInput = "" },
+            onDismissed = { viewModel.clearCustomTileLabelInput() },
         ) {
             Column(
                 modifier = Modifier
@@ -1149,8 +948,8 @@ fun SettingsScreen() {
                     .padding(bottom = navBarBottomPadding)
             ) {
                 TextField(
-                    value = customTileLabelInput,
-                    onValueChange = { customTileLabelInput = it },
+                    value = viewModel.customTileLabelInput,
+                    onValueChange = { viewModel.customTileLabelInput = it },
                     label = "输入磁贴名",
                     useLabelAsPlaceholder = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1159,11 +958,8 @@ fun SettingsScreen() {
                 Button(
                     onClick = {
                         // 去掉首尾空白后保存；空内容则视为未设置（显示时会回退到「更多磁贴」）
-                        val name = customTileLabelInput.trim()
-                        tileLabelCustom = name
-                        scope.launch {
-                            ConfigRepository.saveTileLabelCustom(context, name)
-                        }
+                        val name = viewModel.customTileLabelInput.trim()
+                        viewModel.saveTileLabelCustom(context, name)
                         customTileLabelSheetState.dismiss()
                     },
                     colors = ButtonDefaults.buttonColorsPrimary(),
@@ -1187,7 +983,7 @@ fun SettingsScreen() {
                     .fillMaxWidth()
                     .padding(bottom = navBarBottomPadding)
             ) {
-                if (backupList.isEmpty()) {
+                if (viewModel.backupList.isEmpty()) {
                     // 空状态提示
                     Text(
                         text = "暂无备份",
@@ -1204,7 +1000,7 @@ fun SettingsScreen() {
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(bottom = navBarBottomPadding)
                     ) {
-                        items(backupList, key = { it.fileName }) { backup ->
+                        items(viewModel.backupList, key = { it.fileName }) { backup ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1224,11 +1020,8 @@ fun SettingsScreen() {
                                             .weight(1f)
                                             .clickable {
                                                 scope.launch {
-                                                    val restored = BackupRepository.loadBackup(context, backup.fileName)
-                                                    if (restored != null) {
-                                                        ConfigRepository.saveExpandedTiles(context, restored.expandedTiles)
-                                                        ConfigRepository.saveCollapsedTiles(context, restored.collapsedTiles)
-                                                        config = restored
+                                                    val restored = viewModel.restoreFromBackup(context, backup)
+                                                    if (restored) {
                                                         withContext(Dispatchers.Main) {
                                                             Toast.makeText(context, "配置已恢复", Toast.LENGTH_SHORT).show()
                                                             backupListSheetState.dismiss()
@@ -1255,7 +1048,7 @@ fun SettingsScreen() {
 
                                     // 右侧：删除按钮
                                     IconButton(onClick = {
-                                        deleteTargetBackup = backup
+                                        viewModel.deleteTargetBackup = backup
                                         deleteBackupDialogState.show()
                                     }) {
                                         Icon(
@@ -1279,24 +1072,22 @@ fun SettingsScreen() {
         AppDialog(
             state = deleteBackupDialogState,
             title = "删除备份",
-            summary = "确定要删除备份「${deleteTargetBackup?.let { BackupRepository.formatDate(it.createdAt) } ?: ""}」吗？此操作不可撤销。",
+            summary = "确定要删除备份「${viewModel.deleteTargetBackup?.let { BackupRepository.formatDate(it.createdAt) } ?: ""}」吗？此操作不可撤销。",
             confirmText = "删除",
             destructive = true,
             onConfirm = {
-                val target = deleteTargetBackup ?: return@AppDialog
+                val target = viewModel.deleteTargetBackup ?: return@AppDialog
                 scope.launch {
-                    val success = BackupRepository.deleteBackup(context, target.fileName)
+                    val success = viewModel.deleteBackup(context, target)
                     if (success) {
-                        // 刷新备份列表
-                        backupList = BackupRepository.getBackupList(context)
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
-                deleteTargetBackup = null
+                viewModel.clearDeleteTargetBackup()
             },
-            onDismissed = { deleteTargetBackup = null }
+            onDismissed = { viewModel.clearDeleteTargetBackup() }
         )
     }
 
@@ -1310,10 +1101,8 @@ fun SettingsScreen() {
             confirmText = "确认",
             onConfirm = {
                 scope.launch {
-                    val tiles = SecureSettingsHelper.getCurrentTiles(context)
-                    if (tiles.isNotEmpty()) {
-                        ConfigRepository.saveExpandedTiles(context, tiles)
-                        config = config.copy(expandedTiles = tiles)
+                    val success = viewModel.importFromSystem(context)
+                    if (success) {
                         Toast.makeText(context, "已导入", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "无法读取", Toast.LENGTH_SHORT).show()
@@ -1330,11 +1119,11 @@ fun SettingsScreen() {
             state = appPickerSheetState,
             title = "选择应用",
             // 关闭动画完成后清空搜索关键字，避免下次打开残留
-            onDismissed = { appSearchQuery = "" },
+            onDismissed = { viewModel.clearAppSearchQuery() },
         ) {
             val haptic = LocalHapticFeedback.current
             // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
-            val apps = launchableApps
+            val apps = viewModel.launchableApps
             val isLoading = apps == null
 
             Column(modifier = Modifier.clarityMask()) {
@@ -1370,8 +1159,8 @@ fun SettingsScreen() {
                     }
                     else -> {
                         // 根据搜索关键字过滤：同时匹配应用名和包名（不区分大小写）
-                        val filteredApps = remember(apps, appSearchQuery) {
-                            val query = appSearchQuery.trim()
+                        val filteredApps = remember(apps, viewModel.appSearchQuery) {
+                            val query = viewModel.appSearchQuery.trim()
                             if (query.isEmpty()) {
                                 apps
                             } else {
@@ -1397,8 +1186,8 @@ fun SettingsScreen() {
                                 insideMargin = DpSize(0.dp, 0.dp),
                                 inputField = {
                                     InputField(
-                                        query = appSearchQuery,
-                                        onQueryChange = { appSearchQuery = it },
+                                        query = viewModel.appSearchQuery,
+                                        onQueryChange = { viewModel.appSearchQuery = it },
                                         onSearch = {},
                                         expanded = false,
                                         onExpandedChange = {},
@@ -1438,10 +1227,7 @@ fun SettingsScreen() {
                                         .padding(vertical = 4.dp)
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            customAppPackage = app.packageName
-                                            scope.launch {
-                                                ConfigRepository.saveLongPressCustomApp(context, app.packageName)
-                                            }
+                                            viewModel.saveCustomAppPackage(context, app.packageName)
                                             appPickerSheetState.dismiss()
                                         },
                                     insideMargin = PaddingValues(16.dp),
@@ -1511,7 +1297,7 @@ fun SettingsScreen() {
                 } else {
                     // 窄屏：保留大标题 TopAppBar
                     TopAppBar(
-                        title = "设置",
+                        title = "",
                         largeTitle = "设置",
                         color = barColor,
                         scrollBehavior = scrollBehavior,
