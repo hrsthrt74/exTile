@@ -46,7 +46,17 @@ class TileLongClickActivity : ComponentActivity() {
                         startActivity(intent)
                         Log.d(TAG, "LongClick: open settings")
                     }
-                    // 3. 跳转到自定义应用
+                    // 3. 跳转到融合设备中心（小米互联服务的设备互联页面）
+                    ConfigRepository.LongPressBehavior.OPEN_DEVICE_CENTER -> {
+                        val intent = Intent().setClassName(
+                            "com.milink.service",
+                            "com.miui.circulate.world.CirculateWorldActivity"
+                        )
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        Log.d(TAG, "LongClick: open device center")
+                    }
+                    // 4. 跳转到自定义应用
                     ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP -> {
                         if (customAppPackage.isNotBlank()) {
                             val launchIntent = packageManager.getLaunchIntentForPackage(customAppPackage)

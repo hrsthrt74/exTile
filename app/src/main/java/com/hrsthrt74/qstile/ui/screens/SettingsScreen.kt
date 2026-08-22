@@ -68,6 +68,7 @@ import com.hrsthrt74.qstile.ExTileApplication
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
@@ -144,7 +145,7 @@ private val PreferenceIconSize = 24.dp
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
-private val longPressBehaviorLabels = listOf("exTile", "系统设置", "自定义")
+private val longPressBehaviorLabels = listOf("exTile", "系统设置", "融合设备中心", "自定义")
 // 磁贴名预设选项的文案：与 ConfigRepository.TileLabelPreset.labels 保持一致
 private val tileLabelPresetLabels = listOf("更多磁贴", "展开 / 收起", "切换磁贴", "自定义")
 
@@ -249,7 +250,23 @@ fun SettingsScreen() {
     /** 通用分类卡片：磁贴行为设置 */
     @Composable
     fun GeneralCategoryCard() {
-        val longPressBehaviorOptions = remember { longPressBehaviorLabels.map { DropdownItem(text = it) } }
+        // 设备能力快照：用于判断是否为小米机型，非小米机型隐藏「融合设备中心」选项
+        val profile = remember { DeviceProfile.from(context) }
+        // 非小米机型移除「融合设备中心」；显示顺序与存储值解耦，
+        // 通过 displayedBehaviorValues 在「下拉索引 ↔ 存储值」之间双向映射
+        val (longPressBehaviorOptions, displayedBehaviorValues) = remember(profile.isXiaomi) {
+            // 显示顺序：exTile → 系统设置 → 融合设备中心 → 自定义
+            val all = longPressBehaviorLabels.zip(
+                listOf(
+                    ConfigRepository.LongPressBehavior.OPEN_EXTILE,
+                    ConfigRepository.LongPressBehavior.OPEN_SETTINGS,
+                    ConfigRepository.LongPressBehavior.OPEN_DEVICE_CENTER,
+                    ConfigRepository.LongPressBehavior.OPEN_CUSTOM_APP
+                )
+            )
+            val visible = if (profile.isXiaomi) all else all.filter { it.second != ConfigRepository.LongPressBehavior.OPEN_DEVICE_CENTER }
+            Pair(visible.map { DropdownItem(text = it.first) }, visible.map { it.second })
+        }
         // 已选自定义应用的显示名（包名 → 应用名）
         val customAppLabel = remember(viewModel.customAppPackage) {
             if (viewModel.customAppPackage.isBlank()) {
@@ -382,9 +399,10 @@ fun SettingsScreen() {
                 title = "长按 exTile 磁贴\n跳转到",
                 // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
                 items = longPressBehaviorOptions,
-                selectedIndex = viewModel.longPressBehavior,
+                // 下拉索引与存储值解耦：通过可见项列表双向映射
+                selectedIndex = displayedBehaviorValues.indexOf(viewModel.longPressBehavior).coerceAtLeast(0),
                 onSelectedIndexChange = { index ->
-                    viewModel.saveLongPressBehavior(context, index)
+                    viewModel.saveLongPressBehavior(context, displayedBehaviorValues[index])
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Forward) }
             )

@@ -41,9 +41,10 @@ object ConfigRepository {
         const val OPEN_EXTILE = 0      // 跳转到 exTile 应用
         const val OPEN_SETTINGS = 1    // 跳转到系统设置
         const val OPEN_CUSTOM_APP = 2  // 跳转到自定义应用
+        const val OPEN_DEVICE_CENTER = 3 // 跳转到融合设备中心（小米互联服务）
 
         /** 合法的取值范围，用于数据校验 */
-        const val MAX = OPEN_CUSTOM_APP
+        const val MAX = OPEN_DEVICE_CENTER
     }
 
     fun getConfigFlow(context: Context): Flow<TileConfig> {
