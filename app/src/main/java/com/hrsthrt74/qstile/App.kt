@@ -1,5 +1,6 @@
 package com.hrsthrt74.qstile
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.data.ConfigRepository
@@ -63,20 +65,22 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 导航路由封装类。
- * 每个 Screen 定义展示文本（title）及底部导航图标（icon）。
+ * 每个 Screen 定义标题字符串资源（titleRes）及底部导航图标（icon）。
+ * 标题持有 @StringRes 而非字面量，使用处在 Composable 上下文经 stringResource 解析，
+ * 以支持多语言（i18n）。
  */
-sealed class Screen(val title: String) {
+sealed class Screen(@StringRes val titleRes: Int) {
     @Composable abstract fun icon(): ImageVector
     /** 主页 Tab — drawable/home_outlined */
-    data object Home : Screen("主页") {
+    data object Home : Screen(R.string.nav_home) {
         @Composable override fun icon() = ImageVector.vectorResource(R.drawable.home_outlined)
     }
     /** 磁贴编辑 Tab — MIUIX Edit 图标 */
-    data object Config : Screen("编辑") {
+    data object Config : Screen(R.string.nav_config) {
         @Composable override fun icon() = MiuixIcons.Edit
     }
     /** 设置 Tab — MIUIX Settings 图标 */
-    data object SettingPage : Screen("设置") {
+    data object SettingPage : Screen(R.string.nav_settings) {
         @Composable override fun icon() = MiuixIcons.Settings
     }
 
@@ -237,7 +241,7 @@ private fun CompactScreenContent(
                             mainPagerState.animateToPage(index)
                         },
                         icon = screen.icon(),
-                        label = screen.title
+                        label = stringResource(screen.titleRes)
                     )
                 }
             }
@@ -282,7 +286,7 @@ private fun WideScreenContent(
                         mainPagerState.animateToPage(index)
                     },
                     icon = screen.icon(),
-                    label = screen.title,
+                    label = stringResource(screen.titleRes),
                 )
             }
         }

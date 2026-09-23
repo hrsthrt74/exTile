@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
@@ -67,6 +68,8 @@ fun HomeScreen(
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
+    // Toast 文案在 Composable 上下文预解析,避免 onClick 内 context.getString 触发「非配置感知」lint 错误
+    val noShizukuToast = stringResource(R.string.home_no_shizuku_toast)
     // 顶部栏滚动行为，标题会根据滚动折叠
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
@@ -149,7 +152,7 @@ fun HomeScreen(
                                 permState.markAutoRequestAfterResume()
                                 context.startActivity(launchIntent)
                             } else {
-                                Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, noShizukuToast, Toast.LENGTH_SHORT).show()
                             }
                         },
                         onRequestShizukuPermission = { permState.request() },
@@ -203,7 +206,7 @@ private fun StatsCard(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "使用统计",
+                    text = stringResource(R.string.home_stats_title),
                     style = MiuixTheme.textStyles.title3
                 )
             }
@@ -211,8 +214,8 @@ private fun StatsCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // 两行键值对：累计展开/收起次数
-            StatusRow("累计展开次数", totalExpandCount.toString())
-            StatusRow("累计收起次数", totalCollapseCount.toString())
+            StatusRow(stringResource(R.string.home_stats_expand_total), totalExpandCount.toString())
+            StatusRow(stringResource(R.string.home_stats_collapse_total), totalCollapseCount.toString())
         }
     }
 }

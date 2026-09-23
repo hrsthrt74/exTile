@@ -18,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
@@ -68,6 +70,8 @@ fun PermissionStatusCard(
     val context = LocalContext.current
     // adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理）
     val adbGuideDialogState = rememberDialogState()
+    // Toast 文案在 Composable 上下文预解析,避免 onConfirm 回调内 context.getString 触发「非配置感知」lint 错误
+    val commandCopiedToast = stringResource(R.string.perm_command_copied)
 
     Card(
         modifier = modifier.fillMaxWidth()
@@ -101,9 +105,9 @@ fun PermissionStatusCard(
                     // 标题：随加载态 / 授权结果变化
                     Text(
                         text = when {
-                            isLoading -> "正在检查权限..."
-                            status == ShizukuHelper.PermissionStatus.GRANTED -> "已获得权限"
-                            else -> "未获得必须权限"
+                            isLoading -> stringResource(R.string.perm_checking_title)
+                            status == ShizukuHelper.PermissionStatus.GRANTED -> stringResource(R.string.perm_granted_title)
+                            else -> stringResource(R.string.perm_denied_title)
                         },
                         style = MiuixTheme.textStyles.title3,
                         color = MiuixTheme.colorScheme.onSurface
@@ -111,18 +115,18 @@ fun PermissionStatusCard(
                     // 引导文案：按状态机给出下一步提示，加载态固定为「请稍候」
                     Text(
                         text = when {
-                            isLoading -> "请稍候"
+                            isLoading -> stringResource(R.string.perm_checking_hint)
                             status == ShizukuHelper.PermissionStatus.GRANTED ->
-                                "WRITE_SECURE_SETTINGS 已授权，磁贴切换可用"
+                                stringResource(R.string.perm_granted_desc)
                             status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED ->
-                                "未安装 Shizuku，可安装后自动授权，或使用 adb 手动授权"
+                                stringResource(R.string.perm_shizuku_not_installed_desc)
                             status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING ->
-                                "Shizuku 未运行，请先启动它"
+                                stringResource(R.string.perm_shizuku_not_running_desc)
                             status == ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED ->
-                                "需要授予 Shizuku 权限以自动授权"
+                                stringResource(R.string.perm_shizuku_not_granted_desc)
                             status == ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT ->
-                                "Shizuku 已就绪，可一键自动授权"
-                            else -> "自动授权失败，请重试或使用 adb 手动授权"
+                                stringResource(R.string.perm_needs_pm_grant_desc)
+                            else -> stringResource(R.string.perm_grant_failed_desc)
                         },
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -155,11 +159,11 @@ fun PermissionStatusCard(
                     }
                     // 主按钮文案：与回调一一对应
                     val mainText = when (status) {
-                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> "安装 Shizuku"
-                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> "启动 Shizuku"
-                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> "授予 Shizuku 权限"
-                        ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> "自动授权"
-                        ShizukuHelper.PermissionStatus.GRANT_FAILED -> "重试授权"
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED -> stringResource(R.string.perm_install_shizuku)
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING -> stringResource(R.string.perm_launch_shizuku)
+                        ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED -> stringResource(R.string.perm_grant_shizuku)
+                        ShizukuHelper.PermissionStatus.NEEDS_PM_GRANT -> stringResource(R.string.perm_auto_grant)
+                        ShizukuHelper.PermissionStatus.GRANT_FAILED -> stringResource(R.string.perm_retry_grant)
                         else -> null
                     }
 
@@ -178,7 +182,7 @@ fun PermissionStatusCard(
                     // showAdbGuide 在加载前后固定不变，随外层 AnimatedVisibility 一起展开收起。
                     if (showAdbGuide) {
                         TextButton(
-                            text = "使用 adb 手动授权",
+                            text = stringResource(R.string.perm_adb_button),
                             onClick = { adbGuideDialogState.show() },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -193,14 +197,14 @@ fun PermissionStatusCard(
     val adbGrantCommand = "adb shell pm grant ${context.packageName} android.permission.WRITE_SECURE_SETTINGS"
     AppDialog(
         state = adbGuideDialogState,
-        title = "adb 手动授权",
-        summary = "不使用 Shizuku 时，可通过以下命令手动授予 WRITE_SECURE_SETTINGS 权限：",
-        cancelText = "关闭",
-        confirmText = "复制命令",
+        title = stringResource(R.string.perm_adb_title),
+        summary = stringResource(R.string.perm_adb_summary),
+        cancelText = stringResource(R.string.common_close),
+        confirmText = stringResource(R.string.perm_copy_command),
         onConfirm = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("exTile adb grant", adbGrantCommand))
-            Toast.makeText(context, "命令已复制", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, commandCopiedToast, Toast.LENGTH_SHORT).show()
         }
     ) {
         Text(

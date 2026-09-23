@@ -1,4 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- ===== 通用 common_ ===== -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_confirm">Confirm</string>
+    <string name="common_close">Close</string>
+    <string name="common_none">None</string>
+    <!-- 列表拼接分隔符：中文用顿号、英文用逗号 -->
+    <string name="common_list_separator">", "</string>
+    <string name="common_back">Back</string>
+    <string name="common_next">Next</string>
+    <string name="common_got_it">Got it</string>
+    <string name="common_save">Save</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_restore">Restore</string>
+    <string name="common_loading">Loading…</string>
+    <string name="common_unknown">Unknown</string>
+    <string name="common_no_data">No data</string>
+    <string name="common_search">Search</string>
+
+    <!-- ===== 应用/磁贴标识 ===== -->
     <string name="app_name">exTile</string>
     <string name="tile_label">exTile</string>
+
+    <!-- ===== 底部/侧边导航 nav_ ===== -->
+    <string name="nav_home">Home</string>
+    <string name="nav_config">Edit</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- ===== 权限卡片 perm_(主页与 OOBE 共用)===== -->
+    <string name="perm_checking_title">Checking permissions…</string>
+    <string name="perm_granted_title">Permission granted</string>
+    <string name="perm_denied_title">Required permission not granted</string>
+    <string name="perm_checking_hint">Please wait</string>
+    <string name="perm_granted_desc">WRITE_SECURE_SETTINGS granted. Tile switching is ready to use.</string>
+    <string name="perm_shizuku_not_installed_desc">Shizuku is not installed. Install it to grant automatically, or use adb to grant manually.</string>
+    <string name="perm_shizuku_not_running_desc">Shizuku is not running. Please start it first.</string>
+    <string name="perm_shizuku_not_granted_desc">Shizuku permission is required for automatic granting.</string>
+    <string name="perm_needs_pm_grant_desc">Shizuku is ready. Grant with one tap.</string>
+    <string name="perm_grant_failed_desc">Automatic granting failed. Retry or use adb to grant manually.</string>
+    <string name="perm_install_shizuku">Install Shizuku</string>
+    <string name="perm_launch_shizuku">Launch Shizuku</string>
+    <string name="perm_grant_shizuku">Grant Shizuku permission</string>
+    <string name="perm_auto_grant">Grant automatically</string>
+    <string name="perm_retry_grant">Retry authorization</string>
+    <string name="perm_adb_button">Grant manually via adb</string>
+    <string name="perm_adb_title">Manual grant via adb</string>
+    <string name="perm_adb_summary">If you don\'t use Shizuku, grant WRITE_SECURE_SETTINGS manually with the following command:</string>
+    <string name="perm_copy_command">Copy command</string>
+    <string name="perm_command_copied">Command copied</string>
+    <string name="perm_shizuku_denied_toast">Shizuku authorization denied</string>
+    <string name="perm_ws_granted_toast">WRITE_SECURE_SETTINGS granted</string>
+    <string name="perm_grant_failed_toast">Failed to grant. Retry or use adb to grant manually.</string>
+
+    <!-- ===== OOBE 引导 oobe_ ===== -->
+    <!-- P0 欢迎页 -->
+    <string name="oobe_welcome_title">Welcome to exTile</string>
+    <string name="oobe_feature_qs_title">Enhanced control center</string>
+    <string name="oobe_feature_qs_desc">Add a set of advanced toggles to the control center</string>
+    <string name="oobe_feature_efficient_title">Simple yet efficient</string>
+    <string name="oobe_feature_efficient_desc">Secondary features, one tap away</string>
+    <string name="oobe_feature_offline_title">Local tool, no internet needed</string>
+    <string name="oobe_feature_offline_desc">Works fully offline</string>
+    <string name="oobe_unsupported_title">Not supported on stock Android 15 or above, sorry~</string>
+    <string name="oobe_unsupported_contact">False positive? Contact the developer</string>
+    <string name="oobe_get_started">Get started</string>
+    <!-- P1 数据与隐私页 -->
+    <string name="oobe_privacy_title">Privacy &amp; data</string>
+    <string name="oobe_privacy_subtitle">Please agree to our policies before getting started.</string>
+    <!-- 富文本分段:前缀 / 链接1 / 连接词 / 链接2(保留空格,语序见 OobeScreen) -->
+    <string name="oobe_legal_prefix">"I have read and agree to the "</string>
+    <string name="oobe_link_privacy">Privacy Policy</string>
+    <string name="oobe_legal_connector">" and the "</string>
+    <string name="oobe_link_terms">Terms of Service</string>
+    <string name="oobe_clarity_switch_title">Allow anonymous data collection</string>
+    <string name="oobe_clarity_switch_summary">Optionally use Microsoft Clarity for anonymous usage stats to help improve the app. If you have concerns, you can also keep this app from using the network entirely.</string>
+    <string name="oobe_data_collected_title">Data collected</string>
+    <string name="oobe_data_collected_list">• Page interactions (valid/invalid taps)\n• Basic device info (Android version, device model)\n• Info about this app (version, etc.)</string>
+    <string name="oobe_data_not_collected_title">Never collected</string>
+    <string name="oobe_data_not_collected_list">• Personal identity info (contact details, etc.)\n• Sensitive data (app list, custom tile names, etc.)</string>
+    <!-- P2 权限页 -->
+    <string name="oobe_permission_title">Grant permission</string>
+    <string name="oobe_permission_subtitle">exTile needs the WRITE_SECURE_SETTINGS permission\nto switch tile layouts</string>
+    <string name="oobe_permission_warning">*Without it, core features like tile switching won\'t work</string>
+    <!-- P3 配置页 -->
+    <string name="oobe_setup_title">Arrange tiles</string>
+    <string name="oobe_setup_subtitle">Open the control center, enter tile edit mode,\nand drag the exTile tile to the end of a row.</string>
+    <string name="oobe_rule_before_title">Tiles before exTile</string>
+    <string name="oobe_rule_before_desc">Always visible</string>
+    <string name="oobe_rule_after_title">Tiles after exTile</string>
+    <string name="oobe_rule_after_desc">Visible when expanded, hidden when collapsed</string>
+    <string name="oobe_importing">Reading system config…</string>
+    <string name="oobe_add_tile_button">Add exTile tile</string>
+    <string name="oobe_confirm_save">Confirm &amp; save</string>
+    <string name="oobe_setup_done">I\'m done configuring</string>
+    <string name="oobe_preview_keep">Keep</string>
+    <string name="oobe_preview_hide">Collapse</string>
+    <string name="oobe_read_failed_toast">Failed to read system config</string>
+    <!-- P4 完成页 -->
+    <string name="oobe_done_title">All set!</string>
+    <string name="oobe_done_desc">Tap the exTile tile to expand / collapse tiles~</string>
+    <!-- 跳过/对话框 -->
+    <string name="oobe_skip">Skip</string>
+    <string name="oobe_skip_guide">Skip setup</string>
+    <string name="oobe_skip_with_countdown">Skip setup (%1$d)</string>
+    <string name="oobe_skip_dialog_title">Skip setup?</string>
+    <string name="oobe_skip_dialog_summary">You\'ll proceed with the default layout. Without authorization, core features won\'t work. You can grant permission later on the home screen.</string>
+    <string name="oobe_skip_no_perm_dialog_title">Skip without granting?</string>
+    <string name="oobe_skip_no_perm_dialog_summary">Without authorization, core features won\'t work. You can grant permission later on the home screen</string>
+    <string name="oobe_no_extile_dialog_title">exTile tile not found</string>
+    <string name="oobe_no_extile_dialog_summary">The exTile tile wasn\'t found in the system config. Please add it in the control center first</string>
+    <string name="oobe_no_hidden_dialog_title">No tiles to collapse</string>
+    <string name="oobe_no_hidden_dialog_summary">Tip: place the tiles you want to collapse after the exTile tile.</string>
+    <string name="oobe_unsupported_skip_dialog_title">Skip setup?</string>
+    <string name="oobe_unsupported_skip_dialog_summary">The tile-switching approach may not work on this system, and forcing ahead could cause glitches. Skip setup and enter the app anyway?</string>
+
+    <!-- ===== 设置页 settings_ ===== -->
+    <!-- 通用分类 -->
+    <string name="settings_cat_general">General</string>
+    <string name="settings_section_tile_sync">Tile sync</string>
+    <string name="settings_wordless_title">Wordless mode</string>
+    <string name="settings_wordless_summary">Show tile labels when expanded, hide when collapsed</string>
+    <string name="settings_device_center_title">Xiaomi Smart Hub</string>
+    <string name="settings_device_center_summary">Show device center when expanded, hide when collapsed</string>
+    <string name="settings_auto_collapse_title">Auto-collapse</string>
+    <string name="settings_auto_collapse_summary">Collapse automatically when the control center closes</string>
+    <string name="settings_section_custom">Tile Customization</string>
+    <string name="settings_tile_icon_title">Icon</string>
+    <string name="settings_tile_icon_default">Default</string>
+    <string name="settings_tile_label_title">Label</string>
+    <string name="settings_display_label_title">Display label</string>
+    <string name="settings_not_set">Not set</string>
+    <string name="settings_none_selected">Not selected</string>
+    <string name="settings_longpress_title">Long press exTile tile opens</string>
+    <string name="settings_jump_target_title">Jump target</string>
+    <string name="settings_longpress_extile">exTile</string>
+    <string name="settings_longpress_settings">System settings</string>
+    <string name="settings_longpress_custom">Custom app</string>
+    <!-- 外观分类 -->
+    <string name="settings_theme_follow_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_cat_appearance">Appearance</string>
+    <string name="settings_color_mode_title">Color mode</string>
+    <string name="settings_dynamic_color_title">Dynamic color</string>
+    <string name="settings_dynamic_color_summary">Use Monet color</string>
+    <string name="settings_blur_title">Blur effects</string>
+    <string name="settings_blur_summary">Blur for top / bottom bars</string>
+    <string name="settings_progressive_blur_title">Progressive blur</string>
+    <string name="settings_progressive_blur_summary">Progressive blur on the top bar</string>
+    <!-- 磁贴名预设下拉 -->
+    <string name="settings_preset_more_tiles">More tiles</string>
+    <string name="settings_preset_expand_collapse">Expand / Collapse</string>
+    <string name="settings_preset_switch">Switch tiles</string>
+    <string name="settings_preset_custom">Custom</string>
+    <!-- 数据分类 -->
+    <string name="settings_cat_data">Data</string>
+    <string name="settings_backup_title">Backup</string>
+    <string name="settings_restore_title">Restore</string>
+    <string name="settings_section_tools">Tools</string>
+    <string name="settings_view_sysui_title">View system tile config</string>
+    <string name="settings_view_sysui_summary">sysui_qs_tiles value</string>
+    <string name="settings_import_system_title">Import tiles from system</string>
+    <string name="settings_import_system_summary">Save current system tile config as expanded state</string>
+    <string name="settings_import_system_dialog_summary">Save current system tile config as expanded state. The existing expanded config will be overwritten.</string>
+    <!-- 关于分类 -->
+    <string name="settings_cat_about">About</string>
+    <string name="settings_author_role">Developer &amp; Designer</string>
+    <string name="settings_author_avatar">Author avatar</string>
+    <string name="settings_version_title">Version</string>
+    <string name="settings_donate_title">Support the developer</string>
+    <string name="settings_donate_summary">Buy the author a coffee</string>
+    <string name="settings_donate_thanks">Thank you for your support~</string>
+    <string name="settings_donate_qr_desc">WeChat QR code</string>
+    <string name="settings_platform_coolapk">CoolAPK</string>
+    <string name="settings_docs_title">View documents</string>
+    <string name="settings_docs_summary">Privacy policy, terms of service &amp; open-source licenses</string>
+    <string name="settings_section_other">Other</string>
+    <string name="settings_clarity_title">Allow anonymous stats</string>
+    <string name="settings_clarity_summary">Use Microsoft Clarity for anonymous usage stats to help improve the app. Restart is required after turning off.</string>
+    <string name="settings_rerun_oobe_title">Run setup again</string>
+    <!-- Sheet / Dialog -->
+    <string name="settings_sheet_sysui_title">System tile config</string>
+    <string name="settings_sheet_backup_title">Backup data</string>
+    <string name="settings_saved_toast">Saved</string>
+    <string name="settings_saved_local_toast">Saved locally</string>
+    <string name="settings_save_failed_toast">Save failed</string>
+    <string name="settings_read_error_toast">Failed to read</string>
+    <string name="settings_save_as">Save as…</string>
+    <string name="settings_copied_toast">Copied to clipboard</string>
+    <string name="settings_restore_local">Restore from local backups</string>
+    <string name="settings_restore_file">Import from file</string>
+    <string name="settings_restore_paste_label">Or paste JSON backup data</string>
+    <string name="settings_restored_toast">Config restored</string>
+    <string name="settings_invalid_format_toast">Invalid format</string>
+    <string name="settings_sheet_custom_label_title">Custom tile label</string>
+    <string name="settings_custom_label_hint">Enter tile label</string>
+    <string name="settings_sheet_backup_list_title">Local backups</string>
+    <string name="settings_no_backups">No backups yet</string>
+    <string name="settings_load_failed_toast">Failed to load</string>
+    <string name="settings_backup_counts">Expand %1$d / Collapse %2$d</string>
+    <string name="settings_delete_backup_title">Delete backup</string>
+    <string name="settings_delete_backup_summary">Delete backup from %1$s? This action cannot be undone.</string>
+    <string name="settings_deleted_toast">Deleted</string>
+    <string name="settings_imported_toast">Imported</string>
+    <string name="settings_read_failed_toast">Unable to read</string>
+    <string name="settings_sheet_app_picker_title">Select an app</string>
+    <string name="settings_no_apps">No available apps</string>
+    <string name="settings_no_matching_apps">No matching apps</string>
+    <string name="settings_expand">Expand</string>
+    <string name="settings_collapse">Collapse</string>
+
+    <!-- ===== 磁贴编辑页 config_ ===== -->
+    <string name="config_title">Tile config</string>
+    <string name="config_undo_desc">Undo last step</string>
+    <string name="config_more_desc">More actions</string>
+    <string name="config_menu_clear">Clear current tiles</string>
+    <string name="config_clear_summary">This will clear all tile config. This action cannot be undone.</string>
+    <string name="config_clear_confirm">Clear</string>
+    <string name="config_menu_reset">Restore defaults</string>
+    <string name="config_reset_summary">Expanded and collapsed tile config will be reset to defaults. The current config will be lost.</string>
+    <string name="config_reset_confirm">Restore</string>
+    <string name="config_fixed_tooltip">System restriction: this tile cannot be moved</string>
+    <string name="config_fixed_label">Pinned tile</string>
+    <string name="config_add_desc">Add</string>
+    <string name="config_add_tiles">Add tiles</string>
+    <string name="config_add_custom_desc">Add custom</string>
+    <string name="config_add_custom_tiles">Add third-party tiles</string>
+    <string name="config_move_top">Move to top</string>
+    <string name="config_move_bottom">Move to bottom</string>
+    <string name="config_section_expanded">Tiles shown when expanded</string>
+    <string name="config_tip_title">Tip</string>
+    <string name="config_tip_content">Drag tiles behind exTile to collapse them. exTile itself is recommended to be placed at the end of the row.</string>
+    <string name="config_tip_desc">Expanded area explanation</string>
+    <string name="config_no_tiles">No available tiles</string>
+    <string name="config_no_matching_tiles">No matching tiles</string>
+    <string name="config_permission_needed">The app list permission is required to fetch tiles from other apps</string>
+    <string name="config_go_grant">Grant permission</string>
+    <string name="config_no_custom_tiles">No available custom tiles</string>
+
+    <!-- ===== 主页 home_ ===== -->
+    <string name="home_no_shizuku_toast">Shizuku app not found</string>
+    <string name="home_stats_title">Usage stats</string>
+    <string name="home_stats_expand_total">Total expands</string>
+    <string name="home_stats_collapse_total">Total collapses</string>
+
+    <!-- ===== 文档页 docs_ ===== -->
+    <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->
+    <string name="docs_screen_title">Documents</string>
+    <string name="docs_tab_privacy">Privacy</string>
+    <string name="docs_tab_terms">ToS</string>
+    <string name="docs_tab_licenses">Licenses</string>
+
+    <!-- ===== 主界面 main_ ===== -->
+    <string name="main_shizuku_granted_toast">Shizuku permission granted</string>
+    <string name="main_shizuku_denied_toast">Shizuku permission denied</string>
+
+    <!-- ===== 调试工具 debug_ ===== -->
+    <!-- 能力开关标签(prop/feature 门控的磁贴显示名,供调试页与注册表共用) -->
+    <string name="debug_label_ai_subtitles">Live Captions</string>
+    <string name="debug_label_voice_trans">Conversation Translation</string>
+    <string name="debug_label_one_handed">One-handed mode</string>
+    <string name="debug_label_nfc">NFC</string>
+    <string name="debug_label_auto_brightness">Auto-brightness</string>
+    <string name="debug_label_vibrate">Vibration</string>
+    <string name="debug_label_camera_flash">Flashlight</string>
+    <string name="debug_label_telephony">Mobile data</string>
+    <string name="debug_label_camera">Camera</string>
+    <!-- 能力开关 summary:模拟某个 prop / feature 取值 -->
+    <string name="debug_simulate">Simulate %1$s</string>
+    <!-- 页面结构 -->
+    <string name="debug_refresh_desc">Refresh</string>
+    <string name="debug_section_actions">Actions</string>
+    <string name="debug_section_status">Status</string>
+    <string name="debug_section_config">Current config</string>
+    <string name="debug_section_haptic">Haptics test</string>
+    <string name="debug_section_blur_demo">Blur reveal animation demo</string>
+    <string name="debug_section_flags">Capability flags</string>
+    <string name="debug_section_props">Prop gates</string>
+    <string name="debug_section_features">Hardware features</string>
+    <!-- 操作与演示 -->
+    <string name="debug_add_tile">Add tile to end</string>
+    <string name="debug_add_custom">Add custom tile to end</string>
+    <string name="debug_capability">Capability toggles (debug)</string>
+    <string name="debug_app_locale">Change app language</string>
+    <string name="debug_capability_note">Only applies to this run; restart the app to reset</string>
+    <string name="debug_demo_activate">Activate icon</string>
+    <string name="debug_demo_deactivate">Deactivate icon</string>
+    <string name="debug_demo_icon_desc">Blur reveal animation demo icon %1$ddp</string>
+    <string name="debug_add">Add</string>
+    <string name="debug_input_hint">Enter tile value, e.g. wifi / bt / custom(package/class)</string>
+    <string name="debug_input_required_toast">Please enter a tile value</string>
+    <string name="debug_no_system_tiles">No available system tiles</string>
+    <!-- 状态信息 -->
+    <string name="debug_shizuku_installed">Shizuku installed</string>
+    <string name="debug_shizuku_running">Shizuku running</string>
+    <string name="debug_yes">Yes</string>
+    <string name="debug_no">No</string>
+    <string name="debug_granted">Granted</string>
+    <string name="debug_not_granted">Not granted</string>
+    <string name="debug_expanded_count">Expanded tiles</string>
+    <string name="debug_collapsed_count">Collapsed tiles</string>
+    <string name="debug_system_tiles_count">System tiles</string>
+    <string name="debug_unavailable">Unavailable</string>
+    <string name="debug_when_expanded">When expanded</string>
+    <string name="debug_when_collapsed">When collapsed</string>
+    <!-- 能力开关 -->
+    <string name="debug_satellite">Satellite capability</string>
+    <string name="debug_satellite_summary">Simulate satellite support (controls the visibility of the satellite tile)</string>
+    <string name="debug_cooling_fan">Cooling fan capability</string>
+    <string name="debug_cooling_fan_summary">Simulate cooling fan support (controls the visibility of the cooling fan tile)</string>
+    <!-- Toast -->
+    <string name="debug_cannot_get_tiles_toast">Failed to get current tile list</string>
+    <string name="debug_added_toast">Added %1$s</string>
+    <string name="debug_add_failed_toast">Failed to add</string>
+    <string name="debug_operation_failed_toast">Operation failed: %1$s</string>
+    <string name="debug_title">Debug Tools</string>
+    <string name="docs_title">Docs</string>
+
 </resources>

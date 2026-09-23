@@ -12,7 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hrsthrt74.qstile.R
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
@@ -79,7 +81,7 @@ fun rememberDialogState(initialShow: Boolean = false): DialogState =
  * @param modifier 应用到 Dialog 内容上的修饰符
  * @param title 标题
  * @param summary 说明文字
- * @param cancelText 取消按钮文案（默认「取消」）
+ * @param cancelText 取消按钮文案（传 null 时使用资源默认「取消」，支持多语言）
  * @param confirmText 确认按钮文案
  * @param confirmEnabled 确认按钮是否可点击（默认 true）；为 false 时置灰禁用，
  *   常用于需要等待一段时间（如倒计时）后才允许确认的场景
@@ -94,7 +96,9 @@ fun AppDialog(
     modifier: Modifier = Modifier,
     title: String? = null,
     summary: String? = null,
-    cancelText: String = "取消",
+    // 取消按钮文案：默认参数不能调用 stringResource（非 Composable 上下文），
+    // 因此改为可空 + 函数体内按需解析，随系统语言自动重组
+    cancelText: String? = null,
     confirmText: String,
     confirmEnabled: Boolean = true,
     destructive: Boolean = false,
@@ -102,6 +106,9 @@ fun AppDialog(
     onDismissed: (() -> Unit)? = null,
     content: @Composable () -> Unit = {},
 ) {
+    // 解析取消按钮文案：外部未显式传参时回落到资源默认值
+    val resolvedCancelText = cancelText ?: stringResource(R.string.common_cancel)
+
     WindowDialog(
         show = state.show,
         title = title,
@@ -122,7 +129,7 @@ fun AppDialog(
         ) {
             // 左侧固定为取消按钮
             TextButton(
-                text = cancelText,
+                text = resolvedCancelText,
                 onClick = { state.dismiss() },
                 modifier = Modifier.weight(1f)
             )

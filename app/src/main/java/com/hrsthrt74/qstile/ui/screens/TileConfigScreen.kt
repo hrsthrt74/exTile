@@ -79,12 +79,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
@@ -267,7 +269,7 @@ fun TileConfigScreen() {
                 ) {
                     Icon(
                         MiuixIcons.Undo,
-                        contentDescription = "撤销上一步",
+                        contentDescription = stringResource(R.string.config_undo_desc),
                         modifier = Modifier.blur(blurRadius.dp)
                     )
                 }
@@ -275,24 +277,24 @@ fun TileConfigScreen() {
             val entry = DropdownEntry(
                 items = listOf(
                     DropdownItem(
-                        text = "清除当前配置的磁贴",
+                        text = stringResource(R.string.config_menu_clear),
                         onClick = { clearConfirmDialogState.show() }
                     ),
                     DropdownItem(
-                        text = "恢复默认设置",
+                        text = stringResource(R.string.config_menu_reset),
                         onClick = { resetConfirmDialogState.show() }
                     )
                 )
             )
             WindowIconDropdownMenu(entry = entry) {
-                Icon(MiuixIcons.More, contentDescription = "更多操作")
+                Icon(MiuixIcons.More, contentDescription = stringResource(R.string.config_more_desc))
             }
         }
         // 宽屏（侧边 NavigationRail）用无大标题的 SmallTopAppBar，窄屏保留大标题 TopAppBar。
         // 顶栏形态跟随 LocalIsWideScreen 切换，与底部/侧边导航的布局联动。
         if (LocalIsWideScreen.current) {
             SmallTopAppBar(
-                title = "磁贴配置",
+                title = stringResource(R.string.config_title),
                 color = barColor,
                 scrollBehavior = scrollBehavior,
                 actions = topBarActions
@@ -300,7 +302,7 @@ fun TileConfigScreen() {
         } else {
             TopAppBar(
                 title = "",
-                largeTitle = "磁贴配置",
+                largeTitle = stringResource(R.string.config_title),
                 color = barColor,
                 scrollBehavior = scrollBehavior,
                 actions = topBarActions
@@ -328,7 +330,7 @@ fun TileConfigScreen() {
                     tooltip = {
                         PlainTooltip {
                             Text(
-                                text = "系统限制此磁贴无法移动",
+                                text = stringResource(R.string.config_fixed_tooltip),
                                 style = MiuixTheme.textStyles.footnote1
                             )
                         }
@@ -369,7 +371,7 @@ fun TileConfigScreen() {
                                     style = MiuixTheme.textStyles.body1
                                 )
                                 Text(
-                                    text = "固定磁贴",
+                                    text = stringResource(R.string.config_fixed_label),
                                     style = MiuixTheme.textStyles.footnote2,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                 )
@@ -404,8 +406,8 @@ fun TileConfigScreen() {
                             delay = null
                         )
                 ) {
-                    Icon(MiuixIcons.AddCircle, contentDescription = "添加")
-                    Text("添加磁贴", modifier = Modifier.padding(start = 8.dp))
+                    Icon(MiuixIcons.AddCircle, contentDescription = stringResource(R.string.config_add_desc))
+                    Text(stringResource(R.string.config_add_tiles), modifier = Modifier.padding(start = 8.dp))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -423,8 +425,8 @@ fun TileConfigScreen() {
                             delay = null
                         )
                 ) {
-                    Icon(MiuixIcons.AddCircle, contentDescription = "添加自定义")
-                    Text("添加第三方磁贴", modifier = Modifier.padding(start = 8.dp))
+                    Icon(MiuixIcons.AddCircle, contentDescription = stringResource(R.string.config_add_custom_desc))
+                    Text(stringResource(R.string.config_add_custom_tiles), modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
@@ -580,7 +582,7 @@ fun TileConfigScreen() {
                                             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                                             // 移动到顶端（框外第一个，收起时最先显示）
                                             DropdownImpl(
-                                                text = "移动到顶端",
+                                                text = stringResource(R.string.config_move_top),
                                                 optionSize = 3,
                                                 isSelected = false,
                                                 index = 0,
@@ -592,7 +594,7 @@ fun TileConfigScreen() {
                                             )
                                             // 移动到底端（框内最后一个，仅展开时显示）
                                             DropdownImpl(
-                                                text = "移动到底端",
+                                                text = stringResource(R.string.config_move_bottom),
                                                 optionSize = 3,
                                                 isSelected = false,
                                                 index = 1,
@@ -604,7 +606,7 @@ fun TileConfigScreen() {
                                             )
                                             // 删除（错误颜色）
                                             DropdownImpl(
-                                                text = "删除",
+                                                text = stringResource(R.string.common_delete),
                                                 optionSize = 3,
                                                 isSelected = false,
                                                 index = 2,
@@ -670,7 +672,7 @@ fun TileConfigScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "展开后显示的磁贴",
+                            text = stringResource(R.string.config_section_expanded),
                             style = MiuixTheme.textStyles.subtitle,
                             color = frameColor,
                         )
@@ -682,10 +684,10 @@ fun TileConfigScreen() {
                             ),
                             tooltip = {
                                 RichTooltip(
-                                    title = {Text(text = "提示", style = MiuixTheme.textStyles.subtitle)}
+                                    title = {Text(text = stringResource(R.string.config_tip_title), style = MiuixTheme.textStyles.subtitle)}
                                 ) {
                                     Text(
-                                        text = "将磁贴拖动到 exTile 后面，即可收纳进「展开」磁贴。建议将 exTile 磁贴放置在行尾。",
+                                        text = stringResource(R.string.config_tip_content),
                                         style = MiuixTheme.textStyles.body2,
                                     )
                                 }
@@ -695,7 +697,7 @@ fun TileConfigScreen() {
                         ) {
                             Icon(
                                 MiuixIcons.Info,
-                                contentDescription = "展开区域说明",
+                                contentDescription = stringResource(R.string.config_tip_desc),
                                 tint = frameColor,
                                 modifier = Modifier
                                     .size(18.dp)
@@ -835,7 +837,7 @@ fun TileConfigScreen() {
     fun AddTileSheet() {
         AppBottomSheet(
             state = addSheetState,
-            title = "添加磁贴",
+            title = stringResource(R.string.config_add_tiles),
             // 关闭动画完成后清空搜索关键字，避免下次打开残留
             onDismissed = { viewModel.clearAddSearchQuery() },
         ) {
@@ -889,7 +891,7 @@ fun TileConfigScreen() {
                             // 避免打开 sheet 时自动聚焦弹键盘
                             expanded = false,
                             onExpandedChange = {},
-                            label = "搜索",
+                            label = stringResource(R.string.common_search),
                             color = MiuixTheme.colorScheme.surfaceContainerHighest,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -900,7 +902,8 @@ fun TileConfigScreen() {
                 if (filteredTiles.isEmpty()) {
                     // 无可添加磁贴 / 搜索无结果提示（区分文案）
                     Text(
-                        text = if (query.isEmpty()) "没有可用的磁贴" else "没有匹配的磁贴",
+                        text = if (query.isEmpty()) stringResource(R.string.config_no_tiles)
+                               else stringResource(R.string.config_no_matching_tiles),
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier
@@ -994,7 +997,7 @@ fun TileConfigScreen() {
     fun AddCustomTileSheet() {
         AppBottomSheet(
             state = customSheetState,
-            title = "添加第三方磁贴",
+            title = stringResource(R.string.config_add_custom_tiles),
             // 关闭动画完成后清空上次输入的磁贴值与搜索关键字，避免下次打开残留
             onDismissed = {
                 viewModel.clearCustomTileValue()
@@ -1054,7 +1057,7 @@ fun TileConfigScreen() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "需要读取应用列表权限才能获取其他应用的磁贴",
+                            text = stringResource(R.string.config_permission_needed),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             textAlign = TextAlign.Center
@@ -1070,7 +1073,7 @@ fun TileConfigScreen() {
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("前往授权")
+                            Text(stringResource(R.string.config_go_grant))
                         }
                     }
                 }
@@ -1087,7 +1090,7 @@ fun TileConfigScreen() {
                         InfiniteProgressIndicator()
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "加载中...",
+                            text = stringResource(R.string.common_loading),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -1102,7 +1105,7 @@ fun TileConfigScreen() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "没有可用的自定义磁贴",
+                            text = stringResource(R.string.config_no_custom_tiles),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             textAlign = TextAlign.Center
@@ -1143,7 +1146,7 @@ fun TileConfigScreen() {
                                     // 避免打开 sheet 时自动聚焦弹键盘
                                     expanded = false,
                                     onExpandedChange = {},
-                                    label = "搜索",
+                                    label = stringResource(R.string.common_search),
                                     color = MiuixTheme.colorScheme.surfaceContainerHighest,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -1154,7 +1157,7 @@ fun TileConfigScreen() {
                         if (filteredServices.isEmpty()) {
                             // 搜索无结果提示
                             Text(
-                                text = "没有匹配的磁贴",
+                                text = stringResource(R.string.config_no_matching_tiles),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier
@@ -1235,9 +1238,9 @@ fun TileConfigScreen() {
     fun ConfirmationDialogs() {
         AppDialog(
             state = clearConfirmDialogState,
-            title = "清除当前配置的磁贴",
-            summary = "将清空全部磁贴配置，此操作不可撤销。",
-            confirmText = "确认清除",
+            title = stringResource(R.string.config_menu_clear),
+            summary = stringResource(R.string.config_clear_summary),
+            confirmText = stringResource(R.string.config_clear_confirm),
             destructive = true,
             onConfirm = {
                 viewModel.updateGridTiles(emptyList(), context)
@@ -1246,9 +1249,9 @@ fun TileConfigScreen() {
 
         AppDialog(
             state = resetConfirmDialogState,
-            title = "恢复默认设置",
-            summary = "将展开和收起磁贴配置恢复为默认值，当前配置将丢失。",
-            confirmText = "确认恢复",
+            title = stringResource(R.string.config_menu_reset),
+            summary = stringResource(R.string.config_reset_summary),
+            confirmText = stringResource(R.string.config_reset_confirm),
             destructive = true,
             onConfirm = {
                 viewModel.updateConfig(TileConfig(), context)

@@ -1,5 +1,8 @@
 package com.hrsthrt74.qstile.data
 
+import androidx.annotation.StringRes
+import com.hrsthrt74.qstile.R
+
 /**
  * 磁贴可用性需求（flag 式约束）。
  *
@@ -79,13 +82,14 @@ sealed interface TileRequirement {
         )
 
         /**
-         * prop key → 磁贴显示名 映射，用于调试工具页开关标题。
+         * prop key → 磁贴显示名资源 映射，用于调试工具页开关标题。
+         * 持有 @StringRes 而非字面量，支持多语言；消费方在 Composable 上下文解析。
          * 新增 prop 时需同步补充，保证与 [gatedPropKeys] 一一对应。
          */
-        val gatedPropLabels: Map<String, String> = mapOf(
-            PROP_AI_SUBTITLES to "实时字幕",
-            PROP_VOICE_TRANS to "对话翻译",
-            PROP_ONE_HANDED to "单手模式",
+        val gatedPropLabels: Map<String, Int> = mapOf(
+            PROP_AI_SUBTITLES to R.string.debug_label_ai_subtitles,
+            PROP_VOICE_TRANS to R.string.debug_label_voice_trans,
+            PROP_ONE_HANDED to R.string.debug_label_one_handed,
         )
 
         // ===== 硬件特性门控的磁贴（PackageManager.hasSystemFeature 检测）=====
@@ -123,16 +127,17 @@ sealed interface TileRequirement {
         )
 
         /**
-         * feature → 磁贴显示名 映射，用于调试工具页开关标题。
+         * feature → 磁贴显示名资源 映射，用于调试工具页开关标题。
+         * 持有 @StringRes 而非字面量，支持多语言；消费方在 Composable 上下文解析。
          * 新增 feature 时需同步补充，保证与 [gatedFeatureKeys] 一一对应。
          */
-        val gatedFeatureLabels: Map<String, String> = mapOf(
-            FEATURE_NFC to "NFC",
-            FEATURE_AMBIENT_LIGHT to "自动亮度",
-            FEATURE_VIBRATOR to "振动",
-            FEATURE_CAMERA_FLASH to "手电筒",
-            FEATURE_TELEPHONY to "移动数据",
-            FEATURE_CAMERA to "相机",
+        val gatedFeatureLabels: Map<String, Int> = mapOf(
+            FEATURE_NFC to R.string.debug_label_nfc,
+            FEATURE_AMBIENT_LIGHT to R.string.debug_label_auto_brightness,
+            FEATURE_VIBRATOR to R.string.debug_label_vibrate,
+            FEATURE_CAMERA_FLASH to R.string.debug_label_camera_flash,
+            FEATURE_TELEPHONY to R.string.debug_label_telephony,
+            FEATURE_CAMERA to R.string.debug_label_camera,
         )
     }
 }

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===== 通用 common_ ===== -->
+    <string name="common_cancel">取消</string>
+    <string name="common_confirm">确认</string>
+    <string name="common_close">关闭</string>
+    <string name="common_none">无</string>
+    <!-- 列表拼接分隔符：中文用顿号、英文用逗号 -->
+    <string name="common_list_separator">、</string>
+    <string name="common_back">返回</string>
+    <string name="common_next">下一步</string>
+    <string name="common_got_it">知道了</string>
+    <string name="common_save">保存</string>
+    <string name="common_copy">复制</string>
+    <string name="common_delete">删除</string>
+    <string name="common_restore">恢复</string>
+    <string name="common_loading">加载中...</string>
+    <string name="common_unknown">未知</string>
+    <string name="common_no_data">无数据</string>
+    <string name="common_search">搜索</string>
+
+    <!-- ===== 应用/磁贴标识 ===== -->
+    <string name="app_name">exTile</string>
+    <string name="tile_label">exTile</string>
+
+    <!-- ===== 底部/侧边导航 nav_ ===== -->
+    <string name="nav_home">主页</string>
+    <string name="nav_config">编辑</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- ===== 权限卡片 perm_(主页与 OOBE 共用)===== -->
+    <string name="perm_checking_title">正在检查权限…</string>
+    <string name="perm_granted_title">已获得权限</string>
+    <string name="perm_denied_title">未获得必须权限</string>
+    <string name="perm_checking_hint">请稍候</string>
+    <string name="perm_granted_desc">WRITE_SECURE_SETTINGS 已授权，磁贴切换可用</string>
+    <string name="perm_shizuku_not_installed_desc">未安装 Shizuku，可安装后自动授权，或使用 adb 手动授权</string>
+    <string name="perm_shizuku_not_running_desc">Shizuku 未运行，请先启动它</string>
+    <string name="perm_shizuku_not_granted_desc">需要授予 Shizuku 权限以自动授权</string>
+    <string name="perm_needs_pm_grant_desc">Shizuku 已就绪，可一键自动授权</string>
+    <string name="perm_grant_failed_desc">自动授权失败，请重试或使用 adb 手动授权</string>
+    <string name="perm_install_shizuku">安装 Shizuku</string>
+    <string name="perm_launch_shizuku">启动 Shizuku</string>
+    <string name="perm_grant_shizuku">授予 Shizuku 权限</string>
+    <string name="perm_auto_grant">自动授权</string>
+    <string name="perm_retry_grant">重试授权</string>
+    <string name="perm_adb_button">使用 adb 手动授权</string>
+    <string name="perm_adb_title">adb 手动授权</string>
+    <string name="perm_adb_summary">不使用 Shizuku 时，可通过以下命令手动授予 WRITE_SECURE_SETTINGS 权限：</string>
+    <string name="perm_copy_command">复制命令</string>
+    <string name="perm_command_copied">命令已复制</string>
+    <string name="perm_shizuku_denied_toast">Shizuku 授权被拒绝</string>
+    <string name="perm_ws_granted_toast">WRITE_SECURE_SETTINGS 权限已授予</string>
+    <string name="perm_grant_failed_toast">权限授予失败，请重试或使用 adb 手动授权</string>
+
+    <!-- ===== OOBE 引导 oobe_ ===== -->
+    <!-- P0 欢迎页 -->
+    <string name="oobe_welcome_title">欢迎使用 exTile</string>
+    <string name="oobe_feature_qs_title">增强控制中心</string>
+    <string name="oobe_feature_qs_desc">为控制中心添加一系列高级功能</string>
+    <string name="oobe_feature_efficient_title">简洁而又不失高效</string>
+    <string name="oobe_feature_efficient_desc">次级功能，点击即出</string>
+    <string name="oobe_feature_offline_title">本地工具，无需联网</string>
+    <string name="oobe_feature_offline_desc">可离线使用</string>
+    <string name="oobe_unsupported_title">本应用暂不支持类原生 Android 15 及以上，抱歉~</string>
+    <string name="oobe_unsupported_contact">有误判？请联系作者</string>
+    <string name="oobe_get_started">开始使用</string>
+    <!-- P1 数据与隐私页 -->
+    <string name="oobe_privacy_title">隐私与数据</string>
+    <string name="oobe_privacy_subtitle">在开始前，请同意我们的使用政策。</string>
+    <!-- 富文本分段:前缀 / 链接1 / 连接词 / 链接2(保留空格,语序见 OobeScreen) -->
+    <string name="oobe_legal_prefix">"我已阅读并同意 "</string>
+    <string name="oobe_link_privacy">隐私政策</string>
+    <string name="oobe_legal_connector">" 和 "</string>
+    <string name="oobe_link_terms">用户协议</string>
+    <string name="oobe_clarity_switch_title">允许匿名数据收集</string>
+    <string name="oobe_clarity_switch_summary">可选使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。如对此有疑虑，也完全可以禁止本应用联网。</string>
+    <string name="oobe_data_collected_title">收集的数据</string>
+    <string name="oobe_data_collected_list">• 页面交互行为（有效/无效点击）\n• 设备基本信息（Android 版本、设备型号）\n• 本应用的信息（版本号等）</string>
+    <string name="oobe_data_not_collected_title">不会收集</string>
+    <string name="oobe_data_not_collected_list">• 个人身份信息（联系方式等）\n• 敏感数据（应用列表、自定义磁贴的名称等）</string>
+    <!-- P2 权限页 -->
+    <string name="oobe_permission_title">授权权限</string>
+    <string name="oobe_permission_subtitle">exTile 需要 WRITE_SECURE_SETTINGS 权限\n来切换磁贴布局</string>
+    <string name="oobe_permission_warning">*未授权将无法使用磁贴切换等核心功能</string>
+    <!-- P3 配置页 -->
+    <string name="oobe_setup_title">排列磁贴</string>
+    <string name="oobe_setup_subtitle">打开控制中心，进入磁贴编辑界面，\n把 exTile 磁贴拖动到一行的末尾。</string>
+    <string name="oobe_rule_before_title">exTile 之前的磁贴</string>
+    <string name="oobe_rule_before_desc">始终显示</string>
+    <string name="oobe_rule_after_title">exTile 之后的磁贴</string>
+    <string name="oobe_rule_after_desc">展开显示，收起隐藏</string>
+    <string name="oobe_importing">正在读取系统配置...</string>
+    <string name="oobe_add_tile_button">添加 exTile 磁贴</string>
+    <string name="oobe_confirm_save">确认保存</string>
+    <string name="oobe_setup_done">我已配置完成</string>
+    <string name="oobe_preview_keep">保留</string>
+    <string name="oobe_preview_hide">收纳</string>
+    <string name="oobe_read_failed_toast">无法读取系统配置</string>
+    <!-- P4 完成页 -->
+    <string name="oobe_done_title">配置完成！</string>
+    <string name="oobe_done_desc">点击 exTile 磁贴，即可展开 / 收起磁贴~</string>
+    <!-- 跳过/对话框 -->
+    <string name="oobe_skip">跳过</string>
+    <string name="oobe_skip_guide">跳过引导</string>
+    <string name="oobe_skip_with_countdown">跳过引导 (%1$d)</string>
+    <string name="oobe_skip_dialog_title">确定跳过引导？</string>
+    <string name="oobe_skip_dialog_summary">将使用默认配置直接进入。不授权将无法使用核心功能，可稍后在主页完成授权。</string>
+    <string name="oobe_skip_no_perm_dialog_title">确定跳过？</string>
+    <string name="oobe_skip_no_perm_dialog_summary">不授权将无法使用核心功能，可稍后在主页完成授权</string>
+    <string name="oobe_no_extile_dialog_title">未找到 exTile 磁贴</string>
+    <string name="oobe_no_extile_dialog_summary">未在系统配置中找到 exTile 磁贴，请先在控制中心添加它</string>
+    <string name="oobe_no_hidden_dialog_title">没有需要收纳的磁贴</string>
+    <string name="oobe_no_hidden_dialog_summary">提示：请将需要收纳的磁贴放在「exTile」磁贴之后。</string>
+    <string name="oobe_unsupported_skip_dialog_title">确定要跳过引导？</string>
+    <string name="oobe_unsupported_skip_dialog_summary">当前系统下本应用的磁贴切换方案可能不可用，强制继续可能出现功能异常。确定要跳过引导直接进入应用吗？</string>
+
+    <!-- ===== 设置页 settings_ ===== -->
+    <!-- 通用分类 -->
+    <string name="settings_cat_general">通用</string>
+    <string name="settings_section_tile_sync">磁贴联动</string>
+    <string name="settings_wordless_title">无字模式</string>
+    <string name="settings_wordless_summary">展开显示磁贴名，收起隐藏</string>
+    <string name="settings_device_center_title">融合设备中心</string>
+    <string name="settings_device_center_summary">展开显示设备中心，收起隐藏</string>
+    <string name="settings_auto_collapse_title">自动收起</string>
+    <string name="settings_auto_collapse_summary">收起控制中心时，自动折叠</string>
+    <string name="settings_section_custom">自定义</string>
+    <string name="settings_tile_icon_title">磁贴图标</string>
+    <string name="settings_tile_icon_default">默认</string>
+    <string name="settings_tile_label_title">磁贴名显示</string>
+    <string name="settings_display_label_title">显示标题</string>
+    <string name="settings_not_set">未设置</string>
+    <string name="settings_none_selected">未选择</string>
+    <string name="settings_longpress_title">长按 exTile 磁贴\n跳转到</string>
+    <string name="settings_jump_target_title">跳转目标</string>
+    <string name="settings_longpress_extile">exTile</string>
+    <string name="settings_longpress_settings">系统设置</string>
+    <string name="settings_longpress_custom">自定义</string>
+    <!-- 外观分类 -->
+    <string name="settings_theme_follow_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_cat_appearance">外观</string>
+    <string name="settings_color_mode_title">配色模式</string>
+    <string name="settings_dynamic_color_title">动态取色</string>
+    <string name="settings_dynamic_color_summary">使用 Monet 配色</string>
+    <string name="settings_blur_title">模糊效果</string>
+    <string name="settings_blur_summary">顶栏 / 底栏的模糊</string>
+    <string name="settings_progressive_blur_title">渐进模糊</string>
+    <string name="settings_progressive_blur_summary">顶栏使用渐变模糊效果</string>
+    <!-- 磁贴名预设下拉 -->
+    <string name="settings_preset_more_tiles">更多磁贴</string>
+    <string name="settings_preset_expand_collapse">展开 / 收起</string>
+    <string name="settings_preset_switch">切换磁贴</string>
+    <string name="settings_preset_custom">自定义</string>
+    <!-- 数据分类 -->
+    <string name="settings_cat_data">数据</string>
+    <string name="settings_backup_title">备份</string>
+    <string name="settings_restore_title">恢复</string>
+    <string name="settings_section_tools">工具</string>
+    <string name="settings_view_sysui_title">查看系统磁贴配置</string>
+    <string name="settings_view_sysui_summary">sysui_qs_tiles 值</string>
+    <string name="settings_import_system_title">从系统导入磁贴</string>
+    <string name="settings_import_system_summary">将当前系统磁贴配置保存为展开状态</string>
+    <string name="settings_import_system_dialog_summary">将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。</string>
+    <!-- 关于分类 -->
+    <string name="settings_cat_about">关于</string>
+    <string name="settings_author_role">开发 / 设计</string>
+    <string name="settings_author_avatar">作者头像</string>
+    <string name="settings_version_title">版本</string>
+    <string name="settings_donate_title">支持作者</string>
+    <string name="settings_donate_summary">给作者加个鸡腿</string>
+    <string name="settings_donate_thanks">感谢有你，我才能走得更远～</string>
+    <string name="settings_donate_qr_desc">微信收款码</string>
+    <string name="settings_platform_coolapk">酷安</string>
+    <string name="settings_docs_title">查看文档</string>
+    <string name="settings_docs_summary">隐私政策、用户协议与开源许可</string>
+    <string name="settings_section_other">其他</string>
+    <string name="settings_clarity_title">允许匿名统计</string>
+    <string name="settings_clarity_summary">使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。关闭需重启应用生效。</string>
+    <string name="settings_rerun_oobe_title">重新运行引导</string>
+    <!-- Sheet / Dialog -->
+    <string name="settings_sheet_sysui_title">系统磁贴配置</string>
+    <string name="settings_sheet_backup_title">备份数据</string>
+    <string name="settings_saved_toast">已保存</string>
+    <string name="settings_saved_local_toast">已保存到本地</string>
+    <string name="settings_save_failed_toast">保存失败</string>
+    <string name="settings_read_error_toast">读取失败</string>
+    <string name="settings_save_as">另存为…</string>
+    <string name="settings_copied_toast">已复制到剪贴板</string>
+    <string name="settings_restore_local">从本地备份恢复</string>
+    <string name="settings_restore_file">从文件导入</string>
+    <string name="settings_restore_paste_label">或粘贴 JSON 备份数据</string>
+    <string name="settings_restored_toast">配置已恢复</string>
+    <string name="settings_invalid_format_toast">格式错误</string>
+    <string name="settings_sheet_custom_label_title">自定义磁贴名</string>
+    <string name="settings_custom_label_hint">输入磁贴名</string>
+    <string name="settings_sheet_backup_list_title">本地备份</string>
+    <string name="settings_no_backups">暂无备份</string>
+    <string name="settings_load_failed_toast">加载失败</string>
+    <string name="settings_backup_counts">展开 %1$d 个 / 收起 %2$d 个</string>
+    <string name="settings_delete_backup_title">删除备份</string>
+    <string name="settings_delete_backup_summary">确定要删除备份「%1$s」吗？此操作不可撤销。</string>
+    <string name="settings_deleted_toast">已删除</string>
+    <string name="settings_imported_toast">已导入</string>
+    <string name="settings_read_failed_toast">无法读取</string>
+    <string name="settings_sheet_app_picker_title">选择应用</string>
+    <string name="settings_no_apps">没有可用的应用</string>
+    <string name="settings_no_matching_apps">没有匹配的应用</string>
+    <string name="settings_expand">展开</string>
+    <string name="settings_collapse">收起</string>
+
+    <!-- ===== 磁贴编辑页 config_ ===== -->
+    <string name="config_title">磁贴配置</string>
+    <string name="config_undo_desc">撤销上一步</string>
+    <string name="config_more_desc">更多操作</string>
+    <string name="config_menu_clear">清除当前配置的磁贴</string>
+    <string name="config_clear_summary">将清空全部磁贴配置，此操作不可撤销。</string>
+    <string name="config_clear_confirm">确认清除</string>
+    <string name="config_menu_reset">恢复默认设置</string>
+    <string name="config_reset_summary">将展开和收起磁贴配置恢复为默认值，当前配置将丢失。</string>
+    <string name="config_reset_confirm">确认恢复</string>
+    <string name="config_fixed_tooltip">系统限制此磁贴无法移动</string>
+    <string name="config_fixed_label">固定磁贴</string>
+    <string name="config_add_desc">添加</string>
+    <string name="config_add_tiles">添加磁贴</string>
+    <string name="config_add_custom_desc">添加自定义</string>
+    <string name="config_add_custom_tiles">添加第三方磁贴</string>
+    <string name="config_move_top">移动到顶端</string>
+    <string name="config_move_bottom">移动到底端</string>
+    <string name="config_section_expanded">展开后显示的磁贴</string>
+    <string name="config_tip_title">提示</string>
+    <string name="config_tip_content">将磁贴拖动到 exTile 后面，即可收纳进「展开」磁贴。建议将 exTile 磁贴放置在行尾。</string>
+    <string name="config_tip_desc">展开区域说明</string>
+    <string name="config_no_tiles">没有可用的磁贴</string>
+    <string name="config_no_matching_tiles">没有匹配的磁贴</string>
+    <string name="config_permission_needed">需要读取应用列表权限才能获取其他应用的磁贴</string>
+    <string name="config_go_grant">前往授权</string>
+    <string name="config_no_custom_tiles">没有可用的自定义磁贴</string>
+
+    <!-- ===== 主页 home_ ===== -->
+    <string name="home_no_shizuku_toast">未找到 Shizuku 应用</string>
+    <string name="home_stats_title">使用统计</string>
+    <string name="home_stats_expand_total">累计展开次数</string>
+    <string name="home_stats_collapse_total">累计收起次数</string>
+
+    <!-- ===== 文档页 docs_ ===== -->
+    <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->
+    <string name="docs_screen_title">文档</string>
+    <string name="docs_tab_privacy">隐私政策</string>
+    <string name="docs_tab_terms">用户协议</string>
+    <string name="docs_tab_licenses">开源许可</string>
+
+    <!-- ===== 主界面 main_ ===== -->
+    <string name="main_shizuku_granted_toast">Shizuku 权限已授予</string>
+    <string name="main_shizuku_denied_toast">Shizuku 权限被拒绝</string>
+
+    <!-- ===== 调试工具 debug_ ===== -->
+    <!-- 能力开关标签(prop/feature 门控的磁贴显示名,供调试页与注册表共用) -->
+    <string name="debug_label_ai_subtitles">实时字幕</string>
+    <string name="debug_label_voice_trans">对话翻译</string>
+    <string name="debug_label_one_handed">单手模式</string>
+    <string name="debug_label_nfc">NFC</string>
+    <string name="debug_label_auto_brightness">自动亮度</string>
+    <string name="debug_label_vibrate">振动</string>
+    <string name="debug_label_camera_flash">手电筒</string>
+    <string name="debug_label_telephony">移动数据</string>
+    <string name="debug_label_camera">相机</string>
+    <!-- 能力开关 summary:模拟某个 prop / feature 取值 -->
+    <string name="debug_simulate">模拟 %1$s</string>
+    <!-- 页面结构 -->
+    <string name="debug_refresh_desc">刷新</string>
+    <string name="debug_section_actions">操作</string>
+    <string name="debug_section_status">状态信息</string>
+    <string name="debug_section_config">当前配置</string>
+    <string name="debug_section_haptic">震动测试</string>
+    <string name="debug_section_blur_demo">模糊浮现动画演示</string>
+    <string name="debug_section_flags">能力 flag</string>
+    <string name="debug_section_props">prop 门控</string>
+    <string name="debug_section_features">硬件特性</string>
+    <!-- 操作与演示 -->
+    <string name="debug_add_tile">添加磁贴到末尾</string>
+    <string name="debug_add_custom">添加自定义磁贴到末尾</string>
+    <string name="debug_capability">能力开关（调试）</string>
+    <string name="debug_app_locale">更改应用语言</string>
+    <string name="debug_capability_note">仅本次运行生效，重启应用恢复默认</string>
+    <string name="debug_demo_activate">激活 icon</string>
+    <string name="debug_demo_deactivate">禁用 icon</string>
+    <string name="debug_demo_icon_desc">模糊浮现动画演示图标 %1$ddp</string>
+    <string name="debug_add">添加</string>
+    <string name="debug_input_hint">输入磁贴值，如 wifi / bt / custom(包名/类名)</string>
+    <string name="debug_input_required_toast">请输入磁贴值</string>
+    <string name="debug_no_system_tiles">没有可用的系统磁贴</string>
+    <!-- 状态信息 -->
+    <string name="debug_shizuku_installed">Shizuku 已安装</string>
+    <string name="debug_shizuku_running">Shizuku 运行中</string>
+    <string name="debug_yes">是</string>
+    <string name="debug_no">否</string>
+    <string name="debug_granted">已授权</string>
+    <string name="debug_not_granted">未授权</string>
+    <string name="debug_expanded_count">展开磁贴数</string>
+    <string name="debug_collapsed_count">收起磁贴数</string>
+    <string name="debug_system_tiles_count">系统磁贴数</string>
+    <string name="debug_unavailable">无法获取</string>
+    <string name="debug_when_expanded">展开时</string>
+    <string name="debug_when_collapsed">收起时</string>
+    <!-- 能力开关 -->
+    <string name="debug_satellite">卫星通讯能力</string>
+    <string name="debug_satellite_summary">模拟设备是否支持卫星通讯（控制「卫星通信」磁贴可见性）</string>
+    <string name="debug_cooling_fan">散热风扇能力</string>
+    <string name="debug_cooling_fan_summary">模拟设备是否带散热风扇（控制「散热风扇」磁贴可见性）</string>
+    <!-- Toast -->
+    <string name="debug_cannot_get_tiles_toast">无法获取当前磁贴列表</string>
+    <string name="debug_added_toast">已添加 %1$s</string>
+    <string name="debug_add_failed_toast">添加失败</string>
+    <string name="debug_operation_failed_toast">操作失败: %1$s</string>
+    <string name="debug_title">调试工具</string>
+    <string name="docs_title">Docs</string>
+
+</resources>

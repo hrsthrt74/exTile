@@ -1,6 +1,9 @@
 package com.hrsthrt74.qstile.ui.screens
 
+import android.content.Intent
+import android.provider.Settings
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateFloat
@@ -51,6 +54,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -58,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
@@ -119,6 +124,15 @@ fun DebugToolsScreen() {
     // 能力开关（调试）Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val capabilitySheetState = rememberSheetState()
     var customTileInput by remember { mutableStateOf("") }
+
+    // Toast 文案在 Composable 上下文预解析(带 %1$s 参数的解析为格式模板,回调内用 format 填参),
+    // 避免 onClick/协程 lambda 内 context.getString 触发「非配置感知」lint 错误(LocalContextGetResourceValueCall)
+    val unavailableText = stringResource(R.string.debug_unavailable)
+    val cannotGetTilesToast = stringResource(R.string.debug_cannot_get_tiles_toast)
+    val addedToastTemplate = stringResource(R.string.debug_added_toast)
+    val addFailedToast = stringResource(R.string.debug_add_failed_toast)
+    val operationFailedToastTemplate = stringResource(R.string.debug_operation_failed_toast)
+    val inputRequiredToast = stringResource(R.string.debug_input_required_toast)
 
     // 设备能力快照（isXiaomi/isTablet/SDK 等一次性采集并缓存，见 DeviceProfile）
     val profile = remember { DeviceProfile.from(context) }
@@ -187,7 +201,7 @@ fun DebugToolsScreen() {
                 }
                 Icon(
                     MiuixIcons.Undo,
-                    contentDescription = "模糊浮现动画演示图标 ${size.value.toInt()}dp",
+                    contentDescription = stringResource(R.string.debug_demo_icon_desc, size.value.toInt()),
                     modifier = Modifier
                         .size(size)
                         .blur(blurRadius.dp)
@@ -200,7 +214,7 @@ fun DebugToolsScreen() {
         scope.launch {
             isLoading = true
             config = ConfigRepository.getConfig(context)
-            currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: "无法获取"
+            currentSysuiTiles = SecureSettingsHelper.getSysuiQsTiles(context) ?: unavailableText
             currentTiles = SecureSettingsHelper.getCurrentTiles(context)
             shizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
             shizukuRunning = ShizukuHelper.isShizukuRunning()
@@ -217,18 +231,18 @@ fun DebugToolsScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = "调试工具",
-                largeTitle = "调试工具",
+                title = stringResource(R.string.debug_title),
+                largeTitle = stringResource(R.string.debug_title),
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = { (context as? DebugToolsActivity)?.finish() }) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                        Icon(MiuixIcons.Back, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     // 刷新入口：右上角刷新图标按钮，点击重新加载调试信息
                     IconButton(onClick = { refreshDebugInfo() }) {
-                        Icon(MiuixIcons.Refresh, contentDescription = "刷新")
+                        Icon(MiuixIcons.Refresh, contentDescription = stringResource(R.string.debug_refresh_desc))
                     }
                 }
             )
@@ -241,8 +255,6 @@ fun DebugToolsScreen() {
                 .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
             contentPadding = PaddingValues(
                 top = paddingValues.calculateTopPadding() + 12.dp,
-//                start = 16.dp,
-//                end = 16.dp,
                 bottom = NavigationBarDefaults.ItemHeight +
                     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             ),
@@ -251,7 +263,7 @@ fun DebugToolsScreen() {
 
             // ===== 操作 =====
             item {
-                SmallTitle(text = "操作")
+                SmallTitle(text = stringResource(R.string.debug_section_actions))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -265,7 +277,7 @@ fun DebugToolsScreen() {
                             onClick = { addTileSheetState.show() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("添加磁贴到末尾")
+                            Text(stringResource(R.string.debug_add_tile))
                         }
 
                         Button(
@@ -275,14 +287,33 @@ fun DebugToolsScreen() {
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("添加自定义磁贴到末尾")
+                            Text(stringResource(R.string.debug_add_custom))
                         }
 
                         Button(
                             onClick = { capabilitySheetState.show() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("能力开关（调试）")
+                            Text(stringResource(R.string.debug_capability))
+                        }
+
+                        // 更改应用语言
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent =
+                                        Intent(Settings.ACTION_APP_LOCALE_SETTINGS).apply {
+                                            data = "package:${context.packageName}".toUri()
+                                        }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    // 兜底：个别 ROM 缺少该设置页时避免直接崩溃
+                                    Toast.makeText(context, operationFailedToastTemplate.format(e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.debug_app_locale))
                         }
 
 //                        Button(
@@ -341,7 +372,7 @@ fun DebugToolsScreen() {
 
             // ===== 状态信息 =====
             item {
-                SmallTitle(text = "状态信息")
+                SmallTitle(text = stringResource(R.string.debug_section_status))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -352,18 +383,30 @@ fun DebugToolsScreen() {
                     ) {
                         if (isLoading) {
                             Text(
-                                text = "加载中...",
+                                text = stringResource(R.string.common_loading),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                             )
                         } else {
-                            DebugInfoRow("Shizuku 已安装", if (shizukuInstalled) "是" else "否")
-                            DebugInfoRow("Shizuku 运行中", if (shizukuRunning) "是" else "否")
-                            DebugInfoRow("WRITE_SECURE_SETTINGS", if (hasWriteSecureSettings) "已授权" else "未授权")
-                            DebugInfoRow("QUERY_ALL_PACKAGES", if (hasQueryAllPackages) "已授权" else "未授权")
-                            DebugInfoRow("展开磁贴数", config.expandedTiles.size.toString())
-                            DebugInfoRow("收起磁贴数", config.collapsedTiles.size.toString())
-                            DebugInfoRow("系统磁贴数", currentTiles.size.toString())
+                            DebugInfoRow(
+                                stringResource(R.string.debug_shizuku_installed),
+                                stringResource(if (shizukuInstalled) R.string.debug_yes else R.string.debug_no)
+                            )
+                            DebugInfoRow(
+                                stringResource(R.string.debug_shizuku_running),
+                                stringResource(if (shizukuRunning) R.string.debug_yes else R.string.debug_no)
+                            )
+                            DebugInfoRow(
+                                "WRITE_SECURE_SETTINGS",
+                                stringResource(if (hasWriteSecureSettings) R.string.debug_granted else R.string.debug_not_granted)
+                            )
+                            DebugInfoRow(
+                                "QUERY_ALL_PACKAGES",
+                                stringResource(if (hasQueryAllPackages) R.string.debug_granted else R.string.debug_not_granted)
+                            )
+                            DebugInfoRow(stringResource(R.string.debug_expanded_count), config.expandedTiles.size.toString())
+                            DebugInfoRow(stringResource(R.string.debug_collapsed_count), config.collapsedTiles.size.toString())
+                            DebugInfoRow(stringResource(R.string.debug_system_tiles_count), currentTiles.size.toString())
                         }
                     }
                 }
@@ -372,7 +415,7 @@ fun DebugToolsScreen() {
 
             // ===== 当前配置 =====
             item {
-                SmallTitle(text = "当前配置")
+                SmallTitle(text = stringResource(R.string.debug_section_config))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -382,7 +425,7 @@ fun DebugToolsScreen() {
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "展开时",
+                            text = stringResource(R.string.debug_when_expanded),
                             style = MiuixTheme.textStyles.subtitle,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -406,7 +449,7 @@ fun DebugToolsScreen() {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "收起时",
+                            text = stringResource(R.string.debug_when_collapsed),
                             style = MiuixTheme.textStyles.subtitle,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -428,7 +471,7 @@ fun DebugToolsScreen() {
 
             // ===== 震动测试 =====
             item {
-                SmallTitle(text = "震动测试")
+                SmallTitle(text = stringResource(R.string.debug_section_haptic))
                 // 震动反馈实例：通过 LocalHapticFeedback 获取，点击按钮时仅触发对应类型的震动
                 val haptic = LocalHapticFeedback.current
                 Card(
@@ -475,7 +518,7 @@ fun DebugToolsScreen() {
 
             // ===== 模糊浮现动画演示 =====
             item {
-                SmallTitle(text = "模糊浮现动画演示")
+                SmallTitle(text = stringResource(R.string.debug_section_blur_demo))
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -515,7 +558,7 @@ fun DebugToolsScreen() {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("激活 icon")
+                                Text(stringResource(R.string.debug_demo_activate))
                             }
                             Button(
                                 onClick = {
@@ -524,7 +567,7 @@ fun DebugToolsScreen() {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("禁用 icon")
+                                Text(stringResource(R.string.debug_demo_deactivate))
                             }
                         }
                     }
@@ -537,7 +580,7 @@ fun DebugToolsScreen() {
     // 能力开关（调试）Sheet：集中管理 flag / prop / 硬件特性的调试开关
     AppBottomSheet(
         state = capabilitySheetState,
-        title = "能力开关（调试）",
+        title = stringResource(R.string.debug_capability),
     ) {
         // 内容可滚动，避免开关过多时超出窗口高度
         LazyColumn(
@@ -551,7 +594,7 @@ fun DebugToolsScreen() {
 
             item {
                 Text(
-                    text = "仅本次运行生效，重启应用恢复默认",
+                    text = stringResource(R.string.debug_capability_note),
                     textAlign = TextAlign.Center,
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -562,7 +605,7 @@ fun DebugToolsScreen() {
             // ===== 能力 flag =====
             item {
                 SmallTitle(
-                    text = "能力 flag",
+                    text = stringResource(R.string.debug_section_flags),
                     insideMargin = PaddingValues(16.dp, 8.dp)
                 )
             }
@@ -577,8 +620,8 @@ fun DebugToolsScreen() {
                 ) {
                     Column {
                         SwitchPreference(
-                            title = "卫星通讯能力",
-                            summary = "模拟设备是否支持卫星通讯（控制「卫星通信」磁贴可见性）",
+                            title = stringResource(R.string.debug_satellite),
+                            summary = stringResource(R.string.debug_satellite_summary),
                             checked = TileCapabilityFlags.satelliteOverride ?: profile.hasSatellite,
                             onCheckedChange = { enabled ->
                                 TileCapabilityFlags.satelliteOverride = enabled
@@ -586,8 +629,8 @@ fun DebugToolsScreen() {
                         )
 
                         SwitchPreference(
-                            title = "散热风扇能力",
-                            summary = "模拟设备是否带散热风扇（控制「散热风扇」磁贴可见性）",
+                            title = stringResource(R.string.debug_cooling_fan),
+                            summary = stringResource(R.string.debug_cooling_fan_summary),
                             checked = TileCapabilityFlags.coolingFanOverride ?: profile.hasCoolingFan,
                             onCheckedChange = { enabled ->
                                 TileCapabilityFlags.coolingFanOverride = enabled
@@ -600,7 +643,7 @@ fun DebugToolsScreen() {
             // ===== prop 门控 =====
             item {
                 SmallTitle(
-                    text = "prop 门控",
+                    text = stringResource(R.string.debug_section_props),
                     insideMargin = PaddingValues(16.dp, 8.dp)
                 )
             }
@@ -615,10 +658,11 @@ fun DebugToolsScreen() {
                     Column {
                         // 遍历注册表自动生成开关：新增 prop 后无需改 UI
                         TileRequirement.gatedPropKeys.forEach { key ->
-                            val label = TileRequirement.gatedPropLabels[key] ?: key
+                            // 注册表持有资源 id,在 Composable 上下文解析为文案
+                            val label = TileRequirement.gatedPropLabels[key]?.let { stringResource(it) } ?: key
                             SwitchPreference(
                                 title = label,
-                                summary = "模拟 $key",
+                                summary = stringResource(R.string.debug_simulate, key),
                                 checked = TileCapabilityFlags.propOverrides[key]
                                     ?: profile.gatedProps[key]
                                     ?: true,
@@ -634,7 +678,7 @@ fun DebugToolsScreen() {
             // ===== 硬件特性 =====
             item {
                 SmallTitle(
-                    text = "硬件特性",
+                    text = stringResource(R.string.debug_section_features),
                     insideMargin = PaddingValues(16.dp, 8.dp)
                 )
             }
@@ -649,10 +693,11 @@ fun DebugToolsScreen() {
                     Column {
                         // 遍历注册表自动生成开关：新增 feature 后无需改 UI
                         TileRequirement.gatedFeatureKeys.forEach { feature ->
-                            val label = TileRequirement.gatedFeatureLabels[feature] ?: feature
+                            // 注册表持有资源 id,在 Composable 上下文解析为文案
+                            val label = TileRequirement.gatedFeatureLabels[feature]?.let { stringResource(it) } ?: feature
                             SwitchPreference(
                                 title = label,
-                                summary = "模拟 $feature",
+                                summary = stringResource(R.string.debug_simulate, feature),
                                 checked = TileCapabilityFlags.featureOverrides[feature]
                                     ?: profile.features[feature]
                                     ?: true,
@@ -670,7 +715,7 @@ fun DebugToolsScreen() {
     // 添加磁贴到末尾的 Sheet
     AppBottomSheet(
         state = addTileSheetState,
-        title = "添加磁贴到末尾",
+        title = stringResource(R.string.debug_add_tile),
     ) {
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
@@ -682,7 +727,7 @@ fun DebugToolsScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "没有可用的系统磁贴",
+                    text = stringResource(R.string.debug_no_system_tiles),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
@@ -730,7 +775,7 @@ fun DebugToolsScreen() {
                                                 // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
                                                 val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
                                                 if (currentTileList.isEmpty()) {
-                                                    Toast.makeText(context, "无法获取当前磁贴列表", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, cannotGetTilesToast, Toast.LENGTH_SHORT).show()
                                                     return@launch
                                                 }
                                                 // 检查是否需要添加 ,edit
@@ -746,14 +791,14 @@ fun DebugToolsScreen() {
                                                 // 立即设置到系统
                                                 val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
                                                 if (success) {
-                                                    Toast.makeText(context, "已添加 ${tile.displayName}", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, addedToastTemplate.format(tile.displayName), Toast.LENGTH_SHORT).show()
                                                     addTileSheetState.dismiss()
                                                     refreshDebugInfo()
                                                 } else {
-                                                    Toast.makeText(context, "添加失败", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, addFailedToast, Toast.LENGTH_SHORT).show()
                                                 }
                                             } catch (e: Exception) {
-                                                Toast.makeText(context, "操作失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, operationFailedToastTemplate.format(e.message ?: ""), Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     },
@@ -797,7 +842,7 @@ fun DebugToolsScreen() {
     // 添加自定义磁贴到末尾的 Sheet：输入任意磁贴值（wifi/bt 或 custom(包名/类名) 等），不做校验
     AppBottomSheet(
         state = addCustomTileSheetState,
-        title = "添加自定义磁贴到末尾",
+        title = stringResource(R.string.debug_add_custom),
         // 关闭动画完成后清空上次输入的磁贴值，避免下次打开残留
         onDismissed = { customTileInput = "" },
     ) {
@@ -811,7 +856,7 @@ fun DebugToolsScreen() {
             TextField(
                 value = customTileInput,
                 onValueChange = { customTileInput = it },
-                label = "输入磁贴值，如 wifi / bt / custom(包名/类名)",
+                label = stringResource(R.string.debug_input_hint),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -821,7 +866,7 @@ fun DebugToolsScreen() {
                 onClick = {
                     val value = customTileInput.trim()
                     if (value.isEmpty()) {
-                        Toast.makeText(context, "请输入磁贴值", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, inputRequiredToast, Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     scope.launch {
@@ -829,7 +874,7 @@ fun DebugToolsScreen() {
                             // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
                             val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
                             if (currentTileList.isEmpty()) {
-                                Toast.makeText(context, "无法获取当前磁贴列表", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, cannotGetTilesToast, Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             // 检查是否需要添加 ,edit
@@ -845,22 +890,22 @@ fun DebugToolsScreen() {
                             // 立即设置到系统
                             val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
                             if (success) {
-                                Toast.makeText(context, "已添加 $value", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, addedToastTemplate.format(value), Toast.LENGTH_SHORT).show()
                                 addCustomTileSheetState.dismiss()
                                 customTileInput = ""
                                 refreshDebugInfo()
                             } else {
-                                Toast.makeText(context, "添加失败", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, addFailedToast, Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(context, "操作失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, operationFailedToastTemplate.format(e.message ?: ""), Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
                 colors = ButtonDefaults.buttonColorsPrimary(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("添加")
+                Text(stringResource(R.string.debug_add))
             }
         }
     }

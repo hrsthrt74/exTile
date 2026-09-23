@@ -190,6 +190,9 @@ fun OobeScreen(
     // 设备能力快照（P2 磁贴摘要的显示名映射用）
     val profile = remember { DeviceProfile.from(context) }
 
+    // Toast 文案在 Composable 上下文预解析,避免协程/回调内 context.getString 触发「非配置感知」lint 错误
+    val readFailedToast = stringResource(R.string.oobe_read_failed_toast)
+
     // 不支持设备的判断：类原生 AOSP 系统（非厂商定制 ROM）且 Android 15（SDK 35）及以上。
     // 该场景下本应用依赖的 WRITE_SECURE_SETTINGS 磁贴切换方案不可用，因此在欢迎页（P0）直接拦截：
     // 展示错误提示、禁用「开始使用」按钮、隐藏右上角「跳过」入口，阻止用户进入引导后续步骤。
@@ -213,7 +216,7 @@ fun OobeScreen(
                 is ConfigRepository.SystemImportResult.NoExtile -> noExtileDialogState.show()
                 // 读取失败：Toast 提示
                 is ConfigRepository.SystemImportResult.ReadFailed ->
-                    Toast.makeText(context, "无法读取系统配置", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, readFailedToast, Toast.LENGTH_SHORT).show()
                 // 导入成功：若没有收纳磁贴（hideCount<=0）则配置无效，弹窗提醒并阻止进入「确认保存」
                 is ConfigRepository.SystemImportResult.Success -> {
                     val result = importResult as ConfigRepository.SystemImportResult.Success
@@ -284,7 +287,7 @@ fun OobeScreen(
                         modifier = Modifier.size(88.dp)
                     )
                     Text(
-                        text = "欢迎使用 exTile",
+                        text = stringResource(R.string.oobe_welcome_title),
                         style = MiuixTheme.textStyles.title1,
                     )
                     Spacer(Modifier.height(16.dp))
@@ -296,18 +299,18 @@ fun OobeScreen(
                 ) {
                     FeatureCard(
                         icon = MiuixIcons.Demibold.GridView,
-                        title = "增强控制中心",
-                        summary = "为控制中心添加一系列高级功能"
+                        title = stringResource(R.string.oobe_feature_qs_title),
+                        summary = stringResource(R.string.oobe_feature_qs_desc)
                     )
                     FeatureCard(
                         icon = MiuixIcons.Demibold.Backup,
-                        title = "简洁而又不失高效",
-                        summary = "次级功能，点击即出"
+                        title = stringResource(R.string.oobe_feature_efficient_title),
+                        summary = stringResource(R.string.oobe_feature_efficient_desc)
                     )
                     FeatureCard(
                         icon = MiuixIcons.Demibold.Lock,
-                        title = "本地工具，无需联网",
-                        summary = "可离线使用"
+                        title = stringResource(R.string.oobe_feature_offline_title),
+                        summary = stringResource(R.string.oobe_feature_offline_desc)
                     )
                     // 不支持的设备（类原生 AOSP + Android 15 及以上）：追加醒目错误提示卡片，
                     // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用、「跳过」入口已隐藏）。
@@ -346,14 +349,14 @@ fun OobeScreen(
             Spacer(modifier = Modifier.height(24.dp))
             // 标题
             Text(
-                text = "隐私与数据",
+                text = stringResource(R.string.oobe_privacy_title),
                 style = MiuixTheme.textStyles.title1,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "在开始前，请同意我们的使用政策。",
+                text = stringResource(R.string.oobe_privacy_subtitle),
                 style = MiuixTheme.textStyles.body1,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 textAlign = TextAlign.Center
@@ -393,7 +396,8 @@ fun OobeScreen(
                 }
 
                 val legalText = AnnotatedString.Builder().apply {
-                    append("我已阅读并同意 ")
+                    // 各段文案均来自资源;分段拼接保证英文语序下链接定位依然正确
+                    append(stringResource(R.string.oobe_legal_prefix))
                     pushLink(
                         LinkAnnotation.Clickable(
                             tag = DocsTab.PRIVACY_POLICY.name,
@@ -406,9 +410,9 @@ fun OobeScreen(
                             linkInteractionListener = openLegalDocument
                         )
                     )
-                    append("隐私政策")
+                    append(stringResource(R.string.oobe_link_privacy))
                     pop()
-                    append(" 和 ")
+                    append(stringResource(R.string.oobe_legal_connector))
                     pushLink(
                         LinkAnnotation.Clickable(
                             tag = DocsTab.TERMS_OF_SERVICE.name,
@@ -421,7 +425,7 @@ fun OobeScreen(
                             linkInteractionListener = openLegalDocument
                         )
                     )
-                    append("用户协议")
+                    append(stringResource(R.string.oobe_link_terms))
                     pop()
                 }.toAnnotatedString()
 
@@ -441,9 +445,8 @@ fun OobeScreen(
             // 同意开关
             Card(modifier = Modifier.fillMaxWidth()) {
                 SwitchPreference(
-                    title = "允许匿名数据收集",
-                    summary = "可选使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。" +
-                            "如对此有疑虑，也完全可以禁止本应用联网。",
+                    title = stringResource(R.string.oobe_clarity_switch_title),
+                    summary = stringResource(R.string.oobe_clarity_switch_summary),
                     checked = clarityConsent.value,
                     onCheckedChange = { newValue ->
                         scope.launch {
@@ -464,14 +467,12 @@ fun OobeScreen(
                     // 收集的数据说明
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "收集的数据",
+                            text = stringResource(R.string.oobe_data_collected_title),
                             style = MiuixTheme.textStyles.body1,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text =  "• 页面交互行为（有效/无效点击）\n" +
-                                    "• 设备基本信息（Android 版本、设备型号）\n" +
-                                    "• 本应用的信息（版本号等）",
+                            text = stringResource(R.string.oobe_data_collected_list),
                             style = MiuixTheme.textStyles.footnote1,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -482,13 +483,12 @@ fun OobeScreen(
                     // 不收集的数据说明
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "不会收集",
+                            text = stringResource(R.string.oobe_data_not_collected_title),
                             style = MiuixTheme.textStyles.body1,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text =  "• 个人身份信息（联系方式等）\n" +
-                                    "• 敏感数据（应用列表、自定义磁贴的名称等）",
+                            text = stringResource(R.string.oobe_data_not_collected_list),
                             style = MiuixTheme.textStyles.footnote1,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -504,6 +504,8 @@ fun OobeScreen(
     /** P1 权限页：授权引导（底部按钮由外层统一提供，已授权显示「下一步」，未授权显示「跳过」） */
     @Composable
     fun PermissionStep() {
+        // Toast 文案在 Composable 上下文预解析,避免回调内 context.getString 触发「非配置感知」lint 错误
+        val noShizukuToast = stringResource(R.string.home_no_shizuku_toast)
         Column(modifier = Modifier.fillMaxSize()) {
             // 内容区
             Column(
@@ -525,14 +527,14 @@ fun OobeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 // 标题
                 Text(
-                    text = "授权权限",
+                    text = stringResource(R.string.oobe_permission_title),
                     style = MiuixTheme.textStyles.title1,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "exTile 需要 WRITE_SECURE_SETTINGS 权限\n来切换磁贴布局",
+                    text = stringResource(R.string.oobe_permission_subtitle),
                     style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
@@ -540,7 +542,7 @@ fun OobeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 // 醒目提醒
                 Text(
-                    text = "*未授权将无法使用磁贴切换等核心功能",
+                    text = stringResource(R.string.oobe_permission_warning),
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.error.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center
@@ -566,7 +568,7 @@ fun OobeScreen(
                             permState.markAutoRequestAfterResume()
                             context.startActivity(launchIntent)
                         } else {
-                            Toast.makeText(context, "未找到 Shizuku 应用", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, noShizukuToast, Toast.LENGTH_SHORT).show()
                         }
                     },
                     onRequestShizukuPermission = { permState.request() },
@@ -609,14 +611,14 @@ fun OobeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 // 标题
                 Text(
-                    text = "排列磁贴",
+                    text = stringResource(R.string.oobe_setup_title),
                     style = MiuixTheme.textStyles.title1,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "打开控制中心，进入磁贴编辑界面，\n把 exTile 磁贴拖动到一行的末尾。",
+                    text = stringResource(R.string.oobe_setup_subtitle),
                     style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
@@ -632,14 +634,14 @@ fun OobeScreen(
                         ) {
                         RuleRow(
                             icon = MiuixIcons.ChevronForward,
-                            title = "exTile 之前的磁贴",
-                            summary = "始终显示"
+                            title = stringResource(R.string.oobe_rule_before_title),
+                            summary = stringResource(R.string.oobe_rule_before_desc)
                         )
                         HorizontalDivider()
                         RuleRow(
                             icon = MiuixIcons.ChevronBackward,
-                            title = "exTile 之后的磁贴",
-                            summary = "展开显示，收起隐藏"
+                            title = stringResource(R.string.oobe_rule_after_title),
+                            summary = stringResource(R.string.oobe_rule_after_desc)
                         )
                     }
                 }
@@ -658,7 +660,7 @@ fun OobeScreen(
                         InfiniteProgressIndicator()
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "正在读取系统配置...",
+                            text = stringResource(R.string.oobe_importing),
                             style = MiuixTheme.textStyles.body1,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -686,7 +688,7 @@ fun OobeScreen(
                     colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("添加 exTile 磁贴")
+                    Text(stringResource(R.string.oobe_add_tile_button))
                 }
 
                 // 内容区底部间距（与 PrivacyStep / PermissionStep 保持一致）
@@ -717,13 +719,13 @@ fun OobeScreen(
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "配置完成！",
+                    text = stringResource(R.string.oobe_done_title),
                     style = MiuixTheme.textStyles.title1,
                     fontWeight = FontWeight.Medium,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "点击 exTile 磁贴，即可展开 / 收起磁贴~",
+                    text = stringResource(R.string.oobe_done_desc),
                     style = MiuixTheme.textStyles.body1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     textAlign = TextAlign.Center
@@ -746,13 +748,13 @@ fun OobeScreen(
             navigationIcon = {
                 when (pagerState.currentPage) {
                     1 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(0, animationSpec = pageChangeSpec) } }) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                        Icon(MiuixIcons.Back, contentDescription = stringResource(R.string.common_back))
                     }
                     2 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(1, animationSpec = pageChangeSpec) } }) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                        Icon(MiuixIcons.Back, contentDescription = stringResource(R.string.common_back))
                     }
                     3 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(2, animationSpec = pageChangeSpec) } }) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                        Icon(MiuixIcons.Back, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             },
@@ -767,7 +769,7 @@ fun OobeScreen(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                     ) {
-                        Icon(MiuixIcons.Close, contentDescription = "跳过")
+                        Icon(MiuixIcons.Close, contentDescription = stringResource(R.string.oobe_skip))
                     }
                 }
             }
@@ -830,7 +832,7 @@ fun OobeScreen(
                         enabled = !isUnsupportedDevice,
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("开始使用") }
+                    ) { Text(stringResource(R.string.oobe_get_started)) }
 
                     // P1 数据与隐私页：阅读并勾选法律文档后才能进入下一步。
                     1 -> Button(
@@ -841,7 +843,7 @@ fun OobeScreen(
                         enabled = legalDocumentsRead.value,
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("下一步") }
+                    ) { Text(stringResource(R.string.common_next)) }
 
                     // P2 权限页：已授权→下一步；未授权→跳过（需二次确认）
                     2 -> if (permState.status == ShizukuHelper.PermissionStatus.GRANTED) {
@@ -852,10 +854,10 @@ fun OobeScreen(
                             },
                             colors = ButtonDefaults.buttonColorsPrimary(),
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("下一步") }
+                        ) { Text(stringResource(R.string.common_next)) }
                     } else {
                         TextButton(
-                            text = "跳过",
+                            text = stringResource(R.string.oobe_skip),
                             colors = ButtonDefaults.textButtonColorsPrimary(),
                             onClick = { skipNoPermissionDialogState.show() },
                             modifier = Modifier.fillMaxWidth()
@@ -877,7 +879,7 @@ fun OobeScreen(
                                 },
                                 colors = ButtonDefaults.buttonColorsPrimary(),
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("确认保存") }
+                            ) { Text(stringResource(R.string.oobe_confirm_save)) }
                         } else {
                             Button(
                                 onClick = {
@@ -887,7 +889,7 @@ fun OobeScreen(
                                 enabled = !isImporting,
                                 colors = ButtonDefaults.buttonColorsPrimary(),
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("我已配置完成") }
+                            ) { Text(stringResource(R.string.oobe_setup_done)) }
                         }
                     }
 
@@ -899,7 +901,7 @@ fun OobeScreen(
                         },
                         colors = ButtonDefaults.buttonColorsPrimary(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("开始使用") }
+                    ) { Text(stringResource(R.string.oobe_get_started)) }
                 }
             }
         }
@@ -910,37 +912,37 @@ fun OobeScreen(
     // P0 跳过引导确认
     AppDialog(
         state = skipDialogState,
-        title = "确定跳过引导？",
-        summary = "将使用默认配置直接进入。不授权将无法使用核心功能，可稍后在主页完成授权。",
-        confirmText = "跳过",
+        title = stringResource(R.string.oobe_skip_dialog_title),
+        summary = stringResource(R.string.oobe_skip_dialog_summary),
+        confirmText = stringResource(R.string.oobe_skip),
         onConfirm = { onCompleted() }
     )
 
     // P2 未授权跳过确认（再次提醒后放行）
     AppDialog(
         state = skipNoPermissionDialogState,
-        title = "确定跳过？",
-        summary = "不授权将无法使用核心功能，可稍后在主页完成授权",
-        confirmText = "跳过",
+        title = stringResource(R.string.oobe_skip_no_perm_dialog_title),
+        summary = stringResource(R.string.oobe_skip_no_perm_dialog_summary),
+        confirmText = stringResource(R.string.oobe_skip),
         onConfirm = { scope.launch { pagerState.animateScrollToPage(3, animationSpec = pageChangeSpec) } }
     )
 
     // P2 未找到 exTile 磁贴提示
     AppDialog(
         state = noExtileDialogState,
-        title = "未找到 exTile 磁贴",
-        summary = "未在系统配置中找到 exTile 磁贴，请先在控制中心添加它",
-        cancelText = "关闭",
-        confirmText = "知道了",
+        title = stringResource(R.string.oobe_no_extile_dialog_title),
+        summary = stringResource(R.string.oobe_no_extile_dialog_summary),
+        cancelText = stringResource(R.string.common_close),
+        confirmText = stringResource(R.string.common_got_it),
         onConfirm = {}
     )
 
     // P2 无收纳磁贴提示：收纳数 <=0 时配置无效，阻止进入下一步
     AppDialog(
         state = noHiddenTileDialogState,
-        title = "没有需要收纳的磁贴",
-        summary = "提示：请将需要收纳的磁贴放在「exTile」磁贴之后。",
-        confirmText = "知道了",
+        title = stringResource(R.string.oobe_no_hidden_dialog_title),
+        summary = stringResource(R.string.oobe_no_hidden_dialog_summary),
+        confirmText = stringResource(R.string.common_got_it),
         onConfirm = {}
     )
 
@@ -949,10 +951,11 @@ fun OobeScreen(
     // 倒计时数字实时显示在按钮文案后缀「(n)」，倒计时结束后按钮自动可点
     AppDialog(
         state = unsupportedSkipDialogState,
-        title = "确定要跳过引导？",
-        summary = "当前系统下本应用的磁贴切换方案可能不可用，强制继续可能出现功能异常。确定要跳过引导直接进入应用吗？",
+        title = stringResource(R.string.oobe_unsupported_skip_dialog_title),
+        summary = stringResource(R.string.oobe_unsupported_skip_dialog_summary),
         // 倒计时期间按钮文案带上剩余秒数后缀，倒计时结束恢复纯文案
-        confirmText = if (skipCountdown > 0) "跳过引导 ($skipCountdown)" else "跳过引导",
+        confirmText = if (skipCountdown > 0) stringResource(R.string.oobe_skip_with_countdown, skipCountdown)
+                      else stringResource(R.string.oobe_skip_guide),
         confirmEnabled = skipCountdown <= 0,
         onConfirm = { onCompleted() }
     )
@@ -1043,13 +1046,13 @@ private fun UnsupportedDeviceCard(onLongPress: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "本应用暂不支持类原生 Android 15 及以上，抱歉~",
+                    text = stringResource(R.string.oobe_unsupported_title),
                     // 文字用 onErrorContainer，保证在 errorContainer 底上清晰可读
                     color = MiuixTheme.colorScheme.onErrorContainer,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "有误判？请联系作者",
+                    text = stringResource(R.string.oobe_unsupported_contact),
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onErrorContainer
                 )
@@ -1114,11 +1117,13 @@ private fun ImportPreviewCard(
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // 分隔符随语言解析:中文顿号、英文逗号
+            val separator = stringResource(R.string.common_list_separator)
             // 第一行：保留组（左侧计数 + 右侧磁贴名）
             ImportPreviewRow(
-                label = "保留",
+                label = stringResource(R.string.oobe_preview_keep),
                 count = result.keepCount,
-                tileNames = result.collapsedTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }
+                tileNames = result.collapsedTiles.joinToString(separator) { TileCatalog.getDisplayName(it, profile) }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1127,9 +1132,10 @@ private fun ImportPreviewCard(
 
             // 第二行：收纳组（左侧计数 + 右侧磁贴名）
             ImportPreviewRow(
-                label = "收纳",
+                label = stringResource(R.string.oobe_preview_hide),
                 count = result.hideCount,
-                tileNames = if (hiddenTiles.isEmpty()) "无" else hiddenTiles.joinToString("、") { TileCatalog.getDisplayName(it, profile) }
+                tileNames = if (hiddenTiles.isEmpty()) stringResource(R.string.common_none)
+                            else hiddenTiles.joinToString(separator) { TileCatalog.getDisplayName(it, profile) }
             )
         }
     }

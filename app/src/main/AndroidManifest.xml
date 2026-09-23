@@ -47,13 +47,13 @@
         <activity
             android:name=".DocsActivity"
             android:exported="false"
-            android:label="Docs"
+            android:label="@string/docs_title"
             android:theme="@style/Theme.ExTile" />
 
         <activity
             android:name=".DebugToolsActivity"
             android:exported="false"
-            android:label="调试工具"
+            android:label="@string/debug_title"
             android:theme="@style/Theme.ExTile" />
 
         <!-- 幽灵桥接 Activity：长按 exTile 磁贴时由系统通过 ACTION_QS_TILE_PREFERENCES 启动，

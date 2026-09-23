@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -68,7 +69,8 @@ class PermissionState(
                     refresh()
                 }
             } else {
-                Toast.makeText(context, "Shizuku 授权被拒绝", Toast.LENGTH_SHORT).show()
+                // 非 Composable 上下文,用 context.getString 取资源文案
+                Toast.makeText(context, context.getString(R.string.perm_shizuku_denied_toast), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -108,9 +110,9 @@ class PermissionState(
     private suspend fun grantWriteSecureSettingsCore() {
         val success = ShizukuHelper.grantWriteSecureSettings(context)
         val message = if (success) {
-            "WRITE_SECURE_SETTINGS 权限已授予"
+            context.getString(R.string.perm_ws_granted_toast)
         } else {
-            "权限授予失败，请重试或使用 adb 手动授权"
+            context.getString(R.string.perm_grant_failed_toast)
         }
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }

@@ -47,9 +47,9 @@ class MainActivity : ComponentActivity() {
         shizukuPermissionGranted = granted
         onPermissionResult?.invoke(granted)
         if (granted) {
-            Toast.makeText(this, "Shizuku 权限已授予", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.main_shizuku_granted_toast), Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "Shizuku 权限被拒绝", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.main_shizuku_denied_toast), Toast.LENGTH_SHORT).show()
         }
     }
 
