@@ -4,6 +4,8 @@
 
 让 Android 控制中心，在简洁和效率直之间找到「平衡」的魔法。
 
+**无需 Root。**
+
 ![Banner](readme_assets/banner.webp)
 
 ---
