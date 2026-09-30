@@ -65,6 +65,8 @@
     <string name="oobe_feature_offline_desc">可离线使用</string>
     <string name="oobe_unsupported_title">本应用暂不支持类原生 Android 15 及以上，抱歉~</string>
     <string name="oobe_unsupported_contact">有误判？请联系作者</string>
+    <string name="oobe_compat_warning_title">当前系统可能不兼容</string>
+    <string name="oobe_compat_warning_desc">本应用主要针对小米 HyperOS / MIUI 与类原生 Android 适配，第三方定制系统上磁贴切换可能无法正常工作。</string>
     <string name="oobe_get_started">开始使用</string>
     <!-- P1 数据与隐私页 -->
     <string name="oobe_privacy_title">隐私与数据</string>

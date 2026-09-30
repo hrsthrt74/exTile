@@ -46,6 +46,15 @@ data class DeviceProfile(
 ) {
 
     /**
+     * 是否为第三方厂商定制系统（既非小米系也非类原生 AOSP，如 ColorOS / OneUI / OriginOS 等）。
+     * 该类系统对 QS 磁贴机制有不同程度的修改，磁贴切换功能可能无法正常工作，
+     * 调用方（OOBE 欢迎页）据此展示「可能不兼容」的软提示（仅提示，不拦截流程）。
+     * 派生值而非构造字段：由 [isXiaomi] / [isAosp] 互补计算，不参与 equals / copy。
+     */
+    val isThirdPartyRom: Boolean
+        get() = !isXiaomi && !isAosp
+
+    /**
      * 求值器：判断设备是否满足一组磁贴需求（AND 语义）。
      * 空需求集合 = 所有设备可用。
      *

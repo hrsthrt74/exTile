@@ -65,6 +65,8 @@
     <string name="oobe_feature_offline_desc">Works fully offline</string>
     <string name="oobe_unsupported_title">Not supported on stock Android 15 or above, sorry~</string>
     <string name="oobe_unsupported_contact">False positive? Contact the developer</string>
+    <string name="oobe_compat_warning_title">This system may not be fully compatible</string>
+    <string name="oobe_compat_warning_desc">exTile is primarily designed for Xiaomi HyperOS / MIUI and stock Android. Tile switching may not work properly on other custom systems.</string>
     <string name="oobe_get_started">Get started</string>
     <!-- P1 数据与隐私页 -->
     <string name="oobe_privacy_title">Privacy &amp; data</string>

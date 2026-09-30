@@ -93,6 +93,7 @@ import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.GridView
+import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -197,6 +198,13 @@ fun OobeScreen(
     // 该场景下本应用依赖的 WRITE_SECURE_SETTINGS 磁贴切换方案不可用，因此在欢迎页（P0）直接拦截：
     // 展示错误提示、禁用「开始使用」按钮、隐藏右上角「跳过」入口，阻止用户进入引导后续步骤。
     val isUnsupportedDevice = profile.isAosp && profile.sdkInt >= 35
+
+    // 第三方定制系统（既非小米系也非类原生 AOSP，如 ColorOS / OneUI / OriginOS 等）：
+    // 该类系统对 QS 磁贴机制有不同程度的魔改，磁贴切换可能无法正常工作。
+    // 与上面的 isUnsupportedDevice 不同，这里只做软提示——欢迎页展示「可能不兼容」卡片，
+    // 不禁用「开始使用」、不隐藏「跳过」，用户仍可正常完成引导自行验证；
+    // 两个判定以 isAosp 互补，天然互斥，不会同时命中。
+    val isThirdPartyRom = profile.isThirdPartyRom
 
     // 导航栏 inset：OOBE 页最外层有统一 TopAppBar（自带状态栏安全区），
     // 但各页底部按钮仍需手动处理底部导航栏安全区
@@ -323,6 +331,11 @@ fun OobeScreen(
                                 unsupportedSkipDialogState.show()
                             }
                         )
+                    }
+                    // 第三方定制系统（非小米非类原生 AOSP）：追加「可能不兼容」软提示卡片。
+                    // 仅提醒用户磁贴功能可能异常，不拦截引导流程
+                    if (isThirdPartyRom) {
+                        ThirdPartyRomCard()
                     }
                 }
             }
@@ -1055,6 +1068,51 @@ private fun UnsupportedDeviceCard(onLongPress: () -> Unit) {
                     text = stringResource(R.string.oobe_unsupported_contact),
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 第三方定制系统「可能不兼容」提示卡片（P0 欢迎页）。
+ *
+ * 当设备为「既非小米系（MIUI/HyperOS）也非类原生 AOSP」的第三方定制 ROM（如 ColorOS / OneUI 等）
+ * 时展示，版式与 [FeatureCard] 保持一致（图标 + 标题 + 说明两行）。
+ * 仅做软提示：卡片不可交互、无拦截逻辑，「开始使用」与「跳过」均正常可用；
+ * 视觉上与 [UnsupportedDeviceCard] 的硬拦截区分——中性 surfaceContainer 底色，
+ * 仅用 error 色 Info 图标承载「警示但非错误」语义（miuix 无 warning 色系）。
+ */
+@Composable
+private fun ThirdPartyRomCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Info,
+                contentDescription = null,
+                // 图标用 error 色强调警示语义，中性卡片底避免与硬拦截的 errorContainer 卡混淆
+                tint = MiuixTheme.colorScheme.error,
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.oobe_compat_warning_title)
+                )
+                Text(
+                    text = stringResource(R.string.oobe_compat_warning_desc),
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
         }
