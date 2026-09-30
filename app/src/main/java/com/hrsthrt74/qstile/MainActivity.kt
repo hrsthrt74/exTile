@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,13 @@ class MainActivity : ComponentActivity() {
 
     /** Shizuku 权限是否已授予（Compose 可观察状态） */
     private var shizukuPermissionGranted by mutableStateOf(false)
+
+    /**
+     * 界面是否已可显示：SplashScreen 依据它决定是否继续停留在启动画面上。
+     * 用 Activity 级字段（而非 Compose state）让 keepOnScreenCondition 直接读取；
+     * 不用 by 委托，保留 MutableState 本体传给 MainApp，在首个真实界面渲染处放行。
+     */
+    private var appReady = mutableStateOf(false)
     /** 权限请求完成后的回调，由 HomeScreen 注册 */
     private var onPermissionResult: ((Boolean) -> Unit)? = null
 
@@ -54,9 +62,16 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // SplashScreen 必须在 super.onCreate 之前安装：
+        // 兼容库在此接管系统启动画面，并提供 keepOnScreenCondition 挂屏能力
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         // 启用边到边显示，让内容延伸到系统栏区域
         enableEdgeToEdge()
+
+        // 首个真实界面（OOBE 引导页或主页）就绪前一直停留在启动画面，
+        // 避免冷启动时在启动画面与界面之间闪纯色窗口背景帧
+        splash.setKeepOnScreenCondition { !appReady.value }
 
         // 前台启动时初始化 Clarity（仅在用户同意隐私政策后生效）
         val application = applicationContext as? ExTileApplication
@@ -77,7 +92,8 @@ class MainActivity : ComponentActivity() {
                         onRequestShizukuPermission = { callback ->
                             onPermissionResult = callback
                             Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
-                        }
+                        },
+                        appReady = appReady
                     )
                 }
             }

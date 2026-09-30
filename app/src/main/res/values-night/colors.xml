@@ -2,4 +2,6 @@
 <resources>
     <!-- 启动窗口背景色（深色模式）：与 app 深色 surface 一致，避免深色启动白屏 -->
     <color name="splash_background">#FF111111</color>
+    <!-- SplashScreen 图标填充色（深色模式）：白色（浅色模式为黑，见 values/colors.xml） -->
+    <color name="splash_icon">#FFFFFFFF</color>
 </resources>

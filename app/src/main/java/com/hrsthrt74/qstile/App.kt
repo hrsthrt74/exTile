@@ -20,6 +20,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -98,10 +99,13 @@ sealed class Screen(@StringRes val titleRes: Int) {
  * - 每个页面（[HomeScreen]/[TileConfigScreen]/[SettingsScreen]）自己再包一层 Scaffold + TopAppBar
  *
  * @param onRequestShizukuPermission Shizuku 权限请求的入口方法，接收一个结果回调
+ * @param appReady 应用界面是否已就绪（由 MainActivity 持有）：OOBE 配置读取完成、
+ * 首个真实界面渲染前保持 false，让 SplashScreen 持续停留在启动画面
  */
 @Composable
 fun MainApp(
-    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
+    onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit,
+    appReady: MutableState<Boolean>
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -124,6 +128,10 @@ fun MainApp(
     val oobeDone = oobeCompleted
     // 数据未就绪前不渲染任何 UI，防止闪烁
     if (oobeDone == null) return
+
+    // 走到这里说明 OOBE 配置已读取完成，引导页/主页即将渲染首个真实界面：
+    // 放行 SplashScreen，启动画面无缝过渡到界面，不再闪纯色窗口背景帧
+    appReady.value = true
 
     // ===== OOBE 未完成：渲染引导页（壳层不渲染底部导航栏） =====
     // 完成后 saveOobeCompleted(true)，数据流变化触发重组自动切回下方主页 UI

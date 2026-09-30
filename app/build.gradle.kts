@@ -62,6 +62,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.core.ktx)
+    // SplashScreen 兼容库：安装启动画面并支持 keepOnScreenCondition 挂屏控制
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)

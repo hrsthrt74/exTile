@@ -9,4 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <!-- 启动窗口背景色（浅色模式）：与 app 浅色 surface 一致，避免灰屏 -->
     <color name="splash_background">#FFFFFFFF</color>
+    <!-- SplashScreen 图标填充色（浅色模式）：黑色，深色模式由 values-night 反色为白 -->
+    <color name="splash_icon">#FF000000</color>
 </resources>

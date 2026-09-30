@@ -7,6 +7,17 @@
         <item name="android:windowBackground">@color/splash_background</item>
     </style>
 
+    <!-- SplashScreen 主题：仅挂在启动 Activity（MainActivity）上，首帧由系统启动画面接管，
+         退出后经 postSplashScreenTheme 切回 Theme.ExTile。
+         parent 用 core-splashscreen 兼容库的 Theme.SplashScreen；
+         项目 minSdk=34（≥31），android:windowSplashScreenAnimatedIcon 可直接写在这里，
+         无需像低 minSdk 项目那样拆 values-v31 -->
+    <style name="Theme.ExTile.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.ExTile</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/icon_splash</item>
+    </style>
+
     <!-- 幽灵桥接 Activity 使用的透明主题：不显示任何界面，避免闪烁 -->
     <style name="Theme.ExTile.Transparent" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
