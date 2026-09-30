@@ -1,3 +1,7 @@
+// 导入 java.util.Properties 用于读取签名配置文件
+// （在 Kotlin DSL 里 "java" 会被解析成 java 插件扩展，必须用 import 才能引用 java.util 包）
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -13,9 +17,33 @@ val copyLegalDocuments by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("generated/legalAssets"))
 }
 
+// 读取项目根目录下的 keystore.properties（含签名密码等敏感信息，已被 .gitignore 忽略）
+val keystoreProperties = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.hrsthrt74.qstile"
     compileSdk = 37
+
+    // release 签名配置：仅当 keystore.properties 存在且填写完整时才生效，
+    // 缺失时保持默认（unsigned），避免其他人克隆仓库后构建失败
+    signingConfigs {
+        if (
+            keystoreProperties["storeFile"] != null &&
+            keystoreProperties["storePassword"] != null &&
+            keystoreProperties["keyAlias"] != null &&
+            keystoreProperties["keyPassword"] != null
+        ) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.hrsthrt74.qstile"
@@ -31,6 +59,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // 挂载上面的签名配置，使 assembleRelease 直接产出已签名的 APK
+            signingConfig = signingConfigs.findByName("release")
             // proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             optimization {
                 enable = false
