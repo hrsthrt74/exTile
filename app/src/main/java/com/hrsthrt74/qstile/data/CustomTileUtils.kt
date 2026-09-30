@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.service.quicksettings.TileService
+import com.hrsthrt74.qstile.R
 
 /**
  * 第三方（custom）磁贴工具类。
@@ -90,14 +91,24 @@ object CustomTileUtils {
     /**
      * 第三方磁贴服务信息（含图标）。
      * 用于「添加第三方磁贴」列表：一次批量查询，避免渲染时逐个 IPC。
+     * icon 保证非空：Service 未声明图标时以空白占位图标（tile_blank）兜底。
      */
     data class QSTileServiceInfo(
         val packageName: String,
         val className: String,
         val label: String,
         val appName: String,
-        val icon: Drawable?
+        val icon: Drawable
     )
+
+    /**
+     * 空白磁贴占位图标（虚线方框轮廓，本身为白色填充，渲染时统一染色）。
+     *
+     * 渲染处会对第三方图标统一染色（tint）：应用图标染色后会变成实心圆角矩形，观感差，
+     * 因此凡拿不到第三方 Service 自身声明的图标时，一律回退到本占位图标，不再使用应用图标。
+     */
+    private fun blankIcon(context: Context): Drawable =
+        context.getDrawable(R.drawable.tile_blank)!!
 
     /**
      * 获取所有可用的 Quick Settings Tile 服务及其图标。
@@ -124,17 +135,13 @@ object CustomTileUtils {
                 } catch (e: Exception) {
                     serviceInfo.packageName.substringAfterLast('.')
                 }
-                // 优先 Service 图标，回退到应用图标
+                // 只取 Service 自身声明的图标；拿不到时回退空白占位图标
+                // （不回退应用图标：渲染时统一染色，应用图标染色后是实心圆角矩形）
                 var icon: Drawable? = null
                 if (serviceInfo.icon != 0) {
                     try {
                         val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
                         icon = resources.getDrawable(serviceInfo.icon, null)
-                    } catch (_: Exception) {}
-                }
-                if (icon == null) {
-                    try {
-                        icon = serviceInfo.applicationInfo.loadIcon(pm)
                     } catch (_: Exception) {}
                 }
                 result.add(
@@ -143,7 +150,7 @@ object CustomTileUtils {
                         className = serviceInfo.name,
                         label = label,
                         appName = appName,
-                        icon = icon
+                        icon = icon ?: blankIcon(context)
                     )
                 )
             }
@@ -153,17 +160,21 @@ object CustomTileUtils {
 
     /**
      * 获取 custom 磁贴的图标 Drawable。
+     *
+     * 只取第三方 TileService 自身声明的图标（[android.content.pm.ServiceInfo.icon]）：
+     * 拿不到时不再回退应用图标（染色后会变成实心圆角矩形），改为回退到空白占位图标
+     * [R.drawable.tile_blank]。getServiceInfo 不受组件启用状态限制（含已禁用的组件），
+     * 已覆盖 queryIntentServices 的查询范围，无需再按 Intent 兜底遍历。
+     *
      * @param context Context
      * @param value 磁贴值，格式为 "custom(包名/类名)"
-     * @return 图标 Drawable 或 null（如果无法获取）
+     * @return 图标 Drawable；非 custom 格式返回 null，custom 格式保证非空（blank 兜底）
      */
     fun getCustomTileIcon(context: Context, value: String): Drawable? {
         val component = parseCustomComponent(value) ?: return null
         val pm = context.packageManager
-        // 优先通过 getServiceInfo 获取（包括禁用的组件）
         try {
             val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
-            // 尝试通过 Resources 获取 Service 的图标
             if (serviceInfo.icon != 0) {
                 try {
                     val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
@@ -171,42 +182,8 @@ object CustomTileUtils {
                     if (drawable != null) return drawable
                 } catch (_: Exception) {}
             }
-            // 回退到应用图标
-            try {
-                val icon = serviceInfo.applicationInfo.loadIcon(pm)
-                if (icon != null) return icon
-            } catch (_: Exception) {}
         } catch (_: Exception) {}
-        // 通过 queryIntentServices 查询已启用的 QS_TILE 服务
-        try {
-            val intent = Intent(TileService.ACTION_QS_TILE)
-            val resolveInfos = pm.queryIntentServices(intent, PackageManager.GET_META_DATA)
-            for (info in resolveInfos) {
-                val serviceInfo = info.serviceInfo ?: continue
-                if (serviceInfo.packageName == component.packageName &&
-                    serviceInfo.name == component.className) {
-                    // 尝试通过 Resources 获取 Service 的图标
-                    if (serviceInfo.icon != 0) {
-                        try {
-                            val resources = pm.getResourcesForApplication(serviceInfo.applicationInfo)
-                            val drawable = resources.getDrawable(serviceInfo.icon, null)
-                            if (drawable != null) return drawable
-                        } catch (_: Exception) {}
-                    }
-                    // 回退到应用图标
-                    try {
-                        val icon = serviceInfo.applicationInfo.loadIcon(pm)
-                        if (icon != null) return icon
-                    } catch (_: Exception) {}
-                }
-            }
-        } catch (_: Exception) {}
-        // 最后尝试获取应用图标
-        try {
-            val appInfo = pm.getApplicationInfo(component.packageName, 0)
-            val icon = appInfo.loadIcon(pm)
-            if (icon != null) return icon
-        } catch (_: Exception) {}
-        return null
+        // Service 未声明图标或已卸载：回退空白占位图标（不回退应用图标，原因见方法注释）
+        return blankIcon(context)
     }
 }

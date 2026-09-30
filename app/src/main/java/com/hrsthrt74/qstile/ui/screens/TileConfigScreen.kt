@@ -195,22 +195,20 @@ fun TileConfigScreen() {
     // 配置尚未从 DataStore 读出前不渲染页面主体（未就绪就空白，与主题/OOBE 的门控策略一致）
     if (!viewModel.isConfigLoaded) return
 
-    // 获取磁贴图标的辅助函数
+    // 获取磁贴图标的辅助函数：内置磁贴查静态清单；custom 磁贴运行时取第三方 Service 自身图标；
+    // 拿不到时一律回退空白占位图标（tile_blank，不回退应用图标——染色后会变成实心圆角矩形），
+    // 保证始终有图标可渲染。
     @Composable
-    fun rememberTileIcon(tile: String): Painter? {
-        val iconRes = TileCatalog.iconRes(tile)
-        if (iconRes != null) {
-            return painterResource(iconRes)
-        }
-        // 尝试获取 custom 磁贴的图标
-        if (tile.startsWith("custom(")) {
-            val drawable = remember(tile) { CustomTileUtils.getCustomTileIcon(context, tile) }
-            if (drawable != null) {
-                val bitmap = remember(drawable) { drawable.toBitmap() }
-                return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
-            }
-        }
-        return null
+    fun rememberTileIcon(tile: String): Painter {
+        // 内置磁贴：静态清单直查
+        TileCatalog.iconRes(tile)?.let { return painterResource(it) }
+        // custom 磁贴：getCustomTileIcon 内部已保证非空（blank 兜底）；其他未知磁贴值直接用 blank 占位
+        val drawable = remember(tile) {
+            if (tile.startsWith("custom(")) CustomTileUtils.getCustomTileIcon(context, tile)
+            else null
+        } ?: context.getDrawable(R.drawable.tile_blank)!!
+        val bitmap = remember(drawable) { drawable.toBitmap() }
+        return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
     }
 
     // 获取 custom 磁贴的显示名与应用名（缓存避免重复查询）
@@ -351,15 +349,13 @@ fun TileConfigScreen() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val icon = rememberTileIcon(tile)
-                            if (icon != null) {
-                                Icon(
-                                    painter = icon,
-                                    contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                    tint =  if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39)
-                                            else MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
+                            Icon(
+                                painter = icon,
+                                contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
+                                tint =  if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39)
+                                        else MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(36.dp)
+                            )
 
                             // 磁贴名 和 “固定磁贴”
                             Column(
@@ -535,14 +531,12 @@ fun TileConfigScreen() {
                                 contentAlignment = Alignment.Center
                             ) {
                                 val icon = rememberTileIcon(tile)
-                                if (icon != null) {
-                                    Icon(
-                                        painter = icon,
-                                        contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                        tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
+                                Icon(
+                                    painter = icon,
+                                    contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
+                                    tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
 
                                 // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
                                 // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
@@ -951,14 +945,12 @@ fun TileConfigScreen() {
                                         contentAlignment = Alignment.Center
                                     ) {
                                         val icon = rememberTileIcon(tile.value)
-                                        if (icon != null) {
-                                            Icon(
-                                                painter = icon,
-                                                contentDescription = tile.displayName,
-                                                tint = MiuixTheme.colorScheme.primary,
-                                                modifier = Modifier.size(36.dp)
-                                            )
-                                        }
+                                        Icon(
+                                            painter = icon,
+                                            contentDescription = tile.displayName,
+                                            tint = MiuixTheme.colorScheme.primary,
+                                            modifier = Modifier.size(36.dp)
+                                        )
                                     }
 
                                     Text(
@@ -1192,17 +1184,14 @@ fun TileConfigScreen() {
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            // 图标已在后台批量预取，渲染时不再触发 IPC
-                                            val drawable = service.icon
-                                            if (drawable != null) {
-                                                val bitmap = remember(drawable) { drawable.toBitmap() }
-                                                Icon(
-                                                    painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                                    contentDescription = service.label,
-                                                    tint = MiuixTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(36.dp)
-                                                )
-                                            }
+                                            // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
+                                            val bitmap = remember(service.icon) { service.icon.toBitmap() }
+                                            Icon(
+                                                painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                                contentDescription = service.label,
+                                                tint = MiuixTheme.colorScheme.primary,
+                                                modifier = Modifier.size(36.dp)
+                                            )
                                         }
 
                                         Spacer(modifier = Modifier.height(8.dp))

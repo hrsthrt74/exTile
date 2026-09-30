@@ -142,22 +142,20 @@ fun DebugToolsScreen() {
         TileCatalog.getAvailableTiles(profile).filter { it.value !in currentTiles && !it.value.startsWith("custom(") }
     }
 
-    // 获取磁贴图标的辅助函数
+    // 获取磁贴图标的辅助函数：内置磁贴查静态清单；custom 磁贴运行时取第三方 Service 自身图标；
+    // 拿不到时一律回退空白占位图标（tile_blank，不回退应用图标——染色后会变成实心圆角矩形），
+    // 保证始终有图标可渲染。与 TileConfigScreen 的同名函数保持一致。
     @Composable
-    fun rememberTileIcon(tile: String): Painter? {
-        val iconRes = TileCatalog.iconRes(tile)
-        if (iconRes != null) {
-            return painterResource(iconRes)
-        }
-        // 尝试获取 custom 磁贴的图标
-        if (tile.startsWith("custom(")) {
-            val drawable = remember(tile) { CustomTileUtils.getCustomTileIcon(context, tile) }
-            if (drawable != null) {
-                val bitmap = remember(drawable) { drawable.toBitmap() }
-                return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
-            }
-        }
-        return null
+    fun rememberTileIcon(tile: String): Painter {
+        // 内置磁贴：静态清单直查
+        TileCatalog.iconRes(tile)?.let { return painterResource(it) }
+        // custom 磁贴：getCustomTileIcon 内部已保证非空（blank 兜底）；其他未知磁贴值直接用 blank 占位
+        val drawable = remember(tile) {
+            if (tile.startsWith("custom(")) CustomTileUtils.getCustomTileIcon(context, tile)
+            else null
+        } ?: context.getDrawable(R.drawable.tile_blank)!!
+        val bitmap = remember(drawable) { drawable.toBitmap() }
+        return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
     }
 
     /**
@@ -804,14 +802,12 @@ fun DebugToolsScreen() {
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (icon != null) {
-                                    Icon(
-                                        painter = icon,
-                                        contentDescription = tile.displayName,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
+                                Icon(
+                                    painter = icon,
+                                    contentDescription = tile.displayName,
+                                    tint = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
