@@ -4,6 +4,15 @@
 
 基于 **Jetpack Compose + MIUIX（HyperOS 设计）** 构建，支持磁贴编辑、布局一键切换、设备感知磁贴、主题定制与使用统计。
 
+## 截图预览
+
+<p align="center">
+  <img src="readme_assets/1.jpg" width="24%" alt="截图 1" />
+  <img src="readme_assets/2.jpg" width="24%" alt="截图 2" />
+  <img src="readme_assets/3.jpg" width="24%" alt="截图 3" />
+  <img src="readme_assets/4.jpg" width="24%" alt="截图 4" />
+</p>
+
 ## 功能特性
 
 - **QS 磁贴一键切换**：通过 `ExTileService` 在「展开 / 收起」两套布局间一键切换
