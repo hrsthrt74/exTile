@@ -1513,7 +1513,7 @@ fun SettingsScreen() {
                             IconButton(onClick = {
                                 context.startActivity(Intent(context, DebugToolsActivity::class.java))
                             }) {
-                                Icon(MiuixIcons.Settings, contentDescription = stringResource(R.string.debug_title))
+                                Icon(MiuixIcons.Tune, contentDescription = stringResource(R.string.debug_title))
                             }
                         }
                     )
