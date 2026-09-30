@@ -173,6 +173,9 @@
     <string name="settings_author_avatar">Author avatar</string>
     <string name="settings_version_title">Version</string>
     <string name="settings_donate_title">Support the developer</string>
+    <string name="settings_qq_group_title">Community</string>
+    <string name="settings_qq_group_summary">QQ group</string>
+    <string name="settings_qq_group_copied">Group number copied</string>
     <string name="settings_donate_summary">Buy the author a coffee</string>
     <string name="settings_donate_thanks">Thank you for your support~</string>
     <string name="settings_donate_qr_desc">WeChat QR code</string>

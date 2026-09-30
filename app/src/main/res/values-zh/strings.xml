@@ -173,6 +173,9 @@
     <string name="settings_author_avatar">作者头像</string>
     <string name="settings_version_title">版本</string>
     <string name="settings_donate_title">支持作者</string>
+    <string name="settings_qq_group_title">交流群</string>
+    <string name="settings_qq_group_summary">加入 QQ 群聊</string>
+    <string name="settings_qq_group_copied">群号已复制</string>
     <string name="settings_donate_summary">给作者加个鸡腿</string>
     <string name="settings_donate_thanks">感谢有你，我才能走得更远～</string>
     <string name="settings_donate_qr_desc">微信收款码</string>

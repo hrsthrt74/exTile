@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -114,6 +115,7 @@ import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Backup
+import top.yukonga.miuix.kmp.icon.extended.Community
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
@@ -147,6 +149,12 @@ private val dayNightModeLabels = listOf(
 )
 // 设置项行首图标（或空白占位）与标题文字之间的间距，统一由此变量控制，方便整体调整
 private val PreferenceIconEndPadding = 8.dp
+
+// 交流群群号，点击「交流群」条目时会复制到剪贴板，方便在 QQ 中直接搜索加群
+private const val QQ_GROUP_NUMBER = "1106522984"
+
+// 交流群（QQ 群）加群链接，仅简体中文环境下展示，点击跳转到 QQ 加群页
+private const val QQ_GROUP_URL = "https://qun.qq.com/universal-share/share?ac=1&authKey=ELh%2F3pZmyj%2FbfhJDVXj5H12DW3YDCPguBLZauwa2LXjuMGA6w9rq7B8o83GBX5Dd&busi_data=eyJncm91cENvZGUiOiIxMTA2NTIyOTg0IiwidG9rZW4iOiJlN08yRmVRazZMRWc4emZHMW5ENFlRZk9vTXpUWWd3NlNTMklWVWtVUzJIa3BYcUJ3ODNDZXREQnJXdENVR2x0IiwidWluIjoiMTkzMDAwOTYxIn0%3D&data=XPxXnJ_cQBPqRzg2BTPLBqZmFmmiuOiZstF9E8UwfmDZBqWrG_7IYm6GvBty15gHotcMhMVdbWLFwY8S00KQnA&svctype=4&tempid=h5_group_info"
 // 设置项行首图标（或空白占位）左侧的间距，用于与卡片内边距拉开一点距离
 private val PreferenceIconStartPadding = 4.dp
 // 无图标设置项的行首空白占位宽度，与图标宽度（24dp）保持一致以对齐
@@ -674,6 +682,41 @@ fun SettingsScreen() {
                 },
                 startAction = { PreferenceLeadingIcon(R.drawable.ic_github) }
             )
+
+            // 交流群（QQ 群）：仅当系统语言为简体中文时显示（群聊仅面向简中用户）
+            // 简体中文判断：语言为 zh 且文字为 Hans（或地区为 CN/SG），可覆盖 zh-CN/zh-Hans 等变体，
+            // 排除繁体环境（zh-TW/zh-HK 的 script 为 Hant）。
+            // 使用 LocalConfiguration 而非 context.resources.configuration：前者是配置感知的，
+            // 语言变化时会触发重组，避免读到过期的旧配置
+            val locale = LocalConfiguration.current.locales[0]
+            val isSimplifiedChinese = locale?.language == "zh" &&
+                (locale.script == "Hans" || locale.country == "CN" || locale.country == "SG")
+            if (isSimplifiedChinese) {
+                ArrowPreference(
+                    title = stringResource(R.string.settings_qq_group_title),
+                    summary = stringResource(R.string.settings_qq_group_summary),
+                    onClick = {
+                        // 群号复制到剪贴板，方便直接在 QQ 里搜索加群
+                        val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        clipboard.setPrimaryClip(
+                            ClipData.newPlainText("QQ群号", QQ_GROUP_NUMBER)
+                        )
+                        // 提示已复制；用 applicationContext 避免 Android 12+ 的 Toast 限制问题
+                        Toast.makeText(
+                            context.applicationContext,
+                            context.getString(R.string.settings_qq_group_copied),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        // runCatching 兜底：设备无浏览器应用时避免崩溃
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(QQ_GROUP_URL))
+                            )
+                        }
+                    },
+                    startAction = { PreferenceLeadingIcon(MiuixIcons.Community) }
+                )
+            }
 
             // 支持作者
             ArrowPreference(
