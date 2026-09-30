@@ -26,3 +26,8 @@ adb
 .agents
 .workbuddy
 .zcode
+
+/app/release/
+
+# 签名密码配置，包含敏感信息，禁止提交
+/keystore.properties
