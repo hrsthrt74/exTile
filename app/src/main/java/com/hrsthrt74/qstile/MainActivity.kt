@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.hrsthrt74.qstile.data.StatsRepository
+import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.theme.ExTileTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +81,10 @@ class MainActivity : ComponentActivity() {
         // 前台启动时上传统计数据到 Clarity（只在前台时上传，后台不上传）
         uploadStatsToClarity()
 
+        // 冷启动时按需自动检查更新（仅当用户开启开关且已完成引导）；
+        // 发现新版本由壳层 MainApp 弹窗提示，无更新 / 失败一律静默
+        checkForUpdateInBackground()
+
         // 注册 Shizuku 权限回调监听
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
 
@@ -120,6 +125,22 @@ class MainActivity : ComponentActivity() {
                 application.sendStatsToClarity(stats.totalExpandCount, stats.totalCollapseCount)
             } catch (e: Exception) {
                 // 静默失败，不影响用户体验
+            }
+        }
+    }
+
+    /**
+     * 冷启动时按需自动检查更新。
+     * 内部自行判断开关与 OOBE 状态（未开启 / 引导期间直接跳过），每次进程最多检查一次；
+     * 结果写入 UpdateChecker.state：发现新版本由 MainApp 弹对话框，
+     * 无更新 / 暂无发布 / 检查失败一律静默，不打扰用户。
+     */
+    private fun checkForUpdateInBackground() {
+        activityScope.launch {
+            try {
+                UpdateChecker.autoCheckIfNeeded(this@MainActivity)
+            } catch (e: Exception) {
+                // 静默失败：检查更新是尽力而为的能力，任何异常都不影响正常启动
             }
         }
     }

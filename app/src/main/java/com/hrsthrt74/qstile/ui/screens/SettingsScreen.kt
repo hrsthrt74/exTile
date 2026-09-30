@@ -71,6 +71,8 @@ import com.hrsthrt74.qstile.data.BackupRepository
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.ThemeRepository
+import com.hrsthrt74.qstile.data.UpdateCheckState
+import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
@@ -102,6 +104,7 @@ import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
@@ -199,6 +202,8 @@ fun SettingsScreen() {
     val donateSheetState = rememberSheetState()
     // 作者信息（hrsthrt74 各社交平台入口）Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val authorSheetState = rememberSheetState()
+    // 检查更新 Sheet（点击「版本」条目弹出：自动检查开关 + 检查状态 + 手动检查）的显示状态
+    val updateSheetState = rememberSheetState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importDialogState = rememberDialogState()
     // 备份列表相关状态
@@ -646,7 +651,7 @@ fun SettingsScreen() {
                 }
             )
 
-            // 版本号
+            // 版本号：点击弹出「检查更新」Sheet（自动检查开关 / 检查状态 / 手动检查）
             ArrowPreference(
                 title = stringResource(R.string.settings_version_title),
                 summary = try {
@@ -654,7 +659,7 @@ fun SettingsScreen() {
                 } catch (e: Exception) {
                     unknownText
                 },
-                onClick = {},
+                onClick = { updateSheetState.show() },
                 startAction = { PreferenceLeadingIcon(R.drawable.ic_settings_extile) },
                 // 版本号 -> Clarity
                 modifier = Modifier.clarityUnmask()
@@ -728,6 +733,150 @@ fun SettingsScreen() {
                 },
                 startAction = { PreferenceLeadingPlaceholder() }
             )
+        }
+    }
+
+    /** 检查更新 Sheet：自动检查开关 / 检查状态 / 手动检查（点击「版本」条目弹出） */
+    @Composable
+    fun UpdateSheet() {
+        // 自动检查更新开关：直连 DataStore，与 OOBE 隐私页的开关共享同一状态
+        val autoCheckUpdate by ConfigRepository.getAutoCheckUpdateFlow(context)
+            .collectAsState(initial = false)
+        // 检查状态：来自 UpdateChecker 的进程级共享状态（冷启动自动检查的结果也会体现在这里）
+        val checkState by UpdateChecker.state.collectAsState()
+        // 是否正在检查：检查中要禁用手动按钮，避免并发重复请求
+        val checking = checkState is UpdateCheckState.Checking
+        // 更新日志兜底文案（Release 未写说明时显示），提前在 Composable 上下文解析
+        val noChangelogText = stringResource(R.string.update_dialog_no_changelog)
+
+        AppBottomSheet(
+            state = updateSheetState,
+            title = stringResource(R.string.settings_update_sheet_title)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 自动检查更新开关：开启后应用每次冷启动时会静默检查一次
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    SwitchPreference(
+                        title = stringResource(R.string.settings_update_auto_title),
+                        checked = autoCheckUpdate,
+                        onCheckedChange = { newValue ->
+                            scope.launch {
+                                ConfigRepository.saveAutoCheckUpdate(context, newValue)
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 检查状态卡片：按状态机渲染最近一次（自动/手动）检查结果
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        when (val state = checkState) {
+                            // 尚未检查过：给一句引导文案
+                            is UpdateCheckState.Idle -> {
+                                Text(
+                                    text = stringResource(R.string.update_status_idle),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                            // 检查中：转圈 + 提示
+                            is UpdateCheckState.Checking -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    InfiniteProgressIndicator()
+                                    Text(
+                                        text = stringResource(R.string.update_status_checking),
+                                        style = MiuixTheme.textStyles.body2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                    )
+                                }
+                            }
+                            // 已是最新（远端版本不高于当前版本）
+                            is UpdateCheckState.UpToDate -> {
+                                Text(
+                                    text = stringResource(R.string.update_status_up_to_date),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                            // 仓库还没有发布任何 Release（不算失败）
+                            is UpdateCheckState.NoRelease -> {
+                                Text(
+                                    text = stringResource(R.string.update_status_no_release),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                            // 检查失败（断网 / 限流 / 响应异常等）
+                            is UpdateCheckState.Failed -> {
+                                Text(
+                                    text = stringResource(R.string.update_status_failed),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                            }
+                            // 发现新版本：版本号 + 更新日志 + 跳转 Release 页面
+                            is UpdateCheckState.Available -> {
+                                Text(
+                                    text = stringResource(R.string.update_status_available, state.latestVersion),
+                                    style = MiuixTheme.textStyles.body1,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                // 更新日志原文（Markdown 源文本按纯文本展示），限高可滚动
+                                Text(
+                                    text = state.changelog.ifBlank { noChangelogText },
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier
+                                        .heightIn(max = 200.dp)
+                                        .verticalScroll(rememberScrollState())
+                                )
+                                // 前往 GitHub 查看该 Release
+                                TextButton(
+                                    text = stringResource(R.string.update_status_view_release),
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(state.releaseUrl))
+                                            )
+                                        }
+                                    },
+                                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 手动检查按钮：检查中禁用，防止并发重复请求
+                Button(
+                    onClick = {
+                        scope.launch {
+                            UpdateChecker.checkForUpdate(context)
+                        }
+                    },
+                    enabled = !checking,
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.update_check_now))
+                }
+
+                // 底部避让导航栏（与其他 Sheet 保持一致）
+                Spacer(modifier = Modifier.padding(bottom = navBarBottomPadding))
+            }
         }
     }
 
@@ -1417,6 +1566,9 @@ fun SettingsScreen() {
 
     // ---- 作者信息 Sheet ----
     AuthorSheet()
+
+    // ---- 检查更新 Sheet ----
+    UpdateSheet()
 
     // ---- 导入备份 Sheet ----
     ImportBackupSheet()

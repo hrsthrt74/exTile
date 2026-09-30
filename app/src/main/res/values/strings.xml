@@ -183,6 +183,24 @@
     <string name="settings_clarity_title">Allow anonymous stats</string>
     <string name="settings_clarity_summary">Use Microsoft Clarity for anonymous usage stats to help improve the app. Restart is required after turning off.</string>
     <string name="settings_rerun_oobe_title">Run setup again</string>
+    <!-- 检查更新 -->
+    <string name="settings_update_sheet_title">Check for updates</string>
+    <string name="settings_update_auto_title">Auto check for updates</string>
+    <string name="update_status_idle">No check yet. Tap the button below to check manually.</string>
+    <string name="update_status_checking">Checking for updates…</string>
+    <string name="update_status_up_to_date">You are on the latest version.</string>
+    <string name="update_status_no_release">No release has been published yet.</string>
+    <string name="update_status_failed">Check failed. Check your network connection and try again.</string>
+    <string name="update_status_available">New version v%s is available</string>
+    <string name="update_status_view_release">View on GitHub</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_dialog_title">Update available</string>
+    <string name="update_dialog_summary">exTile v%s has been released.</string>
+    <string name="update_dialog_confirm">View release</string>
+    <string name="update_dialog_cancel">Later</string>
+    <string name="update_dialog_no_changelog">No release notes for this version.</string>
+    <string name="oobe_update_switch_title">Auto check for updates</string>
+    <string name="oobe_update_switch_summary">Optional. Check GitHub for new versions.</string>
     <!-- Sheet / Dialog -->
     <string name="settings_sheet_sysui_title">System tile config</string>
     <string name="settings_sheet_backup_title">Backup data</string>

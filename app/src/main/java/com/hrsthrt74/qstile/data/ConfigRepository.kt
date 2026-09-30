@@ -32,6 +32,8 @@ object ConfigRepository {
     private val AUTO_COLLAPSE_ON_CLOSE = booleanPreferencesKey("auto_collapse_on_close")
     /** MS Clarity 匿名统计的用户同意状态 key */
     private val CLARITY_CONSENT = booleanPreferencesKey("clarity_consent")
+    /** 自动检查更新开关 key（默认关闭） */
+    private val AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
 
     private val DEFAULT_EXPANDED = listOf("wifi", "bt", "cell", "airplane", "flashlight", "hotspot")
     private val DEFAULT_COLLAPSED = listOf("wifi", "bt", "cell")
@@ -365,6 +367,40 @@ object ConfigRepository {
     suspend fun saveClarityConsent(context: Context, consent: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[CLARITY_CONSENT] = consent
+        }
+    }
+
+    // ==================== 自动检查更新 ====================
+
+    /**
+     * 获取「自动检查更新」开关状态流。
+     * 默认 false（可选项，用户不主动开启就不联网检查）。
+     * @param context Context
+     * @return 开关状态流
+     */
+    fun getAutoCheckUpdateFlow(context: Context): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUTO_CHECK_UPDATE] ?: false
+        }
+    }
+
+    /**
+     * 获取「自动检查更新」开关状态（挂起函数）。
+     * @param context Context
+     * @return 是否开启自动检查更新
+     */
+    suspend fun getAutoCheckUpdate(context: Context): Boolean {
+        return getAutoCheckUpdateFlow(context).first()
+    }
+
+    /**
+     * 保存「自动检查更新」开关状态。
+     * @param context Context
+     * @param enabled true 表示启动时自动检查；false 表示不检查
+     */
+    suspend fun saveAutoCheckUpdate(context: Context, enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_CHECK_UPDATE] = enabled
         }
     }
 

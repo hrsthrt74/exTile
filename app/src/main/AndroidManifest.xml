@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- 检查更新：访问 GitHub Releases API（仅用户开启「自动检查更新」或手动检查时联网） -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- 声明查询其他应用的 Quick Settings Tile 服务 -->
     <queries>

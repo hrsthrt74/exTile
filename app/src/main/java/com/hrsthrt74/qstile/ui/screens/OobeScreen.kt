@@ -143,6 +143,11 @@ fun OobeScreen(
     val clarityConsent = ConfigRepository.getClarityConsentFlow(context)
         .collectAsState(initial = false)
 
+    // P1 数据与隐私页：自动检查更新开关状态
+    // 默认 false（可选项，用户不主动开启就不联网），与设置页「检查更新」Sheet 共享同一状态
+    val autoCheckUpdate = ConfigRepository.getAutoCheckUpdateFlow(context)
+        .collectAsState(initial = false)
+
     // 用户协议确认只属于本次引导页面状态，使用 rememberSaveable 保证旋转屏幕时不丢失。
     val legalDocumentsRead = rememberSaveable { mutableStateOf(false) }
 
@@ -455,6 +460,23 @@ fun OobeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 自动检查更新开关：可选项，默认关闭；开启后应用冷启动时会联网访问
+            // GitHub 检查新版本，发现新版本时弹窗提示（无更新 / 失败均静默）
+            Card(modifier = Modifier.fillMaxWidth()) {
+                SwitchPreference(
+                    title = stringResource(R.string.oobe_update_switch_title),
+                    summary = stringResource(R.string.oobe_update_switch_summary),
+                    checked = autoCheckUpdate.value,
+                    onCheckedChange = { newValue ->
+                        scope.launch {
+                            ConfigRepository.saveAutoCheckUpdate(context, newValue)
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // 同意开关
             Card(modifier = Modifier.fillMaxWidth()) {
                 SwitchPreference(
@@ -469,7 +491,7 @@ fun OobeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // 说明卡片
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -659,7 +681,7 @@ fun OobeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // 导入进度：异步操作加载中
                 AnimatedVisibility(visible = isImporting) {

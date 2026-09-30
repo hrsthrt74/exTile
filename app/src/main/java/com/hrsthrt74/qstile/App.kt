@@ -1,8 +1,10 @@
 package com.hrsthrt74.qstile
 
 import androidx.annotation.StringRes
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
@@ -17,6 +21,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,10 +42,15 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import android.net.Uri
 import com.hrsthrt74.qstile.data.ConfigRepository
+import com.hrsthrt74.qstile.data.UpdateCheckState
+import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.MaxContentWidth
 import com.hrsthrt74.qstile.ui.blurBarColors
+import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.navigation.MainPagerState
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
@@ -58,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.NavigationRailState
 import top.yukonga.miuix.kmp.basic.NavigationRailValue
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Edit
@@ -192,6 +204,70 @@ fun MainApp(
                 mainPagerState = mainPagerState,
                 haptic = haptic,
                 onRequestShizukuPermission = onRequestShizukuPermission
+            )
+        }
+    }
+
+    // 自动检查更新的「发现新版本」对话框（Window 级悬浮，与页面布局无关）：
+    // 放在 OOBE 完成分支内，引导期间不弹窗
+    UpdatePromptHost()
+}
+
+/**
+ * 自动检查更新的「发现新版本」对话框宿主。
+ *
+ * 自动检查由 MainActivity 冷启动时执行，结果写入 [UpdateChecker.state]；
+ * 这里只负责把结果转成 UI：仅当出现 [UpdateCheckState.Available] 且本进程尚未提示过时弹窗。
+ * 无更新 / 仓库暂无发布 / 检查失败等其余状态一律静默，不弹任何提示。
+ */
+@Composable
+private fun UpdatePromptHost() {
+    val context = LocalContext.current
+    val dialogState = rememberDialogState()
+    val checkState by UpdateChecker.state.collectAsState()
+
+    // 仅响应「发现新版本」：updatePromptShown 是进程级标记，
+    // 防止「重新运行引导」等导致本组件重建的场景重复弹窗
+    LaunchedEffect(checkState) {
+        if (checkState !is UpdateCheckState.Available) return@LaunchedEffect
+        if (UpdateChecker.updatePromptShown) return@LaunchedEffect
+        UpdateChecker.updatePromptShown = true
+        dialogState.show()
+    }
+
+    // 对话框内容取自当前状态；仅在本组件存在（OOBE 已完成）且 state 为 Available 时有值
+    val available = checkState as? UpdateCheckState.Available
+    // 更新日志可能为空（Release 没写说明），提前解析兜底文案供 ifBlank 使用（非 Composable lambda 内不能用 stringResource）
+    val noChangelogText = stringResource(R.string.update_dialog_no_changelog)
+
+    AppDialog(
+        state = dialogState,
+        title = stringResource(R.string.update_dialog_title),
+        summary = available?.let {
+            stringResource(R.string.update_dialog_summary, it.latestVersion)
+        },
+        confirmText = stringResource(R.string.update_dialog_confirm),
+        cancelText = stringResource(R.string.update_dialog_cancel),
+        onConfirm = {
+            // 跳转 GitHub Release 页面；设备没有浏览器时静默失败
+            available?.releaseUrl?.let { url ->
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }
+            }
+        }
+    ) {
+        // 更新日志原文（Markdown 源文本按纯文本展示），限高可滚动，避免日志过长撑爆对话框
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = available?.changelog?.ifBlank { noChangelogText } ?: "",
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
             )
         }
     }

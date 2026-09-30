@@ -183,6 +183,24 @@
     <string name="settings_clarity_title">允许匿名统计</string>
     <string name="settings_clarity_summary">使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。关闭需重启应用生效。</string>
     <string name="settings_rerun_oobe_title">重新运行引导</string>
+    <!-- 检查更新 -->
+    <string name="settings_update_sheet_title">检查更新</string>
+    <string name="settings_update_auto_title">自动检查更新</string>
+    <string name="update_status_idle">尚未检查更新，可点击下方按钮手动检查。</string>
+    <string name="update_status_checking">正在检查更新…</string>
+    <string name="update_status_up_to_date">当前已是最新版本。</string>
+    <string name="update_status_no_release">仓库暂无发布版本。</string>
+    <string name="update_status_failed">检查失败，请检查网络连接后重试。</string>
+    <string name="update_status_available">发现新版本 v%s</string>
+    <string name="update_status_view_release">前往 GitHub 查看</string>
+    <string name="update_check_now">手动检查</string>
+    <string name="update_dialog_title">发现新版本</string>
+    <string name="update_dialog_summary">exTile v%s 已发布。</string>
+    <string name="update_dialog_confirm">前往查看</string>
+    <string name="update_dialog_cancel">以后再说</string>
+    <string name="update_dialog_no_changelog">本次发布暂无更新说明。</string>
+    <string name="oobe_update_switch_title">自动检查更新</string>
+    <string name="oobe_update_switch_summary">可选，启动时联网检查新版本。</string>
     <!-- Sheet / Dialog -->
     <string name="settings_sheet_sysui_title">系统磁贴配置</string>
     <string name="settings_sheet_backup_title">备份数据</string>
