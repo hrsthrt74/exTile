@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // 构建期收集所有依赖的许可信息，生成 aboutlibraries.json 供许可页读取
+    alias(libs.plugins.aboutlibraries.plugin)
 }
 
 // 将仓库中的 Markdown 法律文档复制到构建产物，保证 GitHub 与 App 使用同一份来源文件。
@@ -79,6 +81,8 @@ implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.devicecompat)
     implementation(libs.clarity.compose)
     implementation(libs.markwon.core)
+    // AboutLibraries 核心库：解析插件生成的许可数据
+    implementation(libs.aboutlibraries.core)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

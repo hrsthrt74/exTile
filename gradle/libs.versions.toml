@@ -20,6 +20,7 @@ reorderable = "3.1.0"
 devicecompat = "2.6"
 clarity = "3.+"
 markwon = "4.6.2"
+aboutlibraries = "15.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,8 +54,12 @@ reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reo
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
 clarity-compose = { group = "com.microsoft.clarity", name = "clarity-compose", version.ref = "clarity" }
 markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
+# AboutLibraries 核心库：在运行时读取插件生成的开源许可数据（aboutlibraries.json）
+aboutlibraries-core = { group = "com.mikepenz", name = "aboutlibraries-core", version.ref = "aboutlibraries" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# AboutLibraries Gradle 插件：构建期收集依赖的许可信息并生成数据文件
+aboutlibraries-plugin = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
 
