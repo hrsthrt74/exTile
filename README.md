@@ -1,8 +1,16 @@
 # exTile
 
-通过 **Shizuku** 框架获取系统级权限，实现对 Android 快速设置面板（Quick Settings）磁贴的动态切换与配置管理的应用。
+> English README WIP
 
-基于 **Jetpack Compose + MIUIX（HyperOS 设计）** 构建，支持磁贴编辑、布局一键切换、设备感知磁贴、主题定制与使用统计。
+让 Android 控制中心，在简洁和效率直之间找到「平衡」的魔法。
+
+![Banner](readme_assets/banner.webp)
+
+---
+
+exTile 是一个增强 Android 定制 UI 的控制中心的应用，让次常用的磁贴收纳起来，点击 exTile 即可呼出。
+
+基于 **Jetpack Compose + MIUIX** 构建，支持磁贴编辑、布局一键切换。
 
 ## 截图预览
 
@@ -17,15 +25,11 @@
 
 - **QS 磁贴一键切换**：通过 `ExTileService` 在「展开 / 收起」两套布局间一键切换
 - **磁贴编辑**：4 列网格拖拽排序，支持添加系统 / 自定义磁贴；**一页式编辑**，exTile 磁贴作为「分界锚点」，其前方磁贴为收起时可见，其后为仅展开时可见
-- **磁贴操作菜单**：点击磁贴可移动到顶端 / 底端或删除
-- **自定义磁贴图标**：自动获取其他应用的 TileService 图标
 - **配置备份 / 恢复**：JSON 格式导出 / 导入，支持从系统当前配置导入
-- **主题定制**：MIUIX 动态取色引擎，支持 Monet 取色、深色模式
 - **小米设备特化**：自动检测 MIUI / HyperOS，显示固定卡片与编辑磁贴
 - **设备感知磁贴**：根据设备能力（小米 / AOSP、SDK 版本、系统属性、硬件特性）自动显示 / 隐藏磁贴
 - **长按 exTile 行为自定义**：可跳转 exTile / 系统设置 / 自定义应用
 - **使用统计**：记录磁贴布局切换的累计展开 / 收起次数
-- **开源许可页**：展示所有开源库信息，点击直接跳转项目地址
 
 ## 权限说明
 
@@ -34,7 +38,7 @@
 ## 架构
 
 <details>
-<summary>点击展开架构图</summary>
+<summary>点击展开</summary>
 
 ```text
                     ┌─────────────────────────────┐
@@ -83,7 +87,7 @@
 ## 目录结构
 
 <details>
-<summary>点击展开目录结构</summary>
+<summary>点击展开</summary>
 
 ```text
 exTile/
@@ -149,34 +153,36 @@ exTile/
 
 ## 技术栈
 
+<details>
+<summary>点击展开</summary>
+
 | 依赖 | 版本 |
 |------|------|
-| Android Gradle Plugin | 9.3.0 |
-| Kotlin Compose Plugin | 2.4.0 |
-| Compose BOM | 2026.02.01 |
-| Navigation Compose | 2.8.5 |
+| Android Gradle Plugin | 9.3.3 |
+| Kotlin Compose Plugin | 2.4.20 |
+| Compose BOM | 2026.09.00 |
+| Navigation Compose | 2.10.1 |
 | NavigationEvent Compose | 1.1.2 |
 | Activity Compose | 1.13.0 |
-| DataStore Preferences | 1.0.0 |
+| Lifecycle (Runtime / ViewModel Compose) | 2.11.0 |
+| DataStore Preferences | 1.2.1 |
+| Core KTX / SplashScreen | 1.19.0 / 1.2.0 |
+| Material Icons Extended | 1.7.8 |
 | Shizuku API / Provider | 13.1.5 |
-| MIUIX UI / Preference / Blur | 0.9.3 |
+| MIUIX UI / Icons / Preference / Blur | 0.9.4 |
 | Calvin-LL/Reorderable | 3.1.0 |
 | DeviceCompat | 2.6 |
+| Microsoft Clarity Compose | 3.+ |
+| Markwon | 4.6.2 |
+| AboutLibraries | 15.2.0 |
 
-- 语言：Kotlin 2.4.0（Java 11 兼容）
-- 最低 SDK：Android 13（API 33）；目标 SDK：Android 16（API 36）；编译 SDK：Android 17（API 37）
+- 语言：Kotlin 2.4.20
 - 包名：`com.hrsthrt74.qstile`
 
-## 构建与调试
-
-一键构建 → 安装至手机 → 启动调试，执行：
-
-```powershell
-./debug.ps1
-```
+</details>
 
 ## 开源许可
 
-本项目基于 [GNU General Public License v3.0（GPL-3.0）](LICENSE) 开源。你可以在遵守 GPL-3.0 的前提下自由使用、修改和再分发本项目的源代码；再分发的修改版本同样需要以 GPL-3.0 开源并保留版权声明。
+本项目基于 [GNU General Public License v3.0（GPL-3.0）](LICENSE) 开源。
 
 第三方库许可证见应用内「开源许可」页面（`LicensesActivity`）。
