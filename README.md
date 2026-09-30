@@ -168,4 +168,6 @@ exTile/
 
 ## 开源许可
 
+本项目基于 [GNU General Public License v3.0（GPL-3.0）](LICENSE) 开源。你可以在遵守 GPL-3.0 的前提下自由使用、修改和再分发本项目的源代码；再分发的修改版本同样需要以 GPL-3.0 开源并保留版权声明。
+
 第三方库许可证见应用内「开源许可」页面（`LicensesActivity`）。
