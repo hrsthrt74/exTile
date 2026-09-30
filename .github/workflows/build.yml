@@ -46,25 +46,23 @@ jobs:
       - name: 配置 Gradle 缓存
         uses: gradle/actions/setup-gradle@v4
 
-      # 4. 安装 compileSdk 37 对应的 Android 平台包
-      # GitHub 的 ubuntu runner 已预装 Android SDK 且预接受许可;
-      # build-tools 无需显式安装,AGP 会按需自动下载
-      - name: 安装 Android SDK 平台
-        run: sdkmanager --install "platforms;android-37"
+      # Android SDK 无需手动安装:ubuntu runner 镜像已预装 platforms;android-37
+      # 与 build-tools 37.0.0(恰好覆盖本项目的 compileSdk),若有个别缺失组件,
+      # AGP 也会在构建时自动下载并使用预接受的许可
 
-      # 5. 补充 gradlew 可执行权限
+      # 4. 补充 gradlew 可执行权限
       # (在 Windows 上开发时提交的 gradlew 可能未保留执行位,Linux runner 上必须可执行)
       - name: 赋予 gradlew 可执行权限
         run: chmod +x gradlew
 
-      # 6. 一次构建两个变体,共享依赖下载与配置缓存,速度更快
+      # 5. 一次构建两个变体,共享依赖下载与配置缓存,速度更快
       #    - Debug:产出可直接安装的 app-debug.apk
       #    - Release:项目无签名配置,产出未签名的 app-release-unsigned.apk,
       #      并生成 R8 混淆映射文件 mapping.txt(崩溃日志反混淆时需要)
       - name: 构建 Debug 与 Release APK
         run: ./gradlew assembleDebug assembleRelease --stacktrace
 
-      # 7. 上传 Debug APK 作为构建产物
+      # 6. 上传 Debug APK 作为构建产物
       - name: 上传 Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -73,7 +71,7 @@ jobs:
           # 产物缺失时直接报错,避免静默上传空产物
           if-no-files-found: error
 
-      # 8. 上传未签名 Release APK 与 mapping.txt
+      # 7. 上传未签名 Release APK 与 mapping.txt
       - name: 上传 Release APK(未签名)
         uses: actions/upload-artifact@v4
         with:
