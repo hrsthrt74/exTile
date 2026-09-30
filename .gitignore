@@ -26,6 +26,7 @@ adb
 .agents
 .workbuddy
 .zcode
+/.zcodeignore
 
 /app/release/
 
