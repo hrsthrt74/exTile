@@ -17,10 +17,11 @@ exTile 是一个增强 Android 定制 UI 的控制中心的应用，让次常用
 ## 截图预览
 
 <p align="center">
-  <img src="readme_assets/1.jpg" width="24%" alt="截图 1" />
-  <img src="readme_assets/2.jpg" width="24%" alt="截图 2" />
-  <img src="readme_assets/3.jpg" width="24%" alt="截图 3" />
-  <img src="readme_assets/4.jpg" width="24%" alt="截图 4" />
+  <img src="readme_assets/1.jpg" width="19%" alt="截图 1" />
+  <img src="readme_assets/2.jpg" width="19%" alt="截图 2" />
+  <img src="readme_assets/3.jpg" width="19%" alt="截图 3" />
+  <img src="readme_assets/4.jpg" width="19%" alt="截图 4" />
+  <img src="readme_assets/5.jpg" width="19%" alt="截图 5" />
 </p>
 
 ## 功能特性
