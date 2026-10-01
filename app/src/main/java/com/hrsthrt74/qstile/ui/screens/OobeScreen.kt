@@ -308,7 +308,7 @@ fun OobeScreen(
                 // 特性列表卡片
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     FeatureCard(
                         icon = MiuixIcons.Demibold.GridView,
@@ -681,10 +681,10 @@ fun OobeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
 
                 // 导入进度：异步操作加载中
                 AnimatedVisibility(visible = isImporting) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -711,6 +711,8 @@ fun OobeScreen(
                         profile = profile
                     )
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // 一键引导在系统里添加 exTile 磁贴（SDK 33+ 系统弹窗）
                 // 已确认添加过（回调返回 TILE_ADDED/ALREADY_ADDED）则按钮置灰禁用
@@ -1191,7 +1193,7 @@ private fun ImportPreviewCard(
     // 收纳磁贴 = 展开配置中去掉保留部分（去掉补回的 edit 后即 exTile 之后的磁贴）
     val hiddenTiles = result.expandedTiles.filter { it !in result.collapsedTiles }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 64.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 64.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
         )
