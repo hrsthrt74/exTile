@@ -343,15 +343,18 @@ fun SettingsScreen() {
                 text = stringResource(R.string.settings_section_tile_sync),
                 insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
             )
-            SwitchPreference(
-                title = stringResource(R.string.settings_wordless_title),
-                summary = stringResource(R.string.settings_wordless_summary),
-                checked = viewModel.wordlessModeSync,
-                onCheckedChange = { enabled ->
-                    viewModel.saveWordlessModeSync(context, enabled)
-                },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Months) }
-            )
+            // 无字模式写入的 wordless_mode 是 HyperOS 专属 Secure Setting，仅小米设备显示
+            if (profile.isXiaomi) {
+                SwitchPreference(
+                    title = stringResource(R.string.settings_wordless_title),
+                    summary = stringResource(R.string.settings_wordless_summary),
+                    checked = viewModel.wordlessModeSync,
+                    onCheckedChange = { enabled ->
+                        viewModel.saveWordlessModeSync(context, enabled)
+                    },
+                    startAction = { PreferenceLeadingIcon(MiuixIcons.Months) }
+                )
+            }
 
             SwitchPreference(
                 title = stringResource(R.string.settings_device_center_title),
