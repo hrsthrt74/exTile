@@ -78,6 +78,8 @@ import com.hrsthrt74.qstile.ui.BlurredBar
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
+import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
@@ -150,11 +152,7 @@ private val dayNightModeLabels = listOf(
 // 设置项行首图标（或空白占位）与标题文字之间的间距，统一由此变量控制，方便整体调整
 private val PreferenceIconEndPadding = 8.dp
 
-// 交流群群号，点击「交流群」条目时会复制到剪贴板，方便在 QQ 中直接搜索加群
-private const val QQ_GROUP_NUMBER = "1106522984"
-
-// 交流群（QQ 群）加群链接，仅简体中文环境下展示，点击跳转到 QQ 加群页
-private const val QQ_GROUP_URL = "https://qun.qq.com/universal-share/share?ac=1&authKey=ELh%2F3pZmyj%2FbfhJDVXj5H12DW3YDCPguBLZauwa2LXjuMGA6w9rq7B8o83GBX5Dd&busi_data=eyJncm91cENvZGUiOiIxMTA2NTIyOTg0IiwidG9rZW4iOiJlN08yRmVRazZMRWc4emZHMW5ENFlRZk9vTXpUWWd3NlNTMklWVWtVUzJIa3BYcUJ3ODNDZXREQnJXdENVR2x0IiwidWluIjoiMTkzMDAwOTYxIn0%3D&data=XPxXnJ_cQBPqRzg2BTPLBqZmFmmiuOiZstF9E8UwfmDZBqWrG_7IYm6GvBty15gHotcMhMVdbWLFwY8S00KQnA&svctype=4&tempid=h5_group_info"
+// 群号与加群链接已抽取到 ui/components/FeedbackLinks.kt，与主页提示卡片共用
 // 设置项行首图标（或空白占位）左侧的间距，用于与卡片内边距拉开一点距离
 private val PreferenceIconStartPadding = 4.dp
 // 无图标设置项的行首空白占位宽度，与图标宽度（24dp）保持一致以对齐

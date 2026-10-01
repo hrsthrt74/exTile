@@ -268,6 +268,8 @@
     <string name="home_stats_title">Usage stats</string>
     <string name="home_stats_expand_total">Total expands</string>
     <string name="home_stats_collapse_total">Total collapses</string>
+    <string name="home_first_version_title">First version</string>
+    <string name="home_first_version_summary">This is the first version of exTile — thanks for your support! Found a problem? Tap this card to report it on GitHub Issues.</string>
 
     <!-- ===== 文档页 docs_ ===== -->
     <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->
