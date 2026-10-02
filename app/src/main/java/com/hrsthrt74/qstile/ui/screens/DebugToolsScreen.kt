@@ -405,6 +405,11 @@ fun DebugToolsScreen() {
                             DebugInfoRow(stringResource(R.string.debug_expanded_count), config.expandedTiles.size.toString())
                             DebugInfoRow(stringResource(R.string.debug_collapsed_count), config.collapsedTiles.size.toString())
                             DebugInfoRow(stringResource(R.string.debug_system_tiles_count), currentTiles.size.toString())
+                            // 当前机型代号（Build.DEVICE，如 marble / diting）；个别设备该字段为空，回退为「无法获取」
+                            DebugInfoRow(
+                                stringResource(R.string.debug_device_codename),
+                                android.os.Build.DEVICE.ifBlank { unavailableText }
+                            )
                         }
                     }
                 }

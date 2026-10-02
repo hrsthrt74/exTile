@@ -30,8 +30,13 @@ data class DeviceProfile(
     val sdkInt: Int,
     /** 是否支持卫星通讯。TODO 占位：恒为 true，待 prop 检测实现后收紧 */
     val hasSatellite: Boolean = true,
-    /** 是否带散热风扇。TODO 占位：恒为 true，待 prop 检测实现后收紧 */
-    val hasCoolingFan: Boolean = true,
+    /**
+     * 是否带主动散热风扇。
+     * 判定依据为机型代号（[Build.DEVICE]）是否命中白名单 [COOLING_FAN_DEVICE_CODENAMES]——
+     * 小米系目前只有 REDMI K90 Max（prague）与 REDMI K90 至尊版（warsaw）两款机型搭载实体散热风扇，
+     * 其余设备一律视为不支持。
+     */
+    val hasCoolingFan: Boolean,
     /**
      * prop 门控能力表：key 为系统属性名（见 [TileRequirement.gatedPropKeys]），value 为解析后的布尔能力。
      * 由 [from] 一次性批量读取并缓存，供 [TileRequirement.RequiresProp] 求值。
@@ -85,6 +90,18 @@ data class DeviceProfile(
     }
 
     companion object {
+        /**
+         * 支持主动散热风扇的机型代号白名单（对应 [Build.DEVICE]，统一小写比较）。
+         *
+         * 代号与机型对照：
+         * - `prague` → REDMI K90 Max
+         * - `warsaw` → REDMI K90 至尊版
+         *
+         * 小米系目前仅有这两款机型搭载了实体散热风扇，其余设备一律视为不支持。
+         * 新增机型时只需在此追加代号，其余判定逻辑无需改动。
+         */
+        private val COOLING_FAN_DEVICE_CODENAMES = setOf("prague", "warsaw")
+
         /** 缓存，避免重复采集系统属性 */
         @Volatile
         private var cached: DeviceProfile? = null
@@ -114,8 +131,8 @@ data class DeviceProfile(
                     sdkInt = Build.VERSION.SDK_INT,
                     // TODO 占位：待实现 prop 检测后改为真实能力
                     hasSatellite = true,
-                    // TODO 占位：待实现 prop 检测后改为真实能力
-                    hasCoolingFan = true,
+                    // 散热风扇：仅有实体风扇的机型（REDMI K90 Max / K90 至尊版）支持，按机型代号白名单判定
+                    hasCoolingFan = Build.DEVICE.lowercase() in COOLING_FAN_DEVICE_CODENAMES,
                     // 一次性批量读取全部受控 prop（prop 为只读属性，缓存安全）
                     gatedProps = TileRequirement.gatedPropKeys.associateWith { readBooleanProp(it) },
                     // 一次性批量检测全部受控硬件特性（PackageManager 检测开销小，缓存安全）

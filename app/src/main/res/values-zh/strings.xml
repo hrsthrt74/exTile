@@ -336,6 +336,7 @@
     <string name="debug_expanded_count">展开磁贴数</string>
     <string name="debug_collapsed_count">收起磁贴数</string>
     <string name="debug_system_tiles_count">系统磁贴数</string>
+    <string name="debug_device_codename">机型代号</string>
     <string name="debug_unavailable">无法获取</string>
     <string name="debug_when_expanded">展开时</string>
     <string name="debug_when_collapsed">收起时</string>

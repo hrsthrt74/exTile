@@ -36,8 +36,9 @@ sealed interface TileRequirement {
     data object SATELLITE : TileRequirement
 
     /**
-     * 需要设备带散热风扇（如部分小米旗舰机型）。
-     * TODO 占位：恒为 true（保持现状可见性），待 prop 检测实现后收紧。
+     * 需要设备带主动散热风扇。
+     * 判定见 [DeviceProfile.hasCoolingFan]：小米系仅 REDMI K90 Max（prague）、
+     * REDMI K90 至尊版（warsaw）两款机型满足。
      */
     data object COOLING_FAN : TileRequirement
 

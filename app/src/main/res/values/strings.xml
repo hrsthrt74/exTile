@@ -336,6 +336,7 @@
     <string name="debug_expanded_count">Expanded tiles</string>
     <string name="debug_collapsed_count">Collapsed tiles</string>
     <string name="debug_system_tiles_count">System tiles</string>
+    <string name="debug_device_codename">Device codename</string>
     <string name="debug_unavailable">Unavailable</string>
     <string name="debug_when_expanded">When expanded</string>
     <string name="debug_when_collapsed">When collapsed</string>
