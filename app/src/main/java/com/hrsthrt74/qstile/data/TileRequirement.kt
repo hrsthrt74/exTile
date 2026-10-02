@@ -20,6 +20,9 @@ sealed interface TileRequirement {
     /** 仅原生 Android（非小米系）可用 */
     data object AOSP_ONLY : TileRequirement
 
+    /** 仅平板设备可用（依据「编辑磁贴固定末尾」同一套 isTablet 判定，见 [DeviceProfile]） */
+    data object TABLET_ONLY : TileRequirement
+
     /**
      * 仅 Android 16 (API 36) 及以下可用。
      * 用于替代原先对 internet 磁贴的硬编码特判 `SDK_INT < 37`。

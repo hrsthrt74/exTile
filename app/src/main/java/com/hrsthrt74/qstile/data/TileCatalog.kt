@@ -45,7 +45,8 @@ object TileCatalog {
 
         // ===== 设备特定 =====
         TileInfo("satellite", "卫星通信", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.SATELLITE), R.drawable.tile_satellite),
-        TileInfo("dtmdtm", "工作台", "设备特定", setOf(TileRequirement.XIAOMI_ONLY), R.drawable.tile_desktop),
+        // 工作台：仅小米系平板设备可见
+        TileInfo("dtmdtm", "工作台", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.TABLET_ONLY), R.drawable.tile_desktop),
         TileInfo("coolingfan", "散热风扇", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.COOLING_FAN), R.drawable.tile_cooling_fan),
 
         // exTile

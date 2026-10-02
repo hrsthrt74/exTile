@@ -70,6 +70,7 @@ data class DeviceProfile(
             when (requirement) {
                 TileRequirement.XIAOMI_ONLY -> isXiaomi
                 TileRequirement.AOSP_ONLY -> !isXiaomi
+                TileRequirement.TABLET_ONLY -> isTablet
                 TileRequirement.MAX_SDK_36 -> sdkInt < 37
                 TileRequirement.SATELLITE -> TileCapabilityFlags.satelliteOverride ?: hasSatellite
                 TileRequirement.COOLING_FAN -> TileCapabilityFlags.coolingFanOverride ?: hasCoolingFan
