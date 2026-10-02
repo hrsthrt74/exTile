@@ -77,7 +77,7 @@ fun PermissionStatusCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -109,7 +109,7 @@ fun PermissionStatusCard(
                             status == ShizukuHelper.PermissionStatus.GRANTED -> stringResource(R.string.perm_granted_title)
                             else -> stringResource(R.string.perm_denied_title)
                         },
-                        style = MiuixTheme.textStyles.title3,
+                        style = MiuixTheme.textStyles.title4,
                         color = MiuixTheme.colorScheme.onSurface
                     )
                     // 引导文案：按状态机给出下一步提示，加载态固定为「请稍候」

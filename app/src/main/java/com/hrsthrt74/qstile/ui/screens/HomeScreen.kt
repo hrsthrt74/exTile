@@ -234,9 +234,7 @@ private fun FirstVersionCard() {
             }
         }
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -244,7 +242,6 @@ private fun FirstVersionCard() {
                 Icon(
                     imageVector = MiuixIcons.Community,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
                     tint = MiuixTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -257,8 +254,8 @@ private fun FirstVersionCard() {
 //                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.home_first_version_summary),
-                        style = MiuixTheme.textStyles.body2,
-//                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
                 }
             }
@@ -282,7 +279,7 @@ private fun StatsCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
