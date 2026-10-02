@@ -128,10 +128,10 @@ import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Import
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.Months
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Paste
 import top.yukonga.miuix.kmp.icon.extended.Remove
 import top.yukonga.miuix.kmp.icon.extended.Rename
-import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Unpin
@@ -1514,7 +1514,7 @@ fun SettingsScreen() {
                             IconButton(onClick = {
                                 context.startActivity(Intent(context, DebugToolsActivity::class.java))
                             }) {
-                                Icon(MiuixIcons.Tune, contentDescription = stringResource(R.string.debug_title))
+                                Icon(MiuixIcons.MoreCircle, contentDescription = stringResource(R.string.debug_title))
                             }
                         }
                     )
@@ -1530,7 +1530,7 @@ fun SettingsScreen() {
                             IconButton(onClick = {
                                 context.startActivity(Intent(context, DebugToolsActivity::class.java))
                             }) {
-                                Icon(MiuixIcons.Settings, contentDescription = stringResource(R.string.debug_title))
+                                Icon(MiuixIcons.MoreCircle, contentDescription = stringResource(R.string.debug_title))
                             }
                         }
                     )
