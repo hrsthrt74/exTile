@@ -40,14 +40,11 @@ object TileCatalog {
      * 全部磁贴静态清单。
      * 注意：存在同 value 多条记录的情况（如 rotation），查询显示名时需结合设备 profile 取正确条目
      * （见 [getDisplayName]）。
+     *
+     * 清单的声明顺序即「添加磁贴」Sheet 中分类的展示顺序（按各分类首次出现的位置排列），
+     * 需要调整分类顺序时直接移动对应代码块到目标位置即可，无需改动任何分组逻辑。
      */
     val systemTiles = listOf(
-
-        // ===== 设备特定 =====
-        TileInfo("satellite", "卫星通信", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.SATELLITE), R.drawable.tile_satellite),
-        // 工作台：仅小米系平板设备可见
-        TileInfo("dtmdtm", "工作台", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.TABLET_ONLY), R.drawable.tile_desktop),
-        TileInfo("coolingfan", "散热风扇", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.COOLING_FAN), R.drawable.tile_cooling_fan),
 
         // exTile
         TileInfo(EXTILE_CUSTOM, "exTile", "exTile", iconResId = R.drawable.ic_tile),
@@ -114,6 +111,12 @@ object TileCatalog {
         TileInfo("wirelesspower", "无线反向充电", "系统", setOf(TileRequirement.XIAOMI_ONLY), R.drawable.tile_wireless_charge),
         TileInfo("carsickness", "晕车缓解", "系统", setOf(TileRequirement.XIAOMI_ONLY), R.drawable.tile_carsickness),
         TileInfo("settings", "设置", "系统", setOf(TileRequirement.XIAOMI_ONLY), R.drawable.tile_settings),
+
+        // ===== 设备特定 =====
+        TileInfo("satellite", "卫星通信", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.SATELLITE), R.drawable.tile_satellite),
+        // 工作台：仅小米系平板设备可见
+        TileInfo("dtmdtm", "工作台", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.TABLET_ONLY), R.drawable.tile_desktop),
+        TileInfo("coolingfan", "散热风扇", "设备特定", setOf(TileRequirement.XIAOMI_ONLY, TileRequirement.COOLING_FAN), R.drawable.tile_cooling_fan),
 
         // ===== 无障碍 =====
         TileInfo("inversion", "颜色反转", "无障碍", iconResId = R.drawable.tile_color_inversion),
