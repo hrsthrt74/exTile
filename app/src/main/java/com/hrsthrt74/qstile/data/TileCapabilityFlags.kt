@@ -37,4 +37,22 @@ object TileCapabilityFlags {
      * 使用 SnapshotStateMap，遍历/读取时会被 Compose 订阅，改动触发依赖方重组。
      */
     val featureOverrides: SnapshotStateMap<String, Boolean> = mutableStateMapOf()
+
+    /**
+     * 「显示预设内但不可用的磁贴」调试开关（默认关闭）。
+     *
+     * 开启后磁贴编辑页「添加磁贴」Sheet 会显示静态清单内因设备能力不满足而不可见的磁贴
+     * （图标与文字降透明度区分，仍可点击添加），便于调试验证能力门控。
+     * 仅本次运行生效（内存态），重启应用恢复默认。
+     */
+    var showUnavailableTiles by mutableStateOf(false)
+
+    /**
+     * 「显示无图标磁贴」调试开关（默认关闭）。
+     *
+     * 开启后磁贴编辑页「添加磁贴」Sheet 会显示因拿不到图标而被隐藏的磁贴
+     * （无图标通常意味着系统不支持该磁贴或对应应用已卸载；降透明度展示，仍可点击添加）。
+     * 仅本次运行生效（内存态），重启应用恢复默认。
+     */
+    var showNoIconTiles by mutableStateOf(false)
 }

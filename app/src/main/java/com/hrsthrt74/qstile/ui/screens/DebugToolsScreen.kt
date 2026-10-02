@@ -617,6 +617,27 @@ fun DebugToolsScreen() {
                     )
                 ) {
                     Column {
+                        // 调试开关：编辑页「添加磁贴」Sheet 额外显示预设内因设备能力不满足而不可用的磁贴
+                        SwitchPreference(
+                            title = stringResource(R.string.debug_show_unavailable_tiles),
+                            summary = stringResource(R.string.debug_show_unavailable_tiles_summary),
+                            checked = TileCapabilityFlags.showUnavailableTiles,
+                            onCheckedChange = { enabled ->
+                                TileCapabilityFlags.showUnavailableTiles = enabled
+                            }
+                        )
+
+                        // 调试开关：编辑页「添加磁贴」Sheet 额外显示因拿不到图标而被隐藏的磁贴
+                        //（无图标通常意味着系统不支持或对应应用已卸载）
+                        SwitchPreference(
+                            title = stringResource(R.string.debug_show_no_icon_tiles),
+                            summary = stringResource(R.string.debug_show_no_icon_tiles_summary),
+                            checked = TileCapabilityFlags.showNoIconTiles,
+                            onCheckedChange = { enabled ->
+                                TileCapabilityFlags.showNoIconTiles = enabled
+                            }
+                        )
+
                         SwitchPreference(
                             title = stringResource(R.string.debug_satellite),
                             summary = stringResource(R.string.debug_satellite_summary),

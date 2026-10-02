@@ -313,6 +313,10 @@
     <string name="debug_add_tile">Add tile to end</string>
     <string name="debug_add_custom">Add custom tile to end</string>
     <string name="debug_capability">Capability toggles (debug)</string>
+    <string name="debug_show_unavailable_tiles">Show unavailable tiles</string>
+    <string name="debug_show_unavailable_tiles_summary">In the edit page add-tiles sheet, also show preset tiles unavailable on this device (dimmed)</string>
+    <string name="debug_show_no_icon_tiles">Show no-icon tiles</string>
+    <string name="debug_show_no_icon_tiles_summary">In the edit page add-tiles sheet, also show preset tiles whose icon cannot be resolved (unsupported system or app uninstalled, dimmed)</string>
     <string name="debug_app_locale">Change app language</string>
     <string name="debug_capability_note">Only applies to this run; restart the app to reset</string>
     <string name="debug_demo_activate">Activate icon</string>

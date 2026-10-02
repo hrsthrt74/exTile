@@ -58,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -217,6 +218,18 @@ fun TileConfigScreen() {
         } ?: context.getDrawable(R.drawable.tile_blank)!!
         val bitmap = remember(drawable) { drawable.toBitmap() }
         return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
+    }
+
+    // 判断磁贴能否取到真实图标（不含空白占位兜底）：
+    // 内置磁贴查静态清单的 iconResId；custom 磁贴运行时查第三方 Service 是否声明了图标；
+    // 其余未知磁贴值一律视为无图标。「添加磁贴」Sheet 据此隐藏拿不到图标的磁贴。
+    fun hasTileIcon(tile: String): Boolean {
+        // 内置磁贴：静态清单有 iconResId 即有图标
+        TileCatalog.iconRes(tile)?.let { return true }
+        // custom 磁贴：Service 存在且声明了图标才算有
+        if (tile.startsWith("custom(")) return CustomTileUtils.hasCustomTileIcon(context, tile)
+        // 其他未知磁贴值（如 edit）：无图标
+        return false
     }
 
     // 获取 custom 磁贴的显示名与应用名（缓存避免重复查询）
@@ -853,14 +866,33 @@ fun TileConfigScreen() {
             val currentTiles = viewModel.config.expandedTiles
 
             // 读取调试 flag（订阅变化），切换后刷新可用磁贴列表
+            // showUnavailableTiles：调试开关，开启后额外显示预设内因设备能力不满足而不可用的磁贴
             val capabilityKey = listOf(
                 TileCapabilityFlags.satelliteOverride,
                 TileCapabilityFlags.coolingFanOverride,
                 TileCapabilityFlags.propOverrides.toMap(),
                 TileCapabilityFlags.featureOverrides.toMap(),
+                TileCapabilityFlags.showUnavailableTiles,
+                TileCapabilityFlags.showNoIconTiles,
             )
             val availableTiles = remember(currentTiles, viewModel.profile, capabilityKey) {
-                TileCatalog.getAvailableTiles(viewModel.profile).filter { it.value !in currentTiles }
+                // 基础来源：默认仅设备可用磁贴；调试开关开启时放宽为全量静态清单（不可用磁贴降透明度展示）
+                val catalog = if (TileCapabilityFlags.showUnavailableTiles) {
+                    TileCatalog.systemTiles
+                } else {
+                    TileCatalog.getAvailableTiles(viewModel.profile)
+                }
+                // 过滤已添加磁贴；无图标磁贴默认隐藏（空白占位不展示），调试开关开启时保留（降透明度展示）
+                catalog.filter {
+                    it.value !in currentTiles && (hasTileIcon(it.value) || TileCapabilityFlags.showNoIconTiles)
+                }
+            }
+            // 调试开关开启时，用于区分「不可用」磁贴的能力快照（渲染时降透明度）：
+            // 设备能力不满足，或因无图标而本应隐藏（现被调试开关保留展示）的磁贴
+            val availableValues = remember(availableTiles, viewModel.profile, capabilityKey) {
+                availableTiles.filter {
+                    it.isAvailable(viewModel.profile) && hasTileIcon(it.value)
+                }.map { it.value }.toSet()
             }
 
             // 根据搜索关键字过滤：同时匹配磁贴显示名和 value（不区分大小写）
@@ -939,10 +971,13 @@ fun TileConfigScreen() {
                             // 磁贴网格
                             items(tiles.size) { index ->
                                 val tile = tiles[index]
+                                // 调试开关保留展示的「不可用/无图标」磁贴整体降透明度区分
+                                val isUnavailable = tile.value !in availableValues
                                 Column(
                                     modifier = Modifier
                                         // 竖向要比横向大一点
-                                        .padding(horizontal = 4.dp, vertical = 12.dp),
+                                        .padding(horizontal = 4.dp, vertical = 12.dp)
+                                        .alpha(if (isUnavailable) 0.4f else 1f),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(

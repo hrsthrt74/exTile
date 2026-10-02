@@ -159,6 +159,27 @@ object CustomTileUtils {
     }
 
     /**
+     * 判断 custom 磁贴能否取到真实图标（不含空白占位兜底）。
+     *
+     * 与 [getCustomTileIcon] 不同：本方法只做「有无图标」判断，不返回兜底占位图，
+     * 供「添加磁贴」列表过滤掉拿不到图标的磁贴（Service 已卸载或未声明图标）。
+     *
+     * @param context Context
+     * @param value 磁贴值，格式为 "custom(包名/类名)"
+     * @return true = Service 存在且自身声明了图标；否则 false
+     */
+    fun hasCustomTileIcon(context: Context, value: String): Boolean {
+        val component = parseCustomComponent(value) ?: return false
+        val pm = context.packageManager
+        return try {
+            val serviceInfo = pm.getServiceInfo(component, PackageManager.GET_META_DATA)
+            serviceInfo.icon != 0
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
      * 获取 custom 磁贴的图标 Drawable。
      *
      * 只取第三方 TileService 自身声明的图标（[android.content.pm.ServiceInfo.icon]）：
