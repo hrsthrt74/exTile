@@ -1217,8 +1217,15 @@ private fun ImportPreviewCard(
     result: ConfigRepository.SystemImportResult.Success,
     profile: DeviceProfile
 ) {
-    // 收纳磁贴 = 展开配置中去掉保留部分（去掉补回的 edit 后即 exTile 之后的磁贴）
-    val hiddenTiles = result.expandedTiles.filter { it !in result.collapsedTiles }
+    // UI 层过滤：小米设备的系统磁贴列表末尾自带「edit」磁贴，导入时收起配置末尾也会补回 edit
+    // （数据配置保持原样，保证收起时仍有编辑入口，此处不改动 result 中的任何数据），
+    // 但预览卡片不需要展示它，也与保留/收纳计数无关——仅在展示层排除，与 TileConfigViewModel 的派生逻辑一致。
+    // 保留组 = 收起配置去掉 edit；收纳组 = 展开配置去掉保留部分后同样去掉 edit，
+    // 两组计数均基于过滤后的列表，保证数字与展示的磁贴一致
+    val keepTiles = result.collapsedTiles.filter { it != "edit" }
+    val hiddenTiles = result.expandedTiles
+        .filter { it !in result.collapsedTiles }
+        .filter { it != "edit" }
     Card(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 64.dp),
         colors = CardDefaults.defaultColors(
@@ -1228,21 +1235,21 @@ private fun ImportPreviewCard(
         Column(modifier = Modifier.padding(16.dp)) {
             // 分隔符随语言解析:中文顿号、英文逗号
             val separator = stringResource(R.string.common_list_separator)
-            // 第一行：保留组（左侧计数 + 右侧磁贴名）
+            // 第一行：保留组（左侧计数 + 右侧磁贴名，edit 不展示不计数）
             ImportPreviewRow(
                 label = stringResource(R.string.oobe_preview_keep),
-                count = result.keepCount,
-                tileNames = result.collapsedTiles.joinToString(separator) { TileCatalog.getDisplayName(it, profile) }
+                count = keepTiles.size,
+                tileNames = keepTiles.joinToString(separator) { TileCatalog.getDisplayName(it, profile) }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 第二行：收纳组（左侧计数 + 右侧磁贴名）
+            // 第二行：收纳组（左侧计数 + 右侧磁贴名，edit 不展示不计数）
             ImportPreviewRow(
                 label = stringResource(R.string.oobe_preview_hide),
-                count = result.hideCount,
+                count = hiddenTiles.size,
                 tileNames = if (hiddenTiles.isEmpty()) stringResource(R.string.common_none)
                             else hiddenTiles.joinToString(separator) { TileCatalog.getDisplayName(it, profile) }
             )
