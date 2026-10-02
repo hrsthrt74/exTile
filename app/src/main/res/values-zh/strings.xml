@@ -88,7 +88,7 @@
     <string name="oobe_permission_warning">*未授权将无法使用磁贴切换等核心功能</string>
     <!-- P3 配置页 -->
     <string name="oobe_setup_title">排列磁贴</string>
-    <string name="oobe_setup_subtitle">打开控制中心，进入磁贴编辑界面，\n把 exTile 磁贴拖动到一行的末尾。</string>
+    <string name="oobe_setup_subtitle">打开控制中心，进入磁贴编辑界面，\n把 exTile 磁贴拖动到一行的末尾，\n然后点击「我已配置完成」。</string>
     <string name="oobe_rule_before_title">exTile 之前的磁贴</string>
     <string name="oobe_rule_before_desc">始终显示</string>
     <string name="oobe_rule_after_title">exTile 之后的磁贴</string>
@@ -269,7 +269,7 @@
     <string name="home_stats_expand_total">累计展开次数</string>
     <string name="home_stats_collapse_total">累计收起次数</string>
     <string name="home_first_version_title">第一个版本</string>
-    <string name="home_first_version_summary">这是 exTile 的第一个版本，功能可能还不够完善，请多关照 🙏 如遇到问题，请点击本卡片进入 QQ 群反馈。</string>
+    <string name="home_first_version_summary">exTile 处于早期版本，功能可能还不够完善，请多关照 🙏 如有疑问，请点击进入 QQ 群反馈~ 感谢你的使用~</string>
 
     <!-- ===== 文档页 docs_ ===== -->
     <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->

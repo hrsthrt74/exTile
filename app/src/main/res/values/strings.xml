@@ -88,7 +88,7 @@
     <string name="oobe_permission_warning">*Without it, core features like tile switching won\'t work</string>
     <!-- P3 配置页 -->
     <string name="oobe_setup_title">Arrange tiles</string>
-    <string name="oobe_setup_subtitle">Open the control center, enter tile edit mode,\nand drag the exTile tile to the end of a row.</string>
+    <string name="oobe_setup_subtitle">Open the control center, enter tile edit mode,\nand drag the exTile tile to the end of a row,\nthen click I\'m done configuring.</string>
     <string name="oobe_rule_before_title">Tiles before exTile</string>
     <string name="oobe_rule_before_desc">Always visible</string>
     <string name="oobe_rule_after_title">Tiles after exTile</string>
@@ -269,7 +269,7 @@
     <string name="home_stats_expand_total">Total expands</string>
     <string name="home_stats_collapse_total">Total collapses</string>
     <string name="home_first_version_title">First version</string>
-    <string name="home_first_version_summary">This is the first version of exTile — thanks for your support! Found a problem? Tap this card to report it on GitHub Issues.</string>
+    <string name="home_first_version_summary">exTile is still in its early stages — thanks for your support! Found a problem? Tap this card to report it on GitHub Issues. Thanks for your usage!</string>
 
     <!-- ===== 文档页 docs_ ===== -->
     <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->
