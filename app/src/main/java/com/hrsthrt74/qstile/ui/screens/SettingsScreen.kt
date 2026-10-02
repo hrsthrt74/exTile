@@ -59,7 +59,14 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -1039,8 +1046,47 @@ fun SettingsScreen() {
                     contentDescription = stringResource(R.string.settings_donate_qr_desc),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                         .squircleClip(16.dp)
+                )
+                // 打赏声明：说明继续打赏即视为同意《用户协议》第 3 节（费用与打赏），且不支持退款。
+                // 「用户协议」为可点击链接，点击后打开 Docs 页并定位到「用户协议」Tab。
+                Text(
+                    text = buildAnnotatedString {
+                        append(stringResource(R.string.settings_donate_agree_prefix))
+                        // 链接样式：主题色 + 下划线，与 OOBE 页的法律文档链接保持一致
+                        withLink(
+                            LinkAnnotation.Clickable(
+                                tag = DocsTab.TERMS_OF_SERVICE.name,
+                                styles = TextLinkStyles(
+                                    style = SpanStyle(
+                                        color = MiuixTheme.colorScheme.primary,
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                ),
+                                linkInteractionListener = { link ->
+                                    if (link is LinkAnnotation.Clickable) {
+                                        context.startActivity(
+                                            Intent(context, DocsActivity::class.java).putExtra(
+                                                // EXTRA 以 String 形式传递（枚举序列化后 getStringExtra 取不到），
+                                                // 与 OOBE 页的写法保持一致，避免点击被兜底为隐私政策。
+                                                DocsActivity.EXTRA_TAB,
+                                                DocsTab.TERMS_OF_SERVICE.name
+                                            )
+                                        )
+                                    }
+                                }
+                            )
+                        ) {
+                            append(stringResource(R.string.settings_donate_agree_link_terms))
+                        }
+                        append(stringResource(R.string.settings_donate_agree_suffix))
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(), start = 12.dp, end = 12.dp)
                 )
             }
         }

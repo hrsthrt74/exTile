@@ -179,6 +179,10 @@
     <string name="settings_donate_summary">给作者加个鸡腿</string>
     <string name="settings_donate_thanks">感谢有你，我才能走得更远～</string>
     <string name="settings_donate_qr_desc">微信收款码</string>
+    <!-- 打赏 Sheet 底部声明：前缀 + 可点击的「用户协议」链接 + 章节/退款说明，分段拼接保证英文语序下链接定位正确 -->
+    <string name="settings_donate_agree_prefix">继续打赏即代表已阅读并同意 </string>
+    <string name="settings_donate_agree_link_terms">用户协议</string>
+    <string name="settings_donate_agree_suffix"> - 费用与打赏一节。不支持退款。未成年人请勿打赏。</string>
     <string name="settings_platform_coolapk">酷安</string>
     <string name="settings_docs_title">查看文档</string>
     <string name="settings_docs_summary">隐私政策、用户协议与开源许可</string>

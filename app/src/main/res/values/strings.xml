@@ -179,6 +179,10 @@
     <string name="settings_donate_summary">Buy the author a coffee</string>
     <string name="settings_donate_thanks">Thank you for your support~</string>
     <string name="settings_donate_qr_desc">WeChat QR code</string>
+    <!-- 打赏 Sheet 底部声明：前缀 + 可点击的「用户协议」链接 + 章节/退款说明，分段拼接保证英文语序下链接定位正确 -->
+    <string name="settings_donate_agree_prefix">"By continuing to donate, you acknowledge that you have read and agree to the "</string>
+    <string name="settings_donate_agree_link_terms">Terms of Service</string>
+    <string name="settings_donate_agree_suffix">" — 3. Fees and Donations. All donations are non-refundable."</string>
     <string name="settings_platform_coolapk">CoolAPK</string>
     <string name="settings_docs_title">View documents</string>
     <string name="settings_docs_summary">Privacy policy, terms of service &amp; open-source licenses</string>
