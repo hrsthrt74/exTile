@@ -108,7 +108,7 @@ import android.graphics.drawable.Icon as AndroidIcon
  * 回到上一页，首页退出应用（页面级 BackHandler，非弹窗场景 miuix 不提供）。
  * P1/P2/P3 左上角 IconButton 仍保留，点击同样动画翻页。
  *
- * 右上角「跳过」入口在 P0-P3 全程可见（点击弹二次确认，确认按钮带 5 秒倒计时冷静期），
+ * 右上角「跳过」入口在 P0-P3 全程可见（点击弹二次确认，确认按钮带 3 秒倒计时冷静期），
  * 仅 P4 完成页隐藏。
  *
  * - P0 欢迎页：跳过（二次确认）或「开始使用」
@@ -173,7 +173,7 @@ fun OobeScreen(
     // 不支持设备：长按「不支持」提示卡片后弹出的跳过确认对话框（确定需等倒计时结束）
     val unsupportedSkipDialogState = rememberDialogState()
 
-    // 三个跳过确认弹窗各自独立的 5 秒倒计时：
+    // 三个跳过确认弹窗各自独立的 3 秒倒计时：
     // 弹窗弹出后需等待倒计时结束才能点击「跳过」，防止误触直接跳过引导；
     // 倒计时数字实时显示在确认按钮文案后缀「(n)」
     val skipCountdown = rememberSkipCountdown(skipDialogState.show)
@@ -199,7 +199,7 @@ fun OobeScreen(
     // 不支持设备的判断：类原生 AOSP 系统（非厂商定制 ROM）且 Android 15（SDK 35）及以上。
     // 该场景下本应用依赖的 WRITE_SECURE_SETTINGS 磁贴切换方案不可用，因此在欢迎页（P0）拦截：
     // 展示错误提示并禁用「开始使用」按钮，阻止用户进入引导后续步骤；
-    // 「跳过」入口保留（二次确认弹窗带 5 秒倒计时），为误判设备提供逃生通道。
+    // 「跳过」入口保留（二次确认弹窗带 3 秒倒计时），为误判设备提供逃生通道。
     val isUnsupportedDevice = profile.isAosp && profile.sdkInt >= 35
 
     // 第三方定制系统（既非小米系也非类原生 AOSP，如 ColorOS / OneUI / OriginOS 等）：
@@ -325,7 +325,7 @@ fun OobeScreen(
                     )
                     // 不支持的设备（类原生 AOSP + Android 15 及以上）：追加醒目错误提示卡片，
                     // 告知用户本应用在该环境下无法使用（此时「开始使用」已禁用）。
-                    // 长按该卡片可弹出跳过确认对话框，等待 5 秒倒计时结束后即可强制完成引导
+                    // 长按该卡片可弹出跳过确认对话框，等待 3 秒倒计时结束后即可强制完成引导
                     if (isUnsupportedDevice) {
                         UnsupportedDeviceCard(
                             onLongPress = {
@@ -773,7 +773,7 @@ fun OobeScreen(
     // ==================== 最外层结构：统一 TopAppBar + 页面切换区 ====================
     Column(modifier = Modifier.fillMaxSize()) {
         // 统一 TopAppBar：仅承载交互元素，标题文字已移入各页面内容区
-        // - P0-P3：actions 显示「跳过」Close 图标（点击弹二次确认，确认按钮带 5 秒倒计时）
+        // - P0-P3：actions 显示「跳过」Close 图标（点击弹二次确认，确认按钮带 3 秒倒计时）
         // - P1-P3：返回按钮（回上一页）
         // - P4 完成页：全空（避免遮挡大对勾与文案）
         SmallTopAppBar(
@@ -793,7 +793,7 @@ fun OobeScreen(
             },
             actions = {
                 // 除最后一页（P4 完成页）外，右上角始终显示「跳过」入口（点击弹二次确认）。
-                // 不支持的设备同样可见：确认弹窗自带 5 秒倒计时冷静期，防止误触强制跳过
+                // 不支持的设备同样可见：确认弹窗自带 3 秒倒计时冷静期，防止误触强制跳过
                 if (pagerState.currentPage != 4) {
                     IconButton(
                         onClick = {
@@ -941,7 +941,7 @@ fun OobeScreen(
 
     // ==================== 对话框 ====================
 
-    // P0 跳过引导确认：确认按钮在 5 秒倒计时结束前禁用（文案带剩余秒数），防止误触直接跳过
+    // P0 跳过引导确认：确认按钮在 3 秒倒计时结束前禁用（文案带剩余秒数），防止误触直接跳过
     AppDialog(
         state = skipDialogState,
         title = stringResource(R.string.oobe_skip_dialog_title),
@@ -953,7 +953,7 @@ fun OobeScreen(
         onConfirm = { onCompleted() }
     )
 
-    // P2 未授权跳过确认（再次提醒后放行）：确认按钮同样带 5 秒倒计时冷静期
+    // P2 未授权跳过确认（再次提醒后放行）：确认按钮同样带 3 秒倒计时冷静期
     AppDialog(
         state = skipNoPermissionDialogState,
         title = stringResource(R.string.oobe_skip_no_perm_dialog_title),
@@ -985,7 +985,7 @@ fun OobeScreen(
     )
 
     // 不支持设备：长按「不支持」卡片后的强制跳过确认对话框。
-    // 确定按钮在倒计时（5 秒）结束前禁用，防止误触强制跳过 OOBE；
+    // 确定按钮在倒计时（3 秒）结束前禁用，防止误触强制跳过 OOBE；
     // 倒计时数字实时显示在按钮文案后缀「(n)」，倒计时结束后按钮自动可点
     AppDialog(
         state = unsupportedSkipDialogState,
@@ -1000,7 +1000,7 @@ fun OobeScreen(
 }
 
 /**
- * 跳过确认弹窗的 5 秒倒计时。
+ * 跳过确认弹窗的 3 秒倒计时。
  *
  * 弹窗显示（[show] 为 true）时从 5 开始每秒递减；关闭时协程随 key 变化自动取消，
  * 下次弹出重新从 5 开始计数，保证每次都有完整的冷静期。
@@ -1011,7 +1011,7 @@ fun OobeScreen(
  */
 @Composable
 private fun rememberSkipCountdown(show: Boolean): Int {
-    var countdown by remember { mutableStateOf(5) }
+    var countdown by remember { mutableStateOf(3) }
     LaunchedEffect(show) {
         if (show) {
             countdown = 5
@@ -1074,7 +1074,7 @@ private fun FeatureCard(
  *
  * 长按本卡片（[onLongPress]）可绕过拦截弹出跳过确认，等待倒计时结束后强制完成引导——
  * 这是为「误判为不支持」的设备准备的逃生通道（右上角「跳过」入口同样可用），
- * 确认按钮带 5 秒冷静期防止误触。
+ * 确认按钮带 3 秒冷静期防止误触。
  *
  * @param onLongPress 长按回调（由外层弹出跳过确认对话框）
  */
