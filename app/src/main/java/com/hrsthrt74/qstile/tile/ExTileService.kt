@@ -10,6 +10,7 @@ import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ExTileService : TileService() {
@@ -29,6 +30,16 @@ class ExTileService : TileService() {
 
         scope.launch {
             try {
+                // OOBE 未完成时不执行任何操作：
+                // 首次使用引导期间用户可能已把磁贴添加到面板但尚未完成配置导入，
+                // 此时点击磁贴会以默认配置写 sysui_qs_tiles，覆盖用户当前的系统布局。
+                // 「重新运行引导」期间（标志被重置为 false）同样拦截，保持行为一致。
+                val oobeCompleted = ConfigRepository.getOobeCompletedFlow(this@ExTileService).first()
+                if (!oobeCompleted) {
+                    Log.d(TAG, "OOBE not completed, ignore tile click")
+                    return@launch
+                }
+
                 val config = ConfigRepository.getConfig(this@ExTileService)
                 // onClick = 切换：当前展开则收起，当前收起则展开
                 val newIsExpanded = !config.isExpanded
