@@ -12,6 +12,7 @@ import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
+import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -220,6 +221,21 @@ class TileConfigViewModel : ViewModel() {
     fun undo(context: Context) {
         undoSnapshot?.let { updateGridTiles(it, context) }
         undoSnapshot = null
+    }
+
+    /**
+     * 从系统导入磁贴：读取当前系统 QS 的 sysui_qs_tiles 完整列表，
+     * 保存为展开状态（与设置页「从系统导入磁贴」行为一致）。
+     * @return 读取成功且列表非空返回 true，否则返回 false（如 Shizuku 不可用）
+     */
+    suspend fun importFromSystem(context: Context): Boolean {
+        val tiles = SecureSettingsHelper.getCurrentTiles(context)
+        if (tiles.isNotEmpty()) {
+            ConfigRepository.saveExpandedTiles(context, tiles)
+            config = config.copy(expandedTiles = tiles)
+            return true
+        }
+        return false
     }
 
     /**

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDpAsState
@@ -183,7 +184,14 @@ fun TileConfigScreen() {
     val customSheetState = rememberSheetState()
     // 两个确认操作对话框的显示状态（统一由 AppDialog 管理）
     val clearConfirmDialogState = rememberDialogState()
-    val resetConfirmDialogState = rememberDialogState()
+    // 「恢复默认设置」入口已下架，对应对话框状态一并注释
+    // val resetConfirmDialogState = rememberDialogState()
+    // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
+    val importConfirmDialogState = rememberDialogState()
+
+    // Toast 文案在 Composable 上下文预解析，避免协程/onClick 内触发非配置感知的资源读取
+    val importedToast = stringResource(R.string.settings_imported_toast)
+    val importFailedToast = stringResource(R.string.settings_read_failed_toast)
 
     // 打开「添加第三方磁贴」sheet 时，加载第三方磁贴服务列表
     LaunchedEffect(customSheetState.show) {
@@ -278,9 +286,15 @@ fun TileConfigScreen() {
                         text = stringResource(R.string.config_menu_clear),
                         onClick = { clearConfirmDialogState.show() }
                     ),
+                    // 「恢复默认设置」用处不大，暂时下架（确认对话框与状态同步注释，需要时一并恢复）
+                    // DropdownItem(
+                    //     text = stringResource(R.string.config_menu_reset),
+                    //     onClick = { resetConfirmDialogState.show() }
+                    // ),
+                    // 从系统导入磁贴：复用设置页的确认对话框文案，确认后读取系统 QS 列表覆盖展开配置
                     DropdownItem(
-                        text = stringResource(R.string.config_menu_reset),
-                        onClick = { resetConfirmDialogState.show() }
+                        text = stringResource(R.string.settings_import_system_title),
+                        onClick = { importConfirmDialogState.show() }
                     )
                 )
             )
@@ -1236,14 +1250,33 @@ fun TileConfigScreen() {
             }
         )
 
+        // 「恢复默认设置」入口已下架，对应确认对话框一并注释
+        // AppDialog(
+        //     state = resetConfirmDialogState,
+        //     title = stringResource(R.string.config_menu_reset),
+        //     summary = stringResource(R.string.config_reset_summary),
+        //     confirmText = stringResource(R.string.config_reset_confirm),
+        //     destructive = true,
+        //     onConfirm = {
+        //         viewModel.updateConfig(TileConfig(), context)
+        //     }
+        // )
+
+        // 从系统导入磁贴确认对话框：与设置页共用同一组文案资源
         AppDialog(
-            state = resetConfirmDialogState,
-            title = stringResource(R.string.config_menu_reset),
-            summary = stringResource(R.string.config_reset_summary),
-            confirmText = stringResource(R.string.config_reset_confirm),
-            destructive = true,
+            state = importConfirmDialogState,
+            title = stringResource(R.string.settings_import_system_title),
+            summary = stringResource(R.string.settings_import_system_dialog_summary),
+            confirmText = stringResource(R.string.common_confirm),
             onConfirm = {
-                viewModel.updateConfig(TileConfig(), context)
+                scope.launch {
+                    val success = viewModel.importFromSystem(context)
+                    Toast.makeText(
+                        context,
+                        if (success) importedToast else importFailedToast,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         )
     }
