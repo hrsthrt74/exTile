@@ -139,8 +139,6 @@ fun HomeScreen(
 
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
-                item { Spacer(modifier = Modifier.height(12.dp)) }
-
                 // 权限状态卡片：按状态机展示引导文案和对应操作按钮
                 item {
                     PermissionStatusCard(
