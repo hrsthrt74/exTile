@@ -65,6 +65,7 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
+import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.tile.ExTileService
 import com.hrsthrt74.qstile.ui.MaxContentWidth
@@ -100,6 +101,13 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.function.Consumer
 import android.graphics.drawable.Icon as AndroidIcon
+
+/**
+ * 添加磁贴成功后，延迟多久再展开控制面板。
+ * 系统的「添加磁贴」确认弹窗关闭有一小段退场动画，立刻展开会与它抢焦点、
+ * 导致控制中心闪一下就收回去，故留出余量。
+ */
+private const val EXPAND_PANEL_DELAY_MS = 400L
 
 /**
  * OOBE（首次使用引导）页面。
@@ -265,6 +273,15 @@ fun OobeScreen(
                     result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
                 ) {
                     tileAddRequested = true
+                    // 磁贴已在集合中：顺带把控制中心拉起来，方便用户接着点「编辑」排布磁贴。
+                    // 理想情况是直接进入系统的磁贴编辑页，但该页面是控制中心内部 View，
+                    // shell 权限下没有任何入口（详见 SecureSettingsHelper.openQsTileEditor
+                    // 的逆向注释），因此这里实际执行的是「展开控制面板」的回退分支。
+                    // 先等系统的添加确认弹窗退场，避免两个面板的动画打架。
+                    scope.launch {
+                        delay(EXPAND_PANEL_DELAY_MS)
+                        SecureSettingsHelper.openQsTileEditor()
+                    }
                 }
             }
         )
