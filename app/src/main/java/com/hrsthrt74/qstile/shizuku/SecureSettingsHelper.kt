@@ -305,4 +305,47 @@ object SecureSettingsHelper {
             false
         }
     }
+
+    /**
+     * 引导用户去系统的「磁贴编辑页」排布磁贴。
+     *
+     * 命名保留「打开编辑页」的业务语义，但**目前实际只有回退分支**生效，原因如下
+     * （结论来自对 com.android.systemui 16.03（Android 16）与 miui.systemui.plugin
+     * 17/18 的逆向，对照设备上 services.jar 的 StatusBarShellCommand）：
+     *
+     * 1. 系统磁贴编辑页是控制中心**内部的 View**，不是 Activity：
+     *    - SystemUI：`com.android.systemui.qs.customize.MiuiQSCustomizer`、
+     *      `com.android.systemui.qs.panels.ui.compose.EditModeKt`
+     *    - 插件：`miui.systemui.controlcenter.panel.main.qs.EditButtonController`、
+     *      `QSListController`
+     *    两个 APK 的 Manifest 里都没有对应的 Activity，也就无法 `am start`。
+     * 2. 没有任何能触发编辑态的广播：插件里 QS 控制器注册的广播接收器只监听
+     *    `PACKAGE_ADDED` / `PACKAGE_REMOVED`（用于刷新磁贴列表）。
+     * 3. `cmd statusbar` 的子命令全集为 help / expand-notifications / expand-settings /
+     *    collapse / add-tile / remove-tile / set-tiles / click-tile / check-support /
+     *    get-status-icons / disable-for-setup / send-disable-flag / tracing / run-gc / dump，
+     *    **没有 edit 相关命令**；未收录的命令会透传给 SystemUI 的
+     *    `statusbar.commandline.CommandRegistry`，而它注册的 Command 只有
+     *    BottomMargin / StatusBarInsets / CompositionTracing / Disable / Enable /
+     *    LogcatEchoTracker / ShadePrimaryDisplay / Prefs，同样没有编辑入口
+     *    （MIUI 也未在插件里注册任何 Command）。
+     *
+     * ⇒ 结论：至多 Shizuku（shell）权限下无法直接进入编辑态，只能退回到
+     * `cmd statusbar expand-settings` 展开控制中心，由用户自己点「编辑」。
+     * 若将来某版 ROM 提供可用入口，在本函数里加一层「优先尝试」分支即可。
+     *
+     * 仅依赖 Shizuku：展开面板需要 shell 身份，Shizuku 未运行/未授权时静默失败。
+     * @return 是否成功展开控制面板
+     */
+    suspend fun openQsTileEditor(): Boolean = withContext(Dispatchers.IO) {
+        // 前置检查：`cmd` 需要 shell 身份；Shizuku 不可用时直接放弃，不打扰用户
+        if (!ShizukuHelper.isShizukuRunning() || !ShizukuHelper.checkPermission()) {
+            Log.w(TAG, "openQsTileEditor skipped: Shizuku unavailable")
+            return@withContext false
+        }
+        // 回退分支：展开快捷设置面板（控制中心）
+        val result = executeCommand("cmd statusbar expand-settings")
+        Log.d(TAG, "openQsTileEditor expand-settings: $result")
+        result != null && !result.startsWith("ERROR")
+    }
 }
