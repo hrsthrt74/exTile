@@ -169,7 +169,7 @@
     <string name="settings_import_system_dialog_summary">Save current system tile config as expanded state. The existing expanded config will be overwritten.</string>
     <!-- 关于分类 -->
     <string name="settings_cat_about">About</string>
-    <string name="settings_author_role">Developer &amp; Designer</string>
+    <string name="settings_author_role">Main developer &amp; Designer</string>
     <string name="settings_author_avatar">Author avatar</string>
     <string name="settings_version_title">Version</string>
     <string name="settings_donate_title">Support the developer</string>

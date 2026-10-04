@@ -169,7 +169,7 @@
     <string name="settings_import_system_dialog_summary">将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。</string>
     <!-- 关于分类 -->
     <string name="settings_cat_about">关于</string>
-    <string name="settings_author_role">开发 / 设计</string>
+    <string name="settings_author_role">主开发 / 设计</string>
     <string name="settings_author_avatar">作者头像</string>
     <string name="settings_version_title">版本</string>
     <string name="settings_donate_title">支持作者</string>
