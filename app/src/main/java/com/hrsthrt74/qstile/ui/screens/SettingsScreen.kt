@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color as AndroidColor
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,6 +53,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -68,7 +72,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.DebugToolsActivity
@@ -95,6 +101,7 @@ import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.SettingsViewModel
 import com.microsoft.clarity.modifiers.clarityMask
 import com.microsoft.clarity.modifiers.clarityUnmask
+import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -888,15 +895,23 @@ fun SettingsScreen() {
                                     style = MiuixTheme.textStyles.body1,
                                     fontWeight = FontWeight.Bold
                                 )
-                                // 更新日志原文（Markdown 源文本按纯文本展示），限高可滚动
-                                Text(
-                                    text = state.changelog.ifBlank { noChangelogText },
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    modifier = Modifier
-                                        .heightIn(max = 200.dp)
-                                        .verticalScroll(rememberScrollState())
-                                )
+                                // 更新日志：Markdown 源文本经 Markwon 解析渲染（标题/列表/加粗/链接等），
+                                // 限高 200dp，超出部分在本区域内部滚动
+                                if (state.changelog.isBlank()) {
+                                    // Release 未写更新说明时的兜底文案（纯文本即可）
+                                    Text(
+                                        text = noChangelogText,
+                                        style = MiuixTheme.textStyles.footnote1,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                    )
+                                } else {
+                                    ChangelogMarkdownText(
+                                        changelog = state.changelog,
+                                        modifier = Modifier
+                                            .heightIn(max = 200.dp)
+                                            .verticalScroll(rememberScrollState())
+                                    )
+                                }
                                 // 前往 GitHub 查看该 Release
                                 TextButton(
                                     text = stringResource(R.string.update_status_view_release),
@@ -1919,4 +1934,55 @@ private fun ExpandableSettingsCard(
             }
         }
     }
+}
+
+/**
+ * 更新日志 Markdown 渲染组件：用 Markwon 把 GitHub Release 的 Markdown 源文本
+ * 解析为富文本（标题/列表/加粗/行内代码/链接等）显示在 TextView 上。
+ *
+ * 与法律文档页（MarkdownDocumentContent）共用同一套 Markwon 解析方案，差异点：
+ * - 字号更小（跟随设置页 footnote1 字号）、正文用摘要色，视觉上融入 Sheet 卡片；
+ * - 高度与滚动由调用方控制（本组件只撑开内容完整高度），便于限高内滚动。
+ *
+ * @param changelog Markdown 源文本（GitHub Release body）。
+ * @param modifier 应用到 AndroidView 容器上的修饰符（调用方传入限高 + 滚动）。
+ */
+@Composable
+private fun ChangelogMarkdownText(changelog: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    // Markwon 实例按 Context 缓存：解析器构建有开销，重组时不重复创建
+    val markwon = remember(context) { Markwon.builder(context).build() }
+    // 正文/链接颜色随主题切换：正文用摘要色弱化层级，链接用主题色提示可点击
+    val textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary.toArgb()
+    val linkColor = MiuixTheme.colorScheme.primary.toArgb()
+    // 渲染基准字号：跟随 footnote1 的 sp 值（Markwon 的标题按此基准相对缩放），
+    // 取不到有效 sp 值时退回 13sp，避免 TextView 字号异常
+    val footnoteFontSize = MiuixTheme.textStyles.footnote1.fontSize
+    val baseTextSize = if (footnoteFontSize.type == TextUnitType.Sp && footnoteFontSize.value > 0f) {
+        footnoteFontSize.value
+    } else {
+        13f
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { viewContext ->
+            TextView(viewContext).apply {
+                setTextColor(textColor)
+                setLinkTextColor(linkColor)
+                // 透明背景：融入 Sheet 卡片底色
+                setBackgroundColor(AndroidColor.TRANSPARENT)
+                textSize = baseTextSize
+                // 让 Markdown 里的链接可以点击打开
+                movementMethod = LinkMovementMethod.getInstance()
+            }
+        },
+        update = { textView ->
+            // 主题切换 / 字号变化时同步 View 属性，再重新应用 Markdown
+            textView.setTextColor(textColor)
+            textView.setLinkTextColor(linkColor)
+            textView.textSize = baseTextSize
+            markwon.setMarkdown(textView, changelog)
+        }
+    )
 }
