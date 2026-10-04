@@ -545,17 +545,23 @@ fun SettingsScreen() {
 
             // 渐进模糊：开启后顶部栏改用渐变模糊（顶部最强、向下过渡到清晰），
             // 需「模糊效果」开启时才生效（关闭模糊时整体回退纯色）
-            SwitchPreference(
-                title = stringResource(R.string.settings_progressive_blur_title),
-                summary = stringResource(R.string.settings_progressive_blur_summary),
-                checked = themeSettings.progressiveBlur,
-                onCheckedChange = { enabled ->
-                    scope.launch {
-                        ThemeRepository.saveProgressiveBlur(context, enabled)
-                    }
-                },
-                startAction = { PreferenceLeadingPlaceholder() }
-            )
+            // 仅在「模糊效果」开启时显示，模糊关闭时该选项无意义；
+            // 使用 AnimatedVisibility 实现平滑的展开/收起动画
+            AnimatedVisibility(
+                visible = themeSettings.enableBlur
+            ) {
+                SwitchPreference(
+                    title = stringResource(R.string.settings_progressive_blur_title),
+                    // summary = stringResource(R.string.settings_progressive_blur_summary),
+                    checked = themeSettings.progressiveBlur,
+                    onCheckedChange = { enabled ->
+                        scope.launch {
+                            ThemeRepository.saveProgressiveBlur(context, enabled)
+                        }
+                    },
+                    startAction = { PreferenceLeadingPlaceholder() }
+                )
+            }
 
             // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
             // if (themeSettings.isDynamicColorMode) {
