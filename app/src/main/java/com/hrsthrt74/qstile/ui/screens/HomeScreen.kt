@@ -144,6 +144,7 @@ fun HomeScreen(
                     PermissionStatusCard(
                         status = permState.status,
                         isLoading = permState.isLoading,
+                        onRootGrant = { permState.rootGrant() },
                         onInstallShizuku = {
                             // 未安装 Shizuku：引导到 GitHub Releases 下载
                             context.startActivity(

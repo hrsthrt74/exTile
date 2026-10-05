@@ -188,7 +188,8 @@ fun OobeScreen(
     val skipNoPermissionCountdown = rememberSkipCountdown(skipNoPermissionDialogState.show)
     val unsupportedSkipCountdown = rememberSkipCountdown(unsupportedSkipDialogState.show)
 
-    // P1 权限状态机（Shizuku 完全可选，授权后不再依赖），含初始加载与前台自动衔接
+    // P1 权限状态机（Shizuku 完全可选，授权后不再依赖），含初始加载与前台自动衔接。
+    // Root 授权不在这里自动探测：由权限卡片的「Root 授权」按钮在用户点击时触发
     val permState = rememberPermissionState(onRequestShizukuPermission)
 
     // P2 系统导入结果与加载状态（异步操作必须加 isLoading 防闪烁）
@@ -603,6 +604,7 @@ fun OobeScreen(
                 // 不传 isLoading（默认 false）与 onShowAdbGuide（默认 null，隐藏 adb 入口）
                 PermissionStatusCard(
                     status = permState.status,
+                    onRootGrant = { permState.rootGrant() },
                     onInstallShizuku = {
                         // 未安装 Shizuku：引导到 GitHub Releases 下载
                         context.startActivity(

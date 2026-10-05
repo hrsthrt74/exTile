@@ -70,6 +70,7 @@ import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileRequirement
+import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
@@ -115,6 +116,10 @@ fun DebugToolsScreen() {
     var currentTiles by remember { mutableStateOf(emptyList<String>()) }
     var shizukuInstalled by remember { mutableStateOf(false) }
     var shizukuRunning by remember { mutableStateOf(false) }
+    // Root 可用性（RootHelper 会话级缓存的三态结果：null=本会话未探测过）。
+    // 只读缓存、绝不在这里探测 su——探测会弹 Magisk 等管理器授权框，
+    // 只有权限卡片的「Root 授权」按钮点击时才会发生
+    var rootCached by remember { mutableStateOf<Boolean?>(null) }
     var hasWriteSecureSettings by remember { mutableStateOf(false) }
     var hasQueryAllPackages by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
@@ -216,6 +221,8 @@ fun DebugToolsScreen() {
             currentTiles = SecureSettingsHelper.getCurrentTiles(context)
             shizukuInstalled = ShizukuHelper.isShizukuInstalled(context)
             shizukuRunning = ShizukuHelper.isShizukuRunning()
+            // 只读 RootHelper 会话级缓存（可能为 null=未探测），不执行 su、不弹管理器授权框
+            rootCached = RootHelper.cachedRootAvailability()
             hasWriteSecureSettings = ShizukuHelper.hasWriteSecureSettingsPermission(context)
             hasQueryAllPackages = context.checkSelfPermission(android.Manifest.permission.QUERY_ALL_PACKAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED
             isLoading = false
@@ -394,9 +401,36 @@ fun DebugToolsScreen() {
                                 stringResource(R.string.debug_shizuku_running),
                                 stringResource(if (shizukuRunning) R.string.debug_yes else R.string.debug_no)
                             )
+                            // Root 可用性三态：null=本会话未探测过（探测只发生在权限卡「Root 授权」按钮点击时），
+                            // true/false=探测结果缓存。调试者看到「未检测」时应去权限卡点「Root 授权」触发探测
+                            DebugInfoRow(
+                                stringResource(R.string.debug_root_available),
+                                stringResource(
+                                    when (rootCached) {
+                                        true -> R.string.debug_yes
+                                        false -> R.string.debug_no
+                                        null -> R.string.debug_not_probed
+                                    }
+                                )
+                            )
                             DebugInfoRow(
                                 "WRITE_SECURE_SETTINGS",
                                 stringResource(if (hasWriteSecureSettings) R.string.debug_granted else R.string.debug_not_granted)
+                            )
+                            // 特权通道模式：应用当前实际依赖/可用的特权命令通道。
+                            // 判定顺序与应用行为一致——已持有 WSS 时直接 API 生效、不再依赖任何通道；
+                            // 否则 Shizuku（运行且已授权本应用，可执行命令）优先，其次 Root（会话缓存），
+                            // 都不可用时显示「无可用通道」
+                            DebugInfoRow(
+                                stringResource(R.string.debug_privilege_mode),
+                                stringResource(
+                                    when {
+                                        hasWriteSecureSettings -> R.string.debug_mode_authorized
+                                        shizukuRunning && ShizukuHelper.checkPermission() -> R.string.debug_mode_shizuku
+                                        rootCached == true -> R.string.debug_mode_root
+                                        else -> R.string.debug_mode_none
+                                    }
+                                )
                             )
                             DebugInfoRow(
                                 "QUERY_ALL_PACKAGES",

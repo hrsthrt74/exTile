@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -22,7 +23,7 @@ import kotlinx.coroutines.launch
 /**
  * WRITE_SECURE_SETTINGS 权限状态控制器。
  *
- * 主页与 OOBE 引导页高度复用了同一套权限状态机（状态查询、Shizuku 授权、
+ * 主页与 OOBE 引导页高度复用了同一套权限状态机（状态查询、Shizuku/Root 授权、
  * pm grant、回到前台自动衔接），为避免两份几乎相同的代码，统一抽取到这里。
  *
  * 对外暴露：
@@ -31,6 +32,8 @@ import kotlinx.coroutines.launch
  * - [refresh] 重新查询权限状态
  * - [request] 请求 Shizuku 授权，授予后自动执行 pm grant
  * - [autoGrant] Shizuku 已授权时直接执行 pm grant
+ * - [rootGrant] 点击「Root 授权」按钮时调用：探测 su 可用后以 Root 执行 pm grant
+ *   （不自动探测，Magisk 等管理器的授权弹框只出现在用户主动点击之后）
  * - [markAutoRequestAfterResume] 标记「从 Shizuku 返回后自动衔接请求授权」
  *
  * 生命周期与初始刷新（ON_RESUME 刷新 + 自动衔接）在 [rememberPermissionState]
@@ -52,7 +55,7 @@ class PermissionState(
     /** 是否在返回前台时自动请求 Shizuku 权限（用户点击「启动 Shizuku」后置位） */
     private var autoRequestAfterResume by mutableStateOf(false)
 
-    /** 重新查询权限状态（轻量查询，主线程同步完成） */
+    /** 重新查询权限状态（轻量查询，主线程同步完成；不含 Root 探测，不会触发 su） */
     fun refresh() {
         status = ShizukuHelper.checkPermissionStatus(context)
     }
@@ -65,7 +68,7 @@ class PermissionState(
         onRequestShizukuPermission { granted ->
             if (granted) {
                 scope.launch {
-                    grantWriteSecureSettingsCore()
+                    grantAndToast(useRoot = false)
                     refresh()
                 }
             } else {
@@ -78,7 +81,31 @@ class PermissionState(
     /** Shizuku 已授权，直接执行 pm grant（不需要再走授权弹窗） */
     fun autoGrant() {
         scope.launch {
-            grantWriteSecureSettingsCore()
+            grantAndToast(useRoot = false)
+            refresh()
+        }
+    }
+
+    /**
+     * 「Root 授权」按钮入口：探测 Root 可用后，以 su 执行 pm grant。
+     *
+     * 探测（`su -c id`）只在用户点击本按钮时触发——装有 Magisk / KernelSU 的设备
+     * 此时会弹管理器授权框，属用户预期内的操作；无 Root 设备无弹框，直接 Toast 提示。
+     * 探测结果有会话级缓存：探测成功但 pm grant 失败时，再次点击不会重复弹框，
+     * 直接重试授权。
+     */
+    fun rootGrant() {
+        scope.launch {
+            // 先探测：无 su / 用户在管理器拒绝授权 / 超时均视为不可用
+            if (!RootHelper.isRootAvailable()) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.perm_root_unavailable_toast),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
+            grantAndToast(useRoot = true)
             refresh()
         }
     }
@@ -104,11 +131,16 @@ class PermissionState(
     }
 
     /**
-     * 执行 pm grant 并弹出结果提示（request / autoGrant 共用）。
-     * grantWriteSecureSettings 内部走 Shizuku 或 adb 授权通道。
+     * 执行 pm grant 并弹出结果提示（Shizuku / Root 两条授权通道共用）。
+     * 两条通道执行的是同一条命令，仅特权执行环境不同：Shizuku shell 或 su。
+     * @param useRoot true 走 RootHelper（su 通道），false 走 ShizukuHelper（Shizuku 通道）
      */
-    private suspend fun grantWriteSecureSettingsCore() {
-        val success = ShizukuHelper.grantWriteSecureSettings(context)
+    private suspend fun grantAndToast(useRoot: Boolean) {
+        val success = if (useRoot) {
+            RootHelper.grantWriteSecureSettings(context)
+        } else {
+            ShizukuHelper.grantWriteSecureSettings(context)
+        }
         val message = if (success) {
             context.getString(R.string.perm_ws_granted_toast)
         } else {
@@ -125,6 +157,9 @@ class PermissionState(
  * 1. 首次进入时刷新一次权限状态并结束初始加载；
  * 2. 应用回到前台（ON_RESUME）时自动刷新，若用户刚从 Shizuku 返回且已运行
  *    但未授权（SHIZUKU_NOT_GRANTED），则自动衔接请求授权。
+ *
+ * Root 授权**不**做任何自动探测：探测 su 与执行 pm grant 均由权限卡片的
+ * 「Root 授权」按钮在用户点击后触发（见 [PermissionState.rootGrant]）。
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口（由 MainActivity 下传，接收结果回调）
  */

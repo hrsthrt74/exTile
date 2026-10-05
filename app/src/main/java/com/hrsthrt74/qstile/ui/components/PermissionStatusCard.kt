@@ -42,12 +42,15 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 复用说明：
  * - 主页（HomeScreen）与 OOBE（OobeScreen）均使用完整能力：传入 [isLoading]（防闪烁）与
  *   [showAdbGuide]（adb 手动授权入口）；两个参数均有默认值，不传即隐藏加载态与 adb 入口。
- * - adb 手动授权指引对话框已内置于本组件（[AppDialog]），由 [showAdbGuide] 开启。
+ * - Root 授权按钮在未授权状态下固定显示（无开关参数），点击触发 [onRootGrant]；
+ *   adb 手动授权指引对话框已内置于本组件（[AppDialog]），由 [showAdbGuide] 开启。
  *
  * @param status WRITE_SECURE_SETTINGS 权限状态机当前状态
  * @param modifier 作用于卡片根节点的 Modifier
  * @param isLoading 是否正在检查权限（加载中：图标置灰、显示「正在检查权限...」；按钮区域不渲染，
  *   卡片保持紧凑矮高度；加载完成后若仍未授权，按钮区域通过 AnimatedVisibility 平滑展开出现）
+ * @param onRootGrant 点击「Root 授权」按钮的回调（以 Root 执行 pm grant；探测 su 与授权
+ *   都只在点击后发生，Magisk 等管理器的授权弹框属用户预期内操作）
  * @param onInstallShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_INSTALLED] 时主按钮点击回调（引导下载安装）
  * @param onLaunchShizuku 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_RUNNING] 时主按钮点击回调（引导启动 Shizuku）
  * @param onRequestShizukuPermission 状态为 [ShizukuHelper.PermissionStatus.SHIZUKU_NOT_GRANTED] 时主按钮点击回调（请求 Shizuku 权限）
@@ -61,6 +64,7 @@ fun PermissionStatusCard(
     status: ShizukuHelper.PermissionStatus,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
+    onRootGrant: () -> Unit,
     onInstallShizuku: () -> Unit,
     onLaunchShizuku: () -> Unit,
     onRequestShizukuPermission: () -> Unit,
@@ -178,9 +182,21 @@ fun PermissionStatusCard(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    // Root 授权备选通道：点击后才探测 su 并执行 pm grant（不自动探测，
+                    // 避免打开应用/进入授权页时突然弹出 Magisk 等管理器的授权框）。
+                    // 与下方 adb 入口同为次要按钮，放在 Shizuku 主引导之后。
+                    TextButton(
+                        text = stringResource(R.string.perm_root_grant),
+                        onClick = onRootGrant,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     // 兜底方案：仅当调用方开启了 adb 手动授权入口（showAdbGuide=true）时展示。
                     // showAdbGuide 在加载前后固定不变，随外层 AnimatedVisibility 一起展开收起。
+                    // 与「Root 授权」按钮之间的 8dp 间距放在 if 内：Root 按钮作为
+                    // 最后一个元素时（未开启 adb 入口）不会在卡片底部留下多余空隙。
                     if (showAdbGuide) {
+                        Spacer(modifier = Modifier.height(8.dp))
                         TextButton(
                             text = stringResource(R.string.perm_adb_button),
                             onClick = { adbGuideDialogState.show() },

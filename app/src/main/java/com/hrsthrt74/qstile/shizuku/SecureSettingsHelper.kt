@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import com.hrsthrt74.qstile.ICommandService
+import com.hrsthrt74.qstile.root.RootHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -114,7 +115,7 @@ object SecureSettingsHelper {
     /**
      * 获取 sysui_qs_tiles 的值。
      * 优先使用直接 API 读取（应用持有 WRITE_SECURE_SETTINGS 时可用，Shizuku 完全可选），
-     * 失败或无值时兜底到 Shizuku UserService。
+     * 失败或无值时兜底到 Shizuku UserService，Shizuku 不可用时再兜底到 Root (su)。
      * @return 磁贴字符串，读取失败则返回 null
      */
     suspend fun getSysuiQsTiles(context: Context): String? = withContext(Dispatchers.IO) {
@@ -145,16 +146,27 @@ object SecureSettingsHelper {
             // 这里必须直接调用 executeCommand()，不能预先调用 ensureBound()：
             // executeCommand() 会优先使用 Shizuku.newProcess，不依赖容易在部分
             // 设备上启动失败的 UserService 独立进程。
-            if (!ShizukuHelper.isShizukuRunning()) {
+            if (ShizukuHelper.isShizukuRunning()) {
+                // 使用 Shizuku 特权执行读取，规避 targetSdkVersion=34+ 的系统限制。
+                val result = executeCommand("settings get secure $SYSUI_QS_TILES")
+                Log.d(TAG, "getSysuiQsTiles via Shizuku command: $result")
+                if (result != null && !result.startsWith("ERROR") && result != "null") {
+                    return@withContext result
+                }
+            } else {
                 Log.w(TAG, "Shizuku is not running")
-                return@withContext null
             }
 
-            // 使用 Shizuku 特权执行读取，规避 targetSdkVersion=34+ 的系统限制。
-            val result = executeCommand("settings get secure $SYSUI_QS_TILES")
-            Log.d(TAG, "getSysuiQsTiles via Shizuku command: $result")
-            if (result != null && !result.startsWith("ERROR") && result != "null") {
-                return@withContext result
+            // 3. 兜底：Shizuku 不可用（或读取失败）时尝试 Root 读取。
+            //    probe=false：只查 RootHelper 的会话级缓存，不主动执行 su 探测——
+            //    避免「导入系统配置」这类场景意外触发管理器授权弹框；
+            //    Root 可用性已由权限状态控制器（PermissionState）在前台预先探测并缓存。
+            if (RootHelper.isRootAvailable(probe = false)) {
+                val rootResult = RootHelper.executeCommand("settings get secure $SYSUI_QS_TILES")
+                Log.d(TAG, "getSysuiQsTiles via Root command: $rootResult")
+                if (rootResult != null && !rootResult.startsWith("ERROR") && rootResult != "null") {
+                    return@withContext rootResult
+                }
             }
 
             null

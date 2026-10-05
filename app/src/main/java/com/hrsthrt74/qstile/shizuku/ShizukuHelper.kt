@@ -15,6 +15,7 @@ object ShizukuHelper {
      * WRITE_SECURE_SETTINGS 权限状态机。
      * 设计原则：Shizuku 是可选权限，仅用于首次/失效时自动授权；
      * 一旦应用持有 WRITE_SECURE_SETTINGS（pm grant 或 adb 授权），Shizuku 即不再必需。
+     * Root (su) 是备用的授权通道，以权限卡片上的独立按钮提供，不进入本状态机。
      */
     enum class PermissionStatus {
         /** 已持有 WRITE_SECURE_SETTINGS，可直接使用，Shizuku 完全可选 */
@@ -82,9 +83,9 @@ object ShizukuHelper {
      * @return 当前权限状态
      */
     fun checkPermissionStatus(context: Context): PermissionStatus {
-        // 已持有 WRITE_SECURE_SETTINGS：核心功能可用，Shizuku 无关紧要
+        // 已持有 WRITE_SECURE_SETTINGS：核心功能可用，授权通道无关紧要
         if (hasWriteSecureSettingsPermission(context)) return PermissionStatus.GRANTED
-        // 未持有：需要引导用户通过 Shizuku 或 adb 授权
+        // 未持有：需要引导用户通过 Shizuku、Root 按钮或 adb 授权
         if (!isShizukuInstalled(context)) return PermissionStatus.SHIZUKU_NOT_INSTALLED
         if (!isShizukuRunning()) return PermissionStatus.SHIZUKU_NOT_RUNNING
         if (!checkPermission()) return PermissionStatus.SHIZUKU_NOT_GRANTED

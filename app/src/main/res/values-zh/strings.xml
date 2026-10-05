@@ -35,6 +35,8 @@
     <string name="perm_denied_title">未获得必须权限</string>
     <string name="perm_checking_hint">请稍候</string>
     <string name="perm_granted_desc">WRITE_SECURE_SETTINGS 已授权，磁贴切换可用</string>
+    <string name="perm_root_grant">Root 授权</string>
+    <string name="perm_root_unavailable_toast">未检测到 Root 权限</string>
     <string name="perm_shizuku_not_installed_desc">未安装 Shizuku，可安装后自动授权，或使用 adb 手动授权</string>
     <string name="perm_shizuku_not_running_desc">Shizuku 未运行，请先启动它</string>
     <string name="perm_shizuku_not_granted_desc">需要授予 Shizuku 权限以自动授权</string>
@@ -329,6 +331,13 @@
     <!-- 状态信息 -->
     <string name="debug_shizuku_installed">Shizuku 已安装</string>
     <string name="debug_shizuku_running">Shizuku 运行中</string>
+    <string name="debug_root_available">Root 可用</string>
+    <string name="debug_privilege_mode">特权通道模式</string>
+    <string name="debug_mode_authorized">已授权，无需通道</string>
+    <string name="debug_mode_shizuku">Shizuku</string>
+    <string name="debug_mode_root">Root</string>
+    <string name="debug_mode_none">无可用通道</string>
+    <string name="debug_not_probed">未检测</string>
     <string name="debug_yes">是</string>
     <string name="debug_no">否</string>
     <string name="debug_granted">已授权</string>
