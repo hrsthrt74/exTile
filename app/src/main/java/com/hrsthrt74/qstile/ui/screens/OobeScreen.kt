@@ -1033,7 +1033,8 @@ private fun rememberSkipCountdown(show: Boolean): Int {
     var countdown by remember { mutableStateOf(3) }
     LaunchedEffect(show) {
         if (show) {
-            countdown = 5
+            // 弹窗每次重新弹出都重置为 3 秒倒计时
+            countdown = 3
             while (countdown > 0) {
                 delay(1000)
                 countdown--
