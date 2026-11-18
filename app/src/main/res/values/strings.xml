@@ -152,8 +152,8 @@
     <string name="settings_dynamic_color_summary">Use Monet color</string>
     <string name="settings_blur_title">Blur effects</string>
     <string name="settings_blur_summary">Blur for top / bottom bars</string>
-    <string name="settings_progressive_blur_title">Progressive blur</string>
-    <string name="settings_progressive_blur_summary">Progressive blur on the top bar</string>
+    <string name="settings_progressive_blur_title">App style</string>
+    <string name="settings_progressive_blur_summary">On for glass style, off for classic style</string>
     <!-- 磁贴名预设下拉 -->
     <string name="settings_preset_more_tiles">More tiles</string>
     <string name="settings_preset_expand_collapse">Expand / Collapse</string>

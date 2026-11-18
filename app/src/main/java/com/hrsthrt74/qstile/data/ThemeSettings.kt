@@ -15,9 +15,15 @@ data class ThemeSettings(
     val paletteStyle: Int = 0,
     val colorSpec: Int = 1,
     val enableBlur: Boolean = true,
-    // 渐进模糊：开启后顶部栏使用渐变模糊（顶部最强、向下过渡到清晰），
-    // 需在 enableBlur 开启的前提下才生效（否则整体回退纯色）
-    val progressiveBlur: Boolean = false
+    /**
+     * 应用风格切换（由原「渐进模糊」开关升级而来，复用同一 DataStore key 保持兼容）：
+     * - true = Glass 风格：顶栏 GlassTopAppBar、顶栏按钮 GlassIconButton、底栏/侧栏玻璃导航、
+     *   Spinner/Dropdown 用 miuix-glass 玻璃弹窗；
+     * - false = 旧风格：全部回退到 basic 组件（TopAppBar / NavigationBar / WindowSpinnerPreference 等）。
+     *
+     * 模糊效果是否真正采样仍由 [enableBlur] 与 RuntimeShader 支持决定；本开关只决定组件风格。
+     */
+    val progressiveBlur: Boolean = true
 )
 
 object ThemeRepository {
@@ -36,7 +42,8 @@ object ThemeRepository {
                 paletteStyle = prefs[PALETTE_STYLE] ?: 0,
                 colorSpec = prefs[COLOR_SPEC] ?: 1,
                 enableBlur = prefs[ENABLE_BLUR] ?: true,
-                progressiveBlur = prefs[PROGRESSIVE_BLUR] ?: false
+                // 复用原 key；默认值从 false 升级为 true（Glass 风格为新默认）
+                progressiveBlur = prefs[PROGRESSIVE_BLUR] ?: true
             )
         }
     }

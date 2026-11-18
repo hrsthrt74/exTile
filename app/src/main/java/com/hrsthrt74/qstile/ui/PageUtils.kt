@@ -2,8 +2,11 @@ package com.hrsthrt74.qstile.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -11,33 +14,35 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 全局统一的模糊半径（dp），顶部栏与底部导航栏共用，保证视觉一致 */
+/**
+ * 顶栏当前是否为玻璃形态（progressive 开且模糊可用）。
+ * 由 [AppTopBar] 在组合时写入，供顶栏内的按钮读取，从而跟随切换
+ * [GlassIconButton] / 普通 [IconButton]（照搬官方 demo 的 BackNavigationIcon 写法）。
+ */
+val LocalAppTopBarGlass = staticCompositionLocalOf { false }
+
+/** 全局统一的模糊半径（dp），原版顶栏普通模糊时共用 */
 const val AppBlurRadius = 80f
 
 /**
- * 渐进模糊（渐变模糊）的模糊半径（dp）。
- * 参考 miuix 官方示例：渐进模糊在清晰端会做一次全分辨率锐利重绘，对 GPU 带宽消耗比
- * 普通 [textureBlur] 更大，因此半径不宜过大；官方渐进模糊 demo 默认 20dp。
- * （此前用 10dp 效果过弱——顶栏下方是纯色背景时几乎不可见，只有 overscroll 拉伸内容时才显形）
- */
-const val AppProgressiveBlurRadius = 15f
-
-/**
  * 统一的模糊色彩配置（参考官方示例参数）。
- * 在模糊层上叠加 80% 的表面色 —— 这是让栏看起来半透明的关键（alpha 越低越透），
+ * 在模糊层上叠加表面色 —— 这是让栏看起来半透明的关键（alpha 越低越透），
  * 不额外做亮度/对比度/饱和度调整，保持与官方一致的纯净观感。
  */
 @Composable
@@ -48,26 +53,12 @@ fun blurBarColors(): BlurColors = BlurDefaults.blurColors(
 )
 
 /**
- * 渐进模糊的色彩配置。
- * 渐进模糊的 colors 只作用于模糊区域、随渐变一起淡出（清晰端不染色、与内容无缝融合），
- * 因此叠加 60% 的表面色作为「磨砂底色」——即使顶栏下方是纯色背景也能看到渐变毛玻璃，
- * 又保留顶部→底部渐变的通透感（官方渐进模糊 demo 的 surface alpha 为 0.6f）。
- */
-@Composable
-fun progressiveBlurBarColors(): BlurColors = BlurDefaults.blurColors(
-    blendColors = listOf(
-        BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f))
-    )
-)
-
-/**
- * 创建并记住一个可用于顶部栏模糊的 [LayerBackdrop]。
- *
- * 参考官方示例的做法：
- * - 未开启模糊开关或 RuntimeShader 不支持时直接返回 null，栏退回纯色背景（降级保护）
+ * 创建并记住一个可供玻璃组件（GlassTopAppBar / GlassNavigationBar / GlassNavigationRail）
+ * 采样背景的 [LayerBackdrop]。写法与 miuix 官方 demo 的 `rememberBlurBackdrop()` 完全一致：
+ * - 未开启模糊开关或 RuntimeShader 不支持时直接返回 null，组件退回纯色降级
  * - 捕获内容前先绘制表面色作为底色，保证滚动内容不满屏时背景一致
  *
- * @param enabled 模糊总开关，关闭时返回 null，栏退回纯色
+ * @param enabled 模糊总开关，关闭时返回 null，组件退回纯色
  */
 @Composable
 fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
@@ -147,54 +138,127 @@ fun asymmetricDropdownPositionProvider(
 }
 
 /**
- * 包裹顶部栏的模糊容器。
- * 当 [blurEnabled] 且 [backdrop] 不为空时，对整个栏应用纹理模糊；否则栏原样渲染。
- * [progressive] 为 true 时改用渐进模糊（渐变模糊）：顶部最强、向下过渡到清晰，
- * 参考 miuix 官方示例（BlurredBar）——外层 Box 不套模糊，而是放一个铺满的模糊层
- * 在内容下层，避免与内容同一层叠加。
+ * 应用统一的自适应顶栏，完全参照 miuix 官方 demo 的 `AdaptiveTopAppBar` + `BlurredBar` 写法。
  *
- * @param backdrop 由 [rememberBlurBackdrop] 创建的背景捕获层
- * @param blurEnabled 是否启用模糊（总开关，关闭时回退纯色）
- * @param progressive 是否启用渐进模糊；为 true 时替代普通 [textureBlur]
- * @param content 实际的顶部栏内容（如 [top.yukonga.miuix.kmp.basic.TopAppBar]）
+ * 两种形态由「设置-外观-渐进模糊」开关 [progressive] 决定：
+ * - [progressive] = true：使用官方 [GlassTopAppBar]，渐进模糊由组件内部
+ *   `progressiveTextureBlur` 实现（我们不再手写渐进模糊），并随滚动量渐变浮现；
+ * - [progressive] = false：回退到原版顶栏（统一 [TopAppBar]，窄屏大标题 / 宽屏由 expandable 收紧），
+ *   保留普通 [textureBlur] 毛玻璃。
+ *
+ * 两种形态共用同一个 [backdrop]（对内容区 `layerBackdrop` 捕获），确保模糊采样一致。
+ * 关闭模糊（[backdrop] 为 null）时两种形态都退回纯色。
+ *
+ * @param title 收起态标题（宽屏紧凑顶栏 / GlassTopAppBar 的紧凑标题）
+ * @param largeTitle 展开态大标题（仅原版窄屏 TopAppBar / GlassTopAppBar 使用）
+ * @param useLargeTitle 是否使用大标题形态：窄屏 true，宽屏 false
+ * @param scrollBehavior 顶栏滚动折叠联动
+ * @param backdrop 由 [rememberBlurBackdrop] 创建的背景捕获层，null 表示模糊不可用
+ * @param progressive 是否启用官方玻璃渐进模糊顶栏
+ * @param color 原版顶栏在模糊不可用时的回退底色
+ * @param navigationIcon leading 图标槽
+ * @param actions trailing 操作槽
+ * @param bottomContent 顶栏底部附加内容槽
  */
 @Composable
-fun BlurredBar(
+fun AppTopBar(
+    title: String,
+    largeTitle: String,
+    useLargeTitle: Boolean,
+    scrollBehavior: ScrollBehavior,
     backdrop: LayerBackdrop?,
-    blurEnabled: Boolean,
-    progressive: Boolean = false,
-    content: @Composable () -> Unit,
+    progressive: Boolean,
+    color: Color = MiuixTheme.colorScheme.surface,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    bottomContent: @Composable () -> Unit = {},
 ) {
-    val blurActive = blurEnabled && backdrop != null
-    Box(
-        modifier = if (blurActive && !progressive) {
-            Modifier.textureBlur(
-                backdrop = backdrop,
-                shape = RectangleShape,
-                blurRadius = AppBlurRadius,
-                colors = blurBarColors(),
-            )
-        } else {
-            Modifier
-        },
-    ) {
-        if (blurActive && progressive) {
-            // 渐进模糊层：matchParentSize 铺满整个栏，位于内容下层。
-            // 顶部最强、向下渐变到清晰的梯度（参考官方 ProgressiveBlur.Top.copy(curve=2.2f)），
-            // 清晰端保持全分辨率锐利，视觉上比普通模糊更「透」。
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .progressiveTextureBlur(
-                        backdrop = backdrop,
-                        shape = RectangleShape,
-                        blurRadius = AppProgressiveBlurRadius,
-                        gradient = ProgressiveBlur(angle = 90f, startFraction = 0.5f, endFraction = 1f, curve = 0.8f),
-                        colors = progressiveBlurBarColors(),
-                        noiseCoefficient = 0.1f
-                    ),
+    val blurActive = backdrop != null
+    // 应用风格开关单独决定组件形态（与模糊开关解耦）：
+    // 风格=Glass 时用 GlassTopAppBar（backdrop 为 null 时组件内部自动回退纯色填充）；
+    // 风格=经典时用 basic TopAppBar。按钮形态也随之切换。
+    val glassStyle = progressive
+    // 用 CompositionLocal 把形态下发给按钮槽：GlassTopAppBar / 原版 TopAppBar
+    // 内部调用这些槽时都会经过此 Provider，按钮据此切换外观。
+    val wrappedNavigationIcon: @Composable () -> Unit = {
+        androidx.compose.runtime.CompositionLocalProvider(LocalAppTopBarGlass provides glassStyle) {
+            navigationIcon()
+        }
+    }
+    val wrappedActions: @Composable RowScope.() -> Unit = {
+        androidx.compose.runtime.CompositionLocalProvider(LocalAppTopBarGlass provides glassStyle) {
+            actions()
+        }
+    }
+    if (glassStyle) {
+        // 官方 demo 写法：GlassTopAppBar 内置渐进模糊（progressiveBlur=true），
+        // bandBrush 用表面色生成顶部渐变带，按钮浮在模糊带之上。
+        GlassTopAppBar(
+            title = title,
+            largeTitle = largeTitle,
+            expandable = useLargeTitle,
+            subtitle = "",
+            backdrop = backdrop,
+            // 渐进模糊本身仍受模糊总开关约束：backdrop 为空则 GlassTopAppBar 回退纯色带
+            progressiveBlur = blurActive,
+            scrollBehavior = scrollBehavior,
+            defaultWindowInsetsPadding = true,
+            navigationIcon = wrappedNavigationIcon,
+            actions = wrappedActions,
+            bottomContent = bottomContent,
+        )
+    } else {
+        // 原版顶栏：普通纹理模糊层铺在内容下层（官方 demo 的 BlurredBar 非玻璃分支），
+        // 顶层放 basic TopAppBar，颜色设为透明让下层模糊透出。
+        Box {
+            if (blurActive) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .textureBlur(
+                            backdrop = backdrop,
+                            shape = RectangleShape,
+                            blurRadius = AppBlurRadius,
+                            colors = blurBarColors(),
+                        ),
+                )
+            }
+            val barColor = if (blurActive) Color.Transparent else color
+            // 统一用 TopAppBar，通过 expandable 控制大/小标题（窄屏大标题、宽屏紧凑）。
+            // 不要用 SmallTopAppBar：miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure
+            // actionIcons 却从不 placeRelative，会让 actions 槽（顶栏按钮）完全不可见。
+            // 官方 demo 的经典顶栏同样是统一 TopAppBar + expandable，从不使用 SmallTopAppBar。
+            TopAppBar(
+                title = title,
+                largeTitle = largeTitle,
+                expandable = useLargeTitle,
+                color = barColor,
+                scrollBehavior = scrollBehavior,
+                navigationIcon = wrappedNavigationIcon,
+                actions = wrappedActions,
+                bottomContent = bottomContent,
             )
         }
-        content()
+    }
+}
+
+/**
+ * 顶栏图标按钮：跟随 [AppTopBar] 当前形态自动切换外观。
+ * - 玻璃形态 → [GlassIconButton]（自动继承 GlassTopAppBar 的材质/大小/描边）
+ * - 原版形态 → 普通 [IconButton]
+ *
+ * 按钮放置于 [AppTopBar] 的 `actions` / `navigationIcon` 槽内即可生效。
+ * 参照官方 demo 的 `BackNavigationIcon` 写法。
+ */
+@Composable
+fun TopBarIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (LocalAppTopBarGlass.current) {
+        GlassIconButton(onClick = onClick, modifier = modifier, content = content)
+    } else {
+        IconButton(onClick = onClick, modifier = modifier, content = content)
     }
 }

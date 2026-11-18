@@ -25,7 +25,13 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.hrsthrt74.qstile"
-    compileSdk = 37
+    // miuix 0.9.5-beta01 起要求 compileSdk 37.2（其内部使用了该版本新增的 API）。
+    // AGP 9.x 通过 release(minorApiLevel) 指定次版本号，与 miuix 自身构建配置保持一致。
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     // release 签名配置：仅当 keystore.properties 存在且填写完整时才生效，
     // 缺失时保持默认（unsigned），避免其他人克隆仓库后构建失败
@@ -97,7 +103,7 @@ dependencies {
     // SplashScreen 兼容库：安装启动画面并支持 keepOnScreenCondition 挂屏控制
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigationevent.compose)
@@ -105,8 +111,11 @@ implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.shizuku.provider)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.icons)
+    implementation(libs.miuix.glass.icons)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.blur)
+    implementation(libs.miuix.glass)
+    implementation(libs.miuix.material)
     implementation(libs.reorderable)
     implementation(libs.devicecompat)
     implementation(libs.clarity.compose)

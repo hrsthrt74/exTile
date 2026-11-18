@@ -27,7 +27,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -40,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
-import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.components.GITHUB_ISSUES_URL
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
@@ -54,7 +53,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -83,9 +81,8 @@ fun HomeScreen(
 
     // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
     // 主题设置由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
-    val backdrop = rememberBlurBackdrop(enabled = LocalThemeSettings.current.enableBlur)
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+    val themeSettings = LocalThemeSettings.current
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
 
     // ---- 状态声明 ----
     /** 使用统计（累计展开/收起次数），实时订阅 DataStore */
@@ -96,14 +93,16 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            // 渐进模糊开启时使用渐变模糊（顶部最强、向下过渡到清晰），关闭时回退普通模糊
-            BlurredBar(backdrop, blurActive, progressive = LocalThemeSettings.current.progressiveBlur) {
-                SmallTopAppBar(
-                    title = "",
-                    color = barColor,
-                    scrollBehavior = scrollBehavior
-                )
-            }
+            // 统一自适应顶栏：渐进模糊开→官方 GlassTopAppBar，关→原版顶栏（普通模糊）
+            // 主页无标题（Logo 在内容区展示），宽窄屏均为无大标题形态
+            AppTopBar(
+                title = "",
+                largeTitle = "",
+                useLargeTitle = false,
+                scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
+                progressive = themeSettings.progressiveBlur,
+            )
         }
     ) { paddingValues ->
         // 滚动内容挂载 backdrop，供顶部栏模糊捕获

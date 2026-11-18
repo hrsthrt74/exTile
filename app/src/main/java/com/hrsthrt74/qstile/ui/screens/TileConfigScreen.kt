@@ -76,6 +76,8 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -95,10 +97,13 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
-import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.AppTopBar
+import com.hrsthrt74.qstile.ui.TopBarIconButton
+import com.hrsthrt74.qstile.ui.TopLayer
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.GlassTileOperationMenu
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
@@ -122,7 +127,6 @@ import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -131,15 +135,19 @@ import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassIconDropdownMenu
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Info
@@ -170,13 +178,20 @@ fun TileConfigScreen() {
     }
 
     // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
-    val isDynamicColor = LocalThemeSettings.current.isDynamicColorMode
+    val themeSettings = LocalThemeSettings.current
+    val isDynamicColor = themeSettings.isDynamicColorMode
 
     // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色。
-    // 渐进模糊开启时由 BlurredBar 内部切换为渐变模糊（顶部最强、向下过渡到清晰）。
-    val backdrop = rememberBlurBackdrop(enabled = LocalThemeSettings.current.enableBlur)
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
+    // 顶栏形态（官方玻璃渐进模糊 / 原版顶栏）由 AppTopBar 按 progressiveBlur 开关统一处理。
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    // 玻璃弹窗专用 backdrop：官方 demo 为弹窗单独建一个 backdrop 挂在页面根节点，
+    // 让弹窗形变动画能采样到含顶栏在内的整页内容（顶栏 backdrop 只挂在滚动内容 Box 上，
+    // 覆盖不到顶栏区域，形变时会因采样缺失导致材质跳变）。
+    val pageBackdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+    // 屏幕级应用风格标志（复用「渐进模糊」开关，=Glass / 经典）：与 AppTopBar 内部判断一致，
+    // 供顶栏槽之外的玻璃菜单层使用——CompositionLocal 只在 AppTopBar 槽内有效。
+    // 风格切换与模糊开关解耦：风格=Glass 即用玻璃组件，模糊关闭时组件内部回退纯色。
+    val isGlassStyle = themeSettings.progressiveBlur
 
     val haptic = LocalHapticFeedback.current
 
@@ -189,6 +204,27 @@ fun TileConfigScreen() {
     // val resetConfirmDialogState = rememberDialogState()
     // 从系统导入磁贴的确认对话框显示状态（统一由 AppDialog 管理）
     val importConfirmDialogState = rememberDialogState()
+
+    // 顶栏「更多」菜单：玻璃形态用 GlassIconDropdownMenu（需自管显示状态与 anchor），
+    // 原版形态用 WindowIconDropdownMenu（内部自管状态）。两个状态都提到屏幕级以便顶栏与菜单层共用。
+    var showGlassMoreMenu by remember { mutableStateOf(false) }
+    val glassMoreAnchor = rememberGlassPopupAnchor()
+
+    // 磁贴操作菜单（玻璃形态）的锚点窗口坐标：每个磁贴图标 Box 都在布局时上报自己的矩形，
+    // 打开菜单时按 selectedTileForMenu 取对应值（避免首次点击时坐标尚未上报的问题）。
+    val tileMenuAnchorBounds = remember { mutableMapOf<String, androidx.compose.ui.geometry.Rect>() }
+
+    // 菜单项列表：两种形态共用同一份定义（clear / import system）
+    val clearMenuText = stringResource(R.string.config_menu_clear)
+    val importSystemMenuText = stringResource(R.string.settings_import_system_title)
+    val moreMenuEntry = remember(clearMenuText, importSystemMenuText) {
+        DropdownEntry(
+            items = listOf(
+                DropdownItem(text = clearMenuText, onClick = { clearConfirmDialogState.show() }),
+                DropdownItem(text = importSystemMenuText, onClick = { importConfirmDialogState.show() }),
+            )
+        )
+    }
 
     // Toast 文案在 Composable 上下文预解析，避免协程/onClick 内触发非配置感知的资源读取
     val importedToast = stringResource(R.string.settings_imported_toast)
@@ -277,7 +313,8 @@ fun TileConfigScreen() {
                 } else {
                     remember { mutableFloatStateOf(0f) }
                 }
-                IconButton(
+                // 顶栏按钮跟随顶栏形态：玻璃态→GlassIconButton，原版→IconButton
+                TopBarIconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         // 恢复到快照状态（updateGridTiles 会正确派生 expanded/collapsed 并持久化）
@@ -293,46 +330,40 @@ fun TileConfigScreen() {
                     )
                 }
             }
-            val entry = DropdownEntry(
-                items = listOf(
-                    DropdownItem(
-                        text = stringResource(R.string.config_menu_clear),
-                        onClick = { clearConfirmDialogState.show() }
+            if (isGlassStyle) {
+                // 玻璃形态：GlassIconButton 作 anchor，GlassIconDropdownMenu 在下方菜单层渲染
+                GlassIconButton(
+                    onClick = { showGlassMoreMenu = true },
+                    modifier = Modifier.glassPopupAnchor(
+                        anchor = glassMoreAnchor,
+                        cornerRadius = GlassTopAppBarDefaults.ButtonSize / 2,
+                        floating = true,
                     ),
-                    // 「恢复默认设置」用处不大，暂时下架（确认对话框与状态同步注释，需要时一并恢复）
-                    // DropdownItem(
-                    //     text = stringResource(R.string.config_menu_reset),
-                    //     onClick = { resetConfirmDialogState.show() }
-                    // ),
-                    // 从系统导入磁贴：复用设置页的确认对话框文案，确认后读取系统 QS 列表覆盖展开配置
-                    DropdownItem(
-                        text = stringResource(R.string.settings_import_system_title),
-                        onClick = { importConfirmDialogState.show() }
+                ) {
+                    Icon(
+                        MiuixIcons.More,
+                        contentDescription = stringResource(R.string.config_more_desc),
+                        modifier = Modifier.glassPopupAnchorContent(glassMoreAnchor)
                     )
-                )
-            )
-            WindowIconDropdownMenu(entry = entry) {
-                Icon(MiuixIcons.More, contentDescription = stringResource(R.string.config_more_desc))
+                }
+            } else {
+                // 原版形态：内部自带普通 IconButton 触发器
+                WindowIconDropdownMenu(entry = moreMenuEntry) {
+                    Icon(MiuixIcons.More, contentDescription = stringResource(R.string.config_more_desc))
+                }
             }
         }
-        // 宽屏（侧边 NavigationRail）用无大标题的 SmallTopAppBar，窄屏保留大标题 TopAppBar。
-        // 顶栏形态跟随 LocalIsWideScreen 切换，与底部/侧边导航的布局联动。
-        if (LocalIsWideScreen.current) {
-            SmallTopAppBar(
-                title = stringResource(R.string.config_title),
-                color = barColor,
-                scrollBehavior = scrollBehavior,
-                actions = topBarActions
-            )
-        } else {
-            TopAppBar(
-                title = "",
-                largeTitle = stringResource(R.string.config_title),
-                color = barColor,
-                scrollBehavior = scrollBehavior,
-                actions = topBarActions
-            )
-        }
+        // 统一自适应顶栏：渐进模糊开→官方 GlassTopAppBar，关→原版顶栏（普通模糊）
+        // 宽屏（侧边 NavigationRail）用无大标题形态，窄屏保留大标题形态，跟随 LocalIsWideScreen 联动。
+        AppTopBar(
+            title = stringResource(R.string.config_title),
+            largeTitle = stringResource(R.string.config_title),
+            useLargeTitle = !LocalIsWideScreen.current,
+            scrollBehavior = scrollBehavior,
+            backdrop = backdrop,
+            progressive = themeSettings.progressiveBlur,
+            actions = topBarActions
+        )
     }
 
     // 小米设备特化：固定卡片（网格中占 1 个不可拖拽 item，不参与排序）
@@ -542,6 +573,12 @@ fun TileConfigScreen() {
                             Box(
                                 modifier = Modifier
                                     .size(68.dp)
+                                    // 玻璃菜单用窗口坐标定位：每个磁贴都上报自己的窗口矩形，
+                                    // 打开时按 selectedTileForMenu 取用（mutableMap 读取触发不了重组，
+                                    // 但 showTileMenu 变化会重组，届时 map 已是最新值）
+                                    .onGloballyPositioned { coords ->
+                                        tileMenuAnchorBounds[tile] = coords.boundsInWindow()
+                                    }
                                     .pressable(
                                         interactionSource = null,
                                         indication = SinkFeedback(sinkAmount = 0.9f, animationSpec = spring(0.8f, 120f)),
@@ -566,77 +603,95 @@ fun TileConfigScreen() {
                                 )
 
                                 // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
-                                // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时整个 WindowListPopup
-                                // 会直接从组合树移除，ListPopupLayout 的退场动画（缩放/透明渐出）来不及播放。
-                                // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐，让组件内部走完退场动画。
+                                // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时弹窗
+                                // 会直接从组合树移除，退场动画来不及播放。
+                                // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐。
                                 if (viewModel.selectedTileForMenu == tile) {
                                     val gridTilesForMenu = gridTiles
                                     val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
 
-                                    // 删除按钮的错误颜色
-                                    val errorColors = DropdownDefaults.dropdownColors(
-                                        contentColor = MiuixTheme.colorScheme.error,
-                                        selectedContentColor = MiuixTheme.colorScheme.error
-                                    )
+                                    val onMoveTop = {
+                                        viewModel.moveTileToTop(tile, context)
+                                        viewModel.showTileMenu = false
+                                    }
+                                    val onMoveBottom = {
+                                        viewModel.moveTileToBottom(tile, context)
+                                        viewModel.showTileMenu = false
+                                    }
+                                    val onDelete = {
+                                        viewModel.deleteTile(tile, context)
+                                        viewModel.showTileMenu = false
+                                    }
 
-                                    WindowListPopup(
-                                        show = viewModel.showTileMenu,
-                                        // 垂直间距 8dp：popup 与图标保持间距；左右边距独立设置左 0 右 8
-                                        popupPositionProvider = asymmetricDropdownPositionProvider(
-                                            verticalMargin = 8.dp,
-                                            startMargin = 0.dp,
-                                            endMargin = 8.dp
-                                        ),
-                                        onDismissRequest = { viewModel.showTileMenu = false }
-                                    ) {
-                                        ListPopupColumn {
-                                            // 磁贴名称（不可点击）
-                                            Text(
-                                                text = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                                style = MiuixTheme.textStyles.footnote1,
-                                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                                modifier = Modifier
-                                                    .padding(top = 20.dp)
-                                                    .padding(start = 20.dp)
-                                                    .padding(bottom = 16.dp)
-                                            )
-                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                            // 移动到顶端（框外第一个，收起时最先显示）
-                                            DropdownImpl(
-                                                text = stringResource(R.string.config_move_top),
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 0,
-                                                enabled = tileIndexForMenu > 0,
-                                                onSelectedIndexChange = {
-                                                    viewModel.moveTileToTop(tile, context)
-                                                    viewModel.showTileMenu = false
-                                                }
-                                            )
-                                            // 移动到底端（框内最后一个，仅展开时显示）
-                                            DropdownImpl(
-                                                text = stringResource(R.string.config_move_bottom),
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 1,
-                                                enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
-                                                onSelectedIndexChange = {
-                                                    viewModel.moveTileToBottom(tile, context)
-                                                    viewModel.showTileMenu = false
-                                                }
-                                            )
-                                            // 删除（错误颜色）
-                                            DropdownImpl(
-                                                text = stringResource(R.string.common_delete),
-                                                optionSize = 3,
-                                                isSelected = false,
-                                                index = 2,
-                                                dropdownColors = errorColors,
-                                                onSelectedIndexChange = {
-                                                    viewModel.deleteTile(tile, context)
-                                                    viewModel.showTileMenu = false
-                                                }
-                                            )
+                                    if (isGlassStyle) {
+                                        // 玻璃风格：官方 GlassDropdownPopup（窗口坐标 + PopupLayout 根层）
+                                        GlassTileOperationMenu(
+                                            show = viewModel.showTileMenu,
+                                            anchorBounds = tileMenuAnchorBounds[tile]
+                                                ?: androidx.compose.ui.geometry.Rect.Zero,
+                                            backdrop = pageBackdrop,
+                                            tileName = TileCatalog.getDisplayName(tile, viewModel.profile),
+                                            moveTopLabel = stringResource(R.string.config_move_top),
+                                            moveBottomLabel = stringResource(R.string.config_move_bottom),
+                                            deleteLabel = stringResource(R.string.common_delete),
+                                            moveTopEnabled = tileIndexForMenu > 0,
+                                            moveBottomEnabled = tileIndexForMenu < gridTilesForMenu.size - 1,
+                                            onMoveTop = onMoveTop,
+                                            onMoveBottom = onMoveBottom,
+                                            onDelete = onDelete,
+                                            onDismissRequest = { viewModel.showTileMenu = false },
+                                        )
+                                    } else {
+                                        // 经典风格：原版 WindowListPopup
+                                        val errorColors = DropdownDefaults.dropdownColors(
+                                            contentColor = MiuixTheme.colorScheme.error,
+                                            selectedContentColor = MiuixTheme.colorScheme.error
+                                        )
+                                        WindowListPopup(
+                                            show = viewModel.showTileMenu,
+                                            popupPositionProvider = asymmetricDropdownPositionProvider(
+                                                verticalMargin = 8.dp,
+                                                startMargin = 0.dp,
+                                                endMargin = 8.dp
+                                            ),
+                                            onDismissRequest = { viewModel.showTileMenu = false }
+                                        ) {
+                                            ListPopupColumn {
+                                                Text(
+                                                    text = TileCatalog.getDisplayName(tile, viewModel.profile),
+                                                    style = MiuixTheme.textStyles.footnote1,
+                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                                    modifier = Modifier
+                                                        .padding(top = 20.dp)
+                                                        .padding(start = 20.dp)
+                                                        .padding(bottom = 16.dp)
+                                                )
+                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                                DropdownImpl(
+                                                    text = stringResource(R.string.config_move_top),
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 0,
+                                                    enabled = tileIndexForMenu > 0,
+                                                    onSelectedIndexChange = { onMoveTop() }
+                                                )
+                                                DropdownImpl(
+                                                    text = stringResource(R.string.config_move_bottom),
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 1,
+                                                    enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
+                                                    onSelectedIndexChange = { onMoveBottom() }
+                                                )
+                                                DropdownImpl(
+                                                    text = stringResource(R.string.common_delete),
+                                                    optionSize = 3,
+                                                    isSelected = false,
+                                                    index = 2,
+                                                    dropdownColors = errorColors,
+                                                    onSelectedIndexChange = { onDelete() }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1317,11 +1372,11 @@ fun TileConfigScreen() {
     }
 
     Scaffold(
+        // 弹窗专用 backdrop 挂在页面根节点（覆盖含顶栏的整页），供玻璃菜单形变动画采样
+        modifier = if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier,
         topBar = {
-            // 渐进模糊开启时使用渐变模糊（顶部最强、向下过渡到清晰），关闭时回退普通模糊
-            BlurredBar(backdrop, blurActive, progressive = LocalThemeSettings.current.progressiveBlur) {
-                TileTopAppBar()
-            }
+            // TileTopAppBar 内部已通过 AppTopBar 统一处理渐进模糊/原版顶栏切换
+            TileTopAppBar()
         }
     ) { paddingValues ->
         // 滚动内容挂载 backdrop，供顶部栏模糊捕获
@@ -1329,6 +1384,28 @@ fun TileConfigScreen() {
             modifier = if (backdrop != null) Modifier.fillMaxSize().layerBackdrop(backdrop) else Modifier.fillMaxSize()
         ) {
             TileGridPane(paddingValues)
+        }
+    }
+
+    // 玻璃形态的「更多」菜单：提升到 TopLayer，避免被顶栏/玻璃侧栏遮挡或被 Pager 页面裁剪。
+    // 与官方 demo 一致：anchorContent 只画图标，不重复挂 glassPopupAnchorContent（那会回写 anchor 坐标干扰形变）。
+    if (isGlassStyle) {
+        TopLayer {
+            GlassIconDropdownMenu(
+                show = showGlassMoreMenu,
+                onDismissRequest = { showGlassMoreMenu = false },
+                anchor = glassMoreAnchor,
+                anchorContent = {
+                    Icon(
+                        MiuixIcons.More,
+                        contentDescription = stringResource(R.string.config_more_desc),
+                        modifier = Modifier.size(28.dp),
+                    )
+                },
+                entries = listOf(moreMenuEntry),
+                backdrop = pageBackdrop,
+                collapseOnSelection = true,
+            )
         }
     }
 

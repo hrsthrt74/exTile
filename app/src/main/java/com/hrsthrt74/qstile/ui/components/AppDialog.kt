@@ -11,16 +11,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassDialog
+import top.yukonga.miuix.kmp.glass.GlassDialogButton
+import top.yukonga.miuix.kmp.glass.GlassDialogButtonRole
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
+
+/**
+ * 供玻璃弹窗（Dialog / BottomSheet）采样页面背景的 backdrop。
+ *
+ * 由 App.kt 在最外层导航内容（AppPager，已挂载 [top.yukonga.miuix.kmp.blur.layerBackdrop]）
+ * 处下发：它覆盖整页含顶栏，但不含提升到根 Scaffold 的弹窗宿主与遮罩，
+ * 符合官方 demo 对 glass 弹窗 backdrop 的要求。Oobe / DebugTools 等独立作用域
+ * 未提供时为 null，玻璃组件自动回退纯色容器。
+ */
+val LocalOverlayBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 /**
  * 对话框的显示状态。
@@ -109,60 +125,105 @@ fun AppDialog(
     // 解析取消按钮文案：外部未显式传参时回落到资源默认值
     val resolvedCancelText = cancelText ?: stringResource(R.string.common_cancel)
 
-    WindowDialog(
-        show = state.show,
-        title = title,
-        summary = summary,
-        modifier = modifier,
-        // 请求关闭（遮罩/返回）统一交给状态管理，页面无需重复编写
-        onDismissRequest = { state.dismiss() },
-        // 关闭动画完成后触发清理回调
-        onDismissFinished = { onDismissed?.invoke() },
-    ) {
+    // 随应用风格开关切换：true=玻璃风格 GlassDialog，false=经典 WindowDialog。
+    // 与顶栏/底栏/Dropdown 使用同一个开关，保持全局一致。
+    val glassStyle = LocalThemeSettings.current.progressiveBlur
+    val backdrop = LocalOverlayBackdrop.current
+
+    // 额外内容 + 按钮区：两种风格共用结构，仅按钮实现随风格切换，
+    // 避免各屏幕调用点重复（它们只声明文案与回调）。
+    val dialogContent: @Composable () -> Unit = {
         content()
-        // miuix 居然没这个间距，没了看起来很奇怪哎
+        // 经典 dialog 缺这个间距，留一点呼吸感（玻璃态同样适用）
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            // 左侧固定为取消按钮
-            TextButton(
-                text = resolvedCancelText,
-                onClick = { state.dismiss() },
-                modifier = Modifier.weight(1f)
-            )
-
-            if (destructive) {
-                // 破坏性操作：确认按钮用错误色填充，突出「不可撤销」的警告
-                Button(
-                    colors = ButtonDefaults.buttonColors(
-                        color = MiuixTheme.colorScheme.error,
-                        contentColor = MiuixTheme.colorScheme.onError,
-                    ),
-                    enabled = confirmEnabled,
+            if (glassStyle) {
+                // 玻璃态：官方 GlassDialogButton（跟随玻璃 dialog 材质）
+                GlassDialogButton(
+                    onClick = { state.dismiss() },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(resolvedCancelText, style = MiuixTheme.textStyles.button)
+                }
+                GlassDialogButton(
                     onClick = {
                         onConfirm()
                         state.dismiss()
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = confirmEnabled,
+                    role = if (destructive) {
+                        GlassDialogButtonRole.Destructive
+                    } else {
+                        GlassDialogButtonRole.Primary
+                    },
                 ) {
-                    Text(confirmText)
+                    Text(confirmText, style = MiuixTheme.textStyles.button)
                 }
             } else {
-                // 普通操作：确认按钮用主题主色
+                // 经典态：原 TextButton / Button 组合
                 TextButton(
-                    text = confirmText,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    enabled = confirmEnabled,
-                    onClick = {
-                        onConfirm()
-                        state.dismiss()
-                    },
+                    text = resolvedCancelText,
+                    onClick = { state.dismiss() },
                     modifier = Modifier.weight(1f)
                 )
+                if (destructive) {
+                    Button(
+                        colors = ButtonDefaults.buttonColors(
+                            color = MiuixTheme.colorScheme.error,
+                            contentColor = MiuixTheme.colorScheme.onError,
+                        ),
+                        enabled = confirmEnabled,
+                        onClick = {
+                            onConfirm()
+                            state.dismiss()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(confirmText)
+                    }
+                } else {
+                    TextButton(
+                        text = confirmText,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        enabled = confirmEnabled,
+                        onClick = {
+                            onConfirm()
+                            state.dismiss()
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
+    }
+
+    if (glassStyle) {
+        GlassDialog(
+            show = state.show,
+            backdrop = backdrop,
+            title = title,
+            summary = summary,
+            modifier = modifier,
+            // 请求关闭（遮罩/返回）统一交给状态管理
+            onDismissRequest = { state.dismiss() },
+            // 官方组件在退场动画完成后回调，天然避开「遮罩常驻吞触摸」卡死问题
+            onDismissFinished = { onDismissed?.invoke() },
+            content = dialogContent,
+        )
+    } else {
+        WindowDialog(
+            show = state.show,
+            title = title,
+            summary = summary,
+            modifier = modifier,
+            onDismissRequest = { state.dismiss() },
+            onDismissFinished = { onDismissed?.invoke() },
+            content = dialogContent,
+        )
     }
 }

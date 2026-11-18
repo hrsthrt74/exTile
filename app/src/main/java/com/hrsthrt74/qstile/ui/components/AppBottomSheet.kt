@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
+import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import top.yukonga.miuix.kmp.glass.GlassBottomSheet
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 /**
@@ -67,8 +69,8 @@ fun rememberSheetState(initialShow: Boolean = false): SheetState =
  *   内置 NavigationBackHandler 已自动生效，无需页面手动注册 BackHandler）
  * - **关闭后清理统一入口**：通过 [onDismissed] 在关闭动画完成后集中执行状态清理（如清空输入框内容）
  *
- * 注：曾尝试改用 OverlayBottomSheet 并为面板添加毛玻璃（textureBlur），但 miuix 官方将在 0.9.4
- * 优化相关支持，故暂保持 WindowBottomSheet 纯色实现，待官方方案发布后再跟进。
+ * 玻璃风格下改用官方 [GlassBottomSheet]（0.9.5 miuix-glass 方案），经典风格保留 [WindowBottomSheet]，
+ * 两者随「应用风格」开关（LocalThemeSettings.progressiveBlur）统一切换，调用方无需感知。
  *
  * @param state Sheet 的显示状态（由 [rememberSheetState] 创建）
  * @param modifier 应用到 Sheet 内容上的修饰符
@@ -96,20 +98,13 @@ fun AppBottomSheet(
     val windowInfo = LocalWindowInfo.current
     val maxContentHeight = windowInfo.containerDpSize.height * maxHeightFraction
 
-    WindowBottomSheet(
-        show = state.show,
-        title = title,
-        modifier = modifier,
-        allowDismiss = allowDismiss,
-        enableNestedScroll = enableNestedScroll,
-        // 请求关闭（遮罩/返回/拖拽）统一交给状态管理，页面无需重复编写
-        onDismissRequest = { state.dismiss() },
-        // 关闭动画完成后触发清理回调（如清空输入框内容）
-        onDismissFinished = { onDismissed?.invoke() },
-    ) {
-        // 限制内容区最大高度为窗口高度的 maxHeightFraction：
-        // 内容较少时按内容实际高度显示（heightIn 只设上限不设下限），
-        // 内容超高时可滚动列表在受限高度内滚动
+    // 随应用风格开关切换：true=玻璃风格 GlassBottomSheet，false=经典 WindowBottomSheet
+    val glassStyle = LocalThemeSettings.current.progressiveBlur
+    val backdrop = LocalOverlayBackdrop.current
+
+    // 内容区共用：限制最大高度为窗口高度的 maxHeightFraction（内容少时按实际高度，
+    // 内容超高时可滚动列表在受限高度内滚动）
+    val sheetContent: @Composable () -> Unit = {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -117,5 +112,32 @@ fun AppBottomSheet(
         ) {
             content()
         }
+    }
+
+    if (glassStyle) {
+        GlassBottomSheet(
+            show = state.show,
+            backdrop = backdrop,
+            title = title,
+            modifier = modifier,
+            allowDismiss = allowDismiss,
+            enableNestedScroll = enableNestedScroll,
+            onDismissRequest = { state.dismiss() },
+            // 官方组件退场动画完成后回调，避免遮罩常驻吞触摸
+            onDismissFinished = { onDismissed?.invoke() },
+            content = sheetContent,
+        )
+    } else {
+        WindowBottomSheet(
+            show = state.show,
+            title = title,
+            modifier = modifier,
+            allowDismiss = allowDismiss,
+            enableNestedScroll = enableNestedScroll,
+            // 请求关闭（遮罩/返回/拖拽）统一交给状态管理，页面无需重复编写
+            onDismissRequest = { state.dismiss() },
+            onDismissFinished = { onDismissed?.invoke() },
+            content = sheetContent,
+        )
     }
 }

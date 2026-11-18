@@ -84,8 +84,8 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -795,8 +795,12 @@ fun OobeScreen(
         // - P0-P3：actions 显示「跳过」Close 图标（点击弹二次确认，确认按钮带 3 秒倒计时）
         // - P1-P3：返回按钮（回上一页）
         // - P4 完成页：全空（避免遮挡大对勾与文案）
-        SmallTopAppBar(
+        // 用 TopAppBar(expandable=false) 代替 SmallTopAppBar：
+        // miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure actionIcons 却从不 place，
+        // 会让「跳过」按钮（actions 槽）不可见。expandable=false 即紧凑单行形态。
+        TopAppBar(
             title = "",
+            expandable = false,
             navigationIcon = {
                 when (pagerState.currentPage) {
                     1 -> IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(0, animationSpec = pageChangeSpec) } }) {

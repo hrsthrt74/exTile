@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -71,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
@@ -87,10 +89,12 @@ import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
-import com.hrsthrt74.qstile.ui.BlurredBar
+import com.hrsthrt74.qstile.ui.AppTopBar
+import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -119,11 +123,9 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -140,7 +142,6 @@ import top.yukonga.miuix.kmp.icon.extended.File
 import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Import
-import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.Months
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Paste
@@ -149,6 +150,22 @@ import top.yukonga.miuix.kmp.icon.extended.Rename
 import top.yukonga.miuix.kmp.icon.extended.Theme
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Unpin
+import top.yukonga.miuix.kmp.icon.glass.AiScan
+import top.yukonga.miuix.kmp.icon.glass.AiWriting
+import top.yukonga.miuix.kmp.icon.glass.AllSdCardData
+import top.yukonga.miuix.kmp.icon.glass.DecorationMaintenance
+import top.yukonga.miuix.kmp.icon.glass.Maintenance
+import top.yukonga.miuix.kmp.icon.glass.MiHome
+import top.yukonga.miuix.kmp.icon.glass.MotionPhoto
+import top.yukonga.miuix.kmp.icon.glass.OpenWithOtherApp
+import top.yukonga.miuix.kmp.icon.glass.PasteEditPoint
+import top.yukonga.miuix.kmp.icon.glass.PhoneIcon
+import top.yukonga.miuix.kmp.icon.glass.PptNotes
+import top.yukonga.miuix.kmp.icon.glass.RepairFill
+import top.yukonga.miuix.kmp.icon.glass.RepairOutline
+import top.yukonga.miuix.kmp.icon.glass.SoundWave
+import top.yukonga.miuix.kmp.icon.glass.Start
+import top.yukonga.miuix.kmp.icon.glass.Widget
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
@@ -204,10 +221,10 @@ fun SettingsScreen() {
     // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
     val themeSettings = LocalThemeSettings.current
 
+    // 应用风格开关（复用「渐进模糊」开关）：true=Glass 全套组件，false=经典组件
+    val glassStyle = themeSettings.progressiveBlur
     // 顶部栏模糊：创建 backdrop 捕获滚动内容，模糊开关关闭或 RuntimeShader 不支持时退回纯色
     val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
-    val blurActive = backdrop != null
-    val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
 
     // 自定义应用选择器 Sheet 的显示状态（统一由 AppBottomSheet 管理）
     val appPickerSheetState = rememberSheetState()
@@ -349,7 +366,7 @@ fun SettingsScreen() {
 
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_general),
-            icon = MiuixIcons.Tune,
+            icon = MiuixIcons.Glass.RepairFill,
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.GENERAL,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.GENERAL) }
         ) {
@@ -366,7 +383,7 @@ fun SettingsScreen() {
                     onCheckedChange = { enabled ->
                         viewModel.saveWordlessModeSync(context, enabled)
                     },
-                    startAction = { PreferenceLeadingIcon(MiuixIcons.Months) }
+                    startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PptNotes) }
                 )
             }
 
@@ -377,7 +394,7 @@ fun SettingsScreen() {
                 onCheckedChange = { enabled ->
                     viewModel.saveSmartDeviceControlSync(context, enabled)
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.GridView) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.MiHome) }
             )
 
             SwitchPreference(
@@ -403,26 +420,18 @@ fun SettingsScreen() {
             // 其余为图标英文名(Add/AddCircle/...)无需翻译
             val tileIconTexts = listOf(stringResource(R.string.settings_tile_icon_default)) +
                 ConfigRepository.TileIcon.labels.drop(1)
-            val tileIconOptions = remember(tileIconTexts) {
-                tileIconTexts.mapIndexed { index, label ->
-                    val res = ConfigRepository.TileIcon.iconRes(index) ?: R.drawable.ic_tile
-                    DropdownItem(
-                        text = label,
-                        icon = { modifier ->
-                            Icon(
-                                painter = painterResource(res),
-                                contentDescription = null,
-                                tint = LocalContentColor.current,
-                                modifier = modifier,
-                            )
-                        },
-                    )
-                }
+            // 图标资源均为 vector drawable，可转 ImageVector 供玻璃弹窗项使用；
+            // 经典风格下 AppStyleSpinnerPreference 会用 DropdownItem 的 composable icon 槽渲染。
+            val tileIconVectors = tileIconTexts.indices.map { index ->
+                ImageVector.vectorResource(ConfigRepository.TileIcon.iconRes(index) ?: R.drawable.ic_tile)
             }
-            WindowSpinnerPreference(
+            AppStyleSpinnerPreference(
                 title = stringResource(R.string.settings_tile_icon_title),
-                items = tileIconOptions,
+                items = tileIconTexts,
+                icons = tileIconVectors,
                 selectedIndex = viewModel.tileIcon,
+                glassStyle = glassStyle,
+                backdrop = backdrop,
                 onSelectedIndexChange = { index ->
                     viewModel.saveTileIcon(context, index)
                 },
@@ -430,11 +439,13 @@ fun SettingsScreen() {
             )
 
             // ===== 磁贴名：设置 QS 面板中 exTile 磁贴显示的标签 =====
-            val tileLabelOptions = tileLabelPresetLabels.map { DropdownItem(text = stringResource(it)) }
-            WindowSpinnerPreference(
+            val tileLabelOptions = tileLabelPresetLabels.map { stringResource(it) }
+            AppStyleSpinnerPreference(
                 title = stringResource(R.string.settings_tile_label_title),
                 items = tileLabelOptions,
                 selectedIndex = viewModel.tileLabelPreset,
+                glassStyle = glassStyle,
+                backdrop = backdrop,
                 onSelectedIndexChange = { index ->
                     viewModel.saveTileLabelPreset(context, index)
                 },
@@ -465,18 +476,18 @@ fun SettingsScreen() {
                 )
             }
 
-//            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            WindowSpinnerPreference(
+            AppStyleSpinnerPreference(
                 title = stringResource(R.string.settings_longpress_title),
                 // summary = "设置长按快捷设置面板中 exTile 磁贴时执行的操作",
-                items = longPressBehaviorOptions,
+                items = longPressBehaviorOptions.map { it.text },
                 // 下拉索引与存储值解耦：通过可见项列表双向映射
                 selectedIndex = displayedBehaviorValues.indexOf(viewModel.longPressBehavior).coerceAtLeast(0),
+                glassStyle = glassStyle,
+                backdrop = backdrop,
                 onSelectedIndexChange = { index ->
                     viewModel.saveLongPressBehavior(context, displayedBehaviorValues[index])
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Forward) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.OpenWithOtherApp) }
             )
 
             // 仅当选择了「跳转到自定义应用」时显示应用选择入口
@@ -504,18 +515,20 @@ fun SettingsScreen() {
     /** 外观分类卡片：主题设置 */
     @Composable
     fun AppearanceCategoryCard() {
-        val dayNightModeOptions = dayNightModeLabels.map { DropdownItem(text = stringResource(it)) }
+        val dayNightModeOptions = dayNightModeLabels.map { stringResource(it) }
 
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_appearance),
-            icon = MiuixIcons.Background,
+            icon = MiuixIcons.Glass.DecorationMaintenance,
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.APPEARANCE,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.APPEARANCE) }
         ) {
-            WindowSpinnerPreference(
+            AppStyleSpinnerPreference(
                 title = stringResource(R.string.settings_color_mode_title),
                 items = dayNightModeOptions,
                 selectedIndex = themeSettings.dayNightMode,
+                glassStyle = glassStyle,
+                backdrop = backdrop,
                 onSelectedIndexChange = { mode ->
                     scope.launch {
                         ThemeRepository.saveDayNightMode(context, mode)
@@ -533,7 +546,7 @@ fun SettingsScreen() {
                         ThemeRepository.saveIsDynamicColorMode(context, enabled)
                     }
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Album) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.AiWriting) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -547,28 +560,23 @@ fun SettingsScreen() {
                         ThemeRepository.saveEnableBlur(context, enabled)
                     }
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Paste) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.MotionPhoto) }
             )
 
-            // 渐进模糊：开启后顶部栏改用渐变模糊（顶部最强、向下过渡到清晰），
-            // 需「模糊效果」开启时才生效（关闭模糊时整体回退纯色）
-            // 仅在「模糊效果」开启时显示，模糊关闭时该选项无意义；
-            // 使用 AnimatedVisibility 实现平滑的展开/收起动画
-            AnimatedVisibility(
-                visible = themeSettings.enableBlur
-            ) {
-                SwitchPreference(
-                    title = stringResource(R.string.settings_progressive_blur_title),
-                    // summary = stringResource(R.string.settings_progressive_blur_summary),
-                    checked = themeSettings.progressiveBlur,
-                    onCheckedChange = { enabled ->
-                        scope.launch {
-                            ThemeRepository.saveProgressiveBlur(context, enabled)
-                        }
-                    },
-                    startAction = { PreferenceLeadingPlaceholder() }
-                )
-            }
+            // 应用风格切换（由原「渐进模糊」开关升级而来，复用同一开关与设置项）：
+            // 开=Glass（顶栏/按钮/底栏/侧栏/Spinner/Dropdown 全部玻璃风格），
+            // 关=经典风格（全部回退 basic 组件）。独立于「模糊效果」开关，始终显示。
+            SwitchPreference(
+                title = stringResource(R.string.settings_progressive_blur_title),
+                summary = stringResource(R.string.settings_progressive_blur_summary),
+                checked = themeSettings.progressiveBlur,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        ThemeRepository.saveProgressiveBlur(context, enabled)
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.AiScan) }
+            )
 
             // 这两个开关仅在指定颜色时可用，暂不提供指定颜色功能，故禁用
             // if (themeSettings.isDynamicColorMode) {
@@ -601,7 +609,7 @@ fun SettingsScreen() {
     fun DataCategoryCard() {
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_data),
-            icon = MiuixIcons.Backup,
+            icon = MiuixIcons.Glass.AllSdCardData,
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.DATA,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.DATA) }
         ) {
@@ -636,14 +644,14 @@ fun SettingsScreen() {
                 title = stringResource(R.string.settings_view_sysui_title),
                 summary = stringResource(R.string.settings_view_sysui_summary),
                 onClick = { systemTilesSheetState.show() },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PhoneIcon) }
             )
 
             ArrowPreference(
                 title = stringResource(R.string.settings_import_system_title),
                 summary = stringResource(R.string.settings_import_system_summary),
                 onClick = { importDialogState.show() },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Download) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PasteEditPoint) }
             )
         }
     }
@@ -657,7 +665,12 @@ fun SettingsScreen() {
 
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_about),
-            icon = MiuixIcons.Info,
+            // 关于分类使用应用自身的 ExTile 图标（vector drawable），
+            // 通过 vectorResource 转成 ImageVector，复用 CategoryIcon 的 onPrimary 染色
+            icon = ImageVector.vectorResource(R.drawable.ic_settings_extile),
+            // 该图标内容（4~44 / 48 视口）比 miuix 图标更「满」，同尺寸渲染反而显大，
+            // 因此比其它分类图标小一档（24dp vs 26dp）做视觉对齐
+            iconSize = 24.dp,
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.ABOUT,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.ABOUT) }
         ) {
@@ -783,7 +796,7 @@ fun SettingsScreen() {
                         }
                     }
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Info) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.SoundWave) }
             )
 
             // 重新运行首次配置引导：仅重置 OOBE 标志（配置数据保留，可再次导入覆盖），
@@ -795,7 +808,7 @@ fun SettingsScreen() {
                         ConfigRepository.saveOobeCompleted(context, false)
                     }
                 },
-                startAction = { PreferenceLeadingPlaceholder() }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.Start) }
             )
         }
     }
@@ -1567,42 +1580,25 @@ fun SettingsScreen() {
 
     Scaffold(
         topBar = {
-            // 毛玻璃包裹层保持不动；内部按宽/窄屏选择顶栏形态
-            // 渐进模糊开启时使用渐变模糊，关闭时回退普通模糊
-            BlurredBar(backdrop, blurActive, progressive = themeSettings.progressiveBlur) {
-                if (LocalIsWideScreen.current) {
-                    // 宽屏（侧边 NavigationRail）：无大标题的 SmallTopAppBar
-                    SmallTopAppBar(
-                        title = stringResource(R.string.nav_settings),
-                        color = barColor,
-                        scrollBehavior = scrollBehavior,
-                        actions = {
-                            // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
-                            IconButton(onClick = {
-                                context.startActivity(Intent(context, DebugToolsActivity::class.java))
-                            }) {
-                                Icon(MiuixIcons.MoreCircle, contentDescription = stringResource(R.string.debug_title))
-                            }
-                        }
-                    )
-                } else {
-                    // 窄屏：保留大标题 TopAppBar
-                    TopAppBar(
-                        title = "",
-                        largeTitle = stringResource(R.string.nav_settings),
-                        color = barColor,
-                        scrollBehavior = scrollBehavior,
-                        actions = {
-                            // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
-                            IconButton(onClick = {
-                                context.startActivity(Intent(context, DebugToolsActivity::class.java))
-                            }) {
-                                Icon(MiuixIcons.MoreCircle, contentDescription = stringResource(R.string.debug_title))
-                            }
-                        }
-                    )
+            // 统一自适应顶栏：渐进模糊开→官方 GlassTopAppBar，关→原版顶栏（普通模糊）
+            // 窄屏保留大标题形态，宽屏（侧边导航栏）用无大标题形态
+            AppTopBar(
+                title = stringResource(R.string.nav_settings),
+                largeTitle = stringResource(R.string.nav_settings),
+                useLargeTitle = !LocalIsWideScreen.current,
+                scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
+                progressive = themeSettings.progressiveBlur,
+                actions = {
+                    // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
+                    // 用 TopBarIconButton 跟随顶栏形态：玻璃态→GlassIconButton，原版→IconButton
+                    TopBarIconButton(onClick = {
+                        context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                    }) {
+                        Icon(MiuixIcons.Glass.Maintenance, contentDescription = stringResource(R.string.debug_title))
+                    }
                 }
-            }
+            )
         }
     ) { paddingValues ->
         // 滚动内容挂载 backdrop，供顶部栏模糊捕获
@@ -1833,10 +1829,15 @@ private fun PreferenceLeadingPlaceholder() {
 
 /**
  * 分类图标：圆角矩形背景（primary）+ 图标（onPrimary），用于分类标题行左侧。
+ *
+ * 关于 [iconSize]：不同图标源的「视觉大小」并不一致——miuix 内置图标内容相对画布偏内收，
+ * 而本应用自绘的 vector drawable（如 ic_settings_extile）内容更满，同样尺寸渲染出来会显得更大。
+ * 因此开放该参数，让调用方按视觉观感微调，保持各分类图标大小一致。
  * @param icon 图标
+ * @param iconSize 图标绘制尺寸，默认 26dp（通用分类图标统一使用）
  */
 @Composable
-private fun CategoryIcon(icon: ImageVector) {
+private fun CategoryIcon(icon: ImageVector, iconSize: Dp = 26.dp) {
     Box(
         modifier = Modifier
             .size(32.dp)
@@ -1849,7 +1850,7 @@ private fun CategoryIcon(icon: ImageVector) {
             imageVector = icon,
             contentDescription = null,
             tint = MiuixTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
@@ -1861,6 +1862,7 @@ private fun CategoryIcon(icon: ImageVector) {
  * （收起时指向右，展开时指向下）。
  * @param title 分类标题
  * @param icon 分类图标
+ * @param iconSize 分类图标绘制尺寸（默认 26dp，可按图标观感单独微调）
  * @param expanded 是否处于展开状态
  * @param onToggle 点击标题行时的回调（切换展开状态）
  * @param content 展开后展示的设置项内容
@@ -1869,6 +1871,7 @@ private fun CategoryIcon(icon: ImageVector) {
 private fun ExpandableSettingsCard(
     title: String,
     icon: ImageVector,
+    iconSize: Dp = 26.dp,
     expanded: Boolean,
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
@@ -1906,8 +1909,8 @@ private fun ExpandableSettingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 分类图标
-            CategoryIcon(icon = icon)
-            Spacer(modifier = Modifier.width(12.dp))
+            CategoryIcon(icon = icon, iconSize = iconSize)
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = title,
                 fontSize = MiuixTheme.textStyles.headline1.fontSize,

@@ -5,37 +5,47 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -47,9 +57,15 @@ import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.AppBlurRadius
+import com.hrsthrt74.qstile.ui.LocalTopLayer
 import com.hrsthrt74.qstile.ui.MaxContentWidth
+import com.hrsthrt74.qstile.ui.TopLayerHost
+import com.hrsthrt74.qstile.ui.TopLayerState
 import com.hrsthrt74.qstile.ui.blurBarColors
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.components.AppDialog
+import com.hrsthrt74.qstile.ui.components.LocalOverlayBackdrop
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.navigation.MainPagerState
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
@@ -61,7 +77,6 @@ import com.hrsthrt74.qstile.ui.shouldShowSplitPane
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -71,10 +86,18 @@ import top.yukonga.miuix.kmp.basic.NavigationRailState
 import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.glass.GlassNavigationRail
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
+import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.glass.All
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.glass.HomeFill
+import top.yukonga.miuix.kmp.icon.glass.SettingsFill
 
 /**
  * 导航路由封装类。
@@ -86,15 +109,16 @@ sealed class Screen(@StringRes val titleRes: Int) {
     @Composable abstract fun icon(): ImageVector
     /** 主页 Tab — drawable/home_outlined */
     data object Home : Screen(R.string.nav_home) {
-        @Composable override fun icon() = ImageVector.vectorResource(R.drawable.home_outlined)
+        @Composable override fun icon() = MiuixIcons.Glass.HomeFill
     }
     /** 磁贴编辑 Tab — MIUIX Edit 图标 */
     data object Config : Screen(R.string.nav_config) {
-        @Composable override fun icon() = MiuixIcons.Edit
+//        @Composable override fun icon() = MiuixIcons.Edit
+        @Composable override fun icon() = MiuixIcons.Glass.All
     }
     /** 设置 Tab — MIUIX Settings 图标 */
     data object SettingPage : Screen(R.string.nav_settings) {
-        @Composable override fun icon() = MiuixIcons.Settings
+        @Composable override fun icon() = MiuixIcons.Glass.SettingsFill
     }
 
     companion object {
@@ -183,28 +207,59 @@ fun MainApp(
     // 触觉反馈：两个布局的导航项点击都要用，提前取一次共享
     val haptic = LocalHapticFeedback.current
 
-    // 宽屏判定：true=侧边 NavigationRail，false=底部 NavigationBar
+    // 宽屏判定：true=侧边导航，false=底部导航
     val isWideScreen = shouldShowSplitPane()
+    val themeSettings = LocalThemeSettings.current
+    // 模糊总开关：决定玻璃导航是否对背后内容采样（关闭时玻璃组件回退为纯色容器）
+    val blurEnabled = themeSettings.enableBlur
+    // 应用风格开关（复用「渐进模糊」开关）：true=Glass 导航，false=经典 NavigationBar/Rail
+    val glassStyle = themeSettings.progressiveBlur
 
-    // 注入宽屏标志，供各页面用 contentBottomPadding() 计算底部预留高度
-    CompositionLocalProvider(LocalIsWideScreen provides isWideScreen) {
-        if (isWideScreen) {
-            // 宽屏：侧边导航栏 + Pager（无模糊）
-            WideScreenContent(
-                pagerState = pagerState,
-                mainPagerState = mainPagerState,
-                haptic = haptic,
-                onRequestShizukuPermission = onRequestShizukuPermission
-            )
-        } else {
-            // 窄屏：底部导航栏 + Pager（带毛玻璃模糊）
-            CompactScreenContent(
-                blurEnabled = LocalThemeSettings.current.enableBlur,
-                pagerState = pagerState,
-                mainPagerState = mainPagerState,
-                haptic = haptic,
-                onRequestShizukuPermission = onRequestShizukuPermission
-            )
+    // 顶层浮层状态：玻璃弹窗（GlassIconDropdownMenu）通过 LocalTopLayer 提升到这里，
+    // 保证其窗口坐标与层级正确、不被顶栏/玻璃侧栏遮挡或被 Pager 页面裁剪。
+    val topLayerState = remember { TopLayerState() }
+
+    // 注入宽屏标志（供 contentBottomPadding 计算）与顶层浮层宿主。
+    // TopLayerHost 放在导航内容之后绘制，位于所有 chrome 之上。
+    CompositionLocalProvider(
+        LocalIsWideScreen provides isWideScreen,
+        LocalTopLayer provides topLayerState,
+    ) {
+        // 全局唯一的 root Scaffold（官方 demo 同款）：任何方向的界面都套在同一层 Scaffold 内，
+        // 让 renderInRootScaffold=true 的玻璃 Dialog/Sheet 提升到这里（全屏、z-index 最高，
+        // 在玻璃侧栏之上）。此前宽屏分支只有纯 Box，dialog 只能落到各页面自己被 widthIn(840dp)
+        // 限宽的 Scaffold 里且被全屏 rail overlay 盖住，表现为「点菜单项后对话框没反应」。
+        // containerColor 透明 + contentWindowInsets=0：不改布局/避让，各页面自行处理 insets。
+        MiuixScaffold(
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (isWideScreen) {
+                    // 宽屏：侧边导航栏（随风格切换玻璃 / 经典）+ Pager
+                    WideScreenContent(
+                        glassStyle = glassStyle,
+                        blurEnabled = blurEnabled,
+                        pagerState = pagerState,
+                        mainPagerState = mainPagerState,
+                        haptic = haptic,
+                        onRequestShizukuPermission = onRequestShizukuPermission
+                    )
+                } else {
+                    // 窄屏：底部导航栏（随风格切换玻璃 / 经典）+ Pager
+                    CompactScreenContent(
+                        glassStyle = glassStyle,
+                        blurEnabled = blurEnabled,
+                        pagerState = pagerState,
+                        mainPagerState = mainPagerState,
+                        haptic = haptic,
+                        onRequestShizukuPermission = onRequestShizukuPermission
+                    )
+                }
+
+                // 顶层玻璃弹窗宿主：绘制在导航 chrome 之上（官方 demo 同款层级）
+                TopLayerHost(topLayerState)
+            }
         }
     }
 
@@ -274,9 +329,11 @@ private fun UpdatePromptHost() {
 }
 
 /**
- * 窄屏（竖屏手机）内容布局。
- * 底部 [NavigationBar] + [HorizontalPager]，导航栏带毛玻璃模糊（textureBlur + layerBackdrop）。
+ * 窄屏（竖屏手机）内容布局，底部导航随应用风格开关切换：
+ * - [glassStyle]=true：[GlassNavigationBar]（悬浮玻璃胶囊，官方 demo 写法）
+ * - [glassStyle]=false：经典 [NavigationBar] + textureBlur 毛玻璃
  *
+ * @param glassStyle 应用风格（复用「渐进模糊」开关）：true=Glass，false=经典
  * @param blurEnabled 模糊总开关（来自主题设置）
  * @param pagerState 三个主页共用的 Pager 状态
  * @param mainPagerState 导航与 Pager 的联动状态（选中页高亮）
@@ -285,68 +342,121 @@ private fun UpdatePromptHost() {
  */
 @Composable
 private fun CompactScreenContent(
+    glassStyle: Boolean,
     blurEnabled: Boolean,
     pagerState: PagerState,
     mainPagerState: MainPagerState,
     haptic: HapticFeedback,
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
-    // 创建模糊背景捕获器，用于抓取导航栏后方的内容像素
-    val backdrop = rememberLayerBackdrop()
+    // 捕获内容像素的 backdrop（内部已判断模糊开关与 RuntimeShader 支持）
+    val backdrop = rememberBlurBackdrop(enabled = blurEnabled)
 
-    // 模糊色彩配置（与顶部栏统一，见 PageUtils）
-    val navBarBlurColors = blurBarColors()
-
-    // 导航栏颜色：模糊开启时半透明（配合 textureBlur 的 enabled），关闭时回退纯色
-    val navBarColor = if (blurEnabled) {
-        MiuixTheme.colorScheme.surface.copy(alpha = 0.1f)
-    } else {
-        MiuixTheme.colorScheme.surface
+    // 玻璃风格 item 模型（icon/label）；经典风格直接用 NavigationBarItem
+    val glassItems = Screen.allPages.map { screen ->
+        GlassNavigationItem(
+            icon = screen.icon(),
+            label = stringResource(screen.titleRes),
+        )
     }
 
-    MiuixScaffold(
-        bottomBar = {
-            NavigationBar(
-                modifier = Modifier.textureBlur(
-                    backdrop = backdrop,
-                    shape = RoundedCornerShape(0.dp),
-                    blurRadius = com.hrsthrt74.qstile.ui.AppBlurRadius,
-                    colors = navBarBlurColors,
-                    enabled = blurEnabled
-                ),
-                color = navBarColor,
-                showDivider = true
-            ) {
-                Screen.allPages.forEachIndexed { index, screen ->
-                    NavigationBarItem(
-                        selected = mainPagerState.selectedPage == index,
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            mainPagerState.animateToPage(index)
-                        },
-                        icon = screen.icon(),
-                        label = stringResource(screen.titleRes)
-                    )
+    // 页面 backdrop 下发给各屏幕内的玻璃 Dialog / BottomSheet 采样。
+    // 该 backdrop 挂在 AppPager 上，覆盖整页含顶栏，但不含提升到根 Scaffold 的弹窗宿主与遮罩，
+    // 符合官方 demo 对 glass 弹窗 backdrop 的要求（见 AppDialog.kt 的 LocalOverlayBackdrop）。
+    CompositionLocalProvider(LocalOverlayBackdrop provides backdrop) {
+        MiuixScaffold(
+            bottomBar = {
+                if (glassStyle) {
+                    // 悬浮底栏图层下方的渐变：顶部透明 → 底部 surface（上透下不透），
+                    // 让滚动内容在接近底栏时淡出到 surface 色，胶囊浮其上更自然。
+                    // 仅 OS4 玻璃风格显示；经典 NavigationBar 为全宽实色，不需要。
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // 渐变绘制区域向上多延伸 8dp（不改布局尺寸，不影响胶囊位置）：
+                        // startY 取 -8px、topLeft 上移 8px，高度相应 +8px，底边仍对齐槽底。
+                        val surfaceColor = MiuixTheme.colorScheme.surface
+                        val extendUpPx = with(LocalDensity.current) { 8.dp.toPx() }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .drawBehind {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            colors = listOf(
+                                                surfaceColor.copy(alpha = 0f),
+                                                surfaceColor.copy(alpha = 0.7f),
+                                                surfaceColor.copy(alpha = 0.9f),
+                                            ),
+                                            startY = -extendUpPx,
+                                            endY = size.height,
+                                        ),
+                                        topLeft = Offset(0f, -extendUpPx),
+                                        size = Size(size.width, size.height + extendUpPx),
+                                    )
+                                }
+                        )
+                        GlassNavigationBar(
+                            items = glassItems,
+                            selectedIndex = mainPagerState.selectedPage,
+                            onSelect = { index ->
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                mainPagerState.animateToPage(index)
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 64.dp)
+                            ,
+                        )
+                    }
+                } else {
+                    // 经典风格：全宽 NavigationBar + 普通纹理模糊（模糊关闭时回退纯色）
+                    val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
+                    NavigationBar(
+                        modifier = if (backdrop != null) {
+                            Modifier.textureBlur(
+                                backdrop = backdrop,
+                                shape = RoundedCornerShape(0.dp),
+                                blurRadius = AppBlurRadius,
+                                colors = blurBarColors(),
+                            )
+                        } else Modifier,
+                        color = barColor,
+                        showDivider = true
+                    ) {
+                        Screen.allPages.forEachIndexed { index, screen ->
+                            NavigationBarItem(
+                                selected = mainPagerState.selectedPage == index,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    mainPagerState.animateToPage(index)
+                                },
+                                icon = screen.icon(),
+                                label = stringResource(screen.titleRes)
+                            )
+                        }
+                    }
                 }
             }
+        ) {
+            // 内容区域：Pager 挂载 backdrop，滚动内容供导航栏采样（玻璃/经典模糊均需要）
+            AppPager(
+                pagerState = pagerState,
+                onRequestShizukuPermission = onRequestShizukuPermission,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+            )
         }
-    ) {
-        // 内容区域：Pager 挂载 backdrop，滚动内容供导航栏模糊捕获
-        AppPager(
-            pagerState = pagerState,
-            onRequestShizukuPermission = onRequestShizukuPermission,
-            modifier = Modifier
-                .fillMaxSize()
-                .layerBackdrop(backdrop)
-        )
     }
 }
 
 /**
- * 宽屏（横屏/平板）内容布局。
- * 侧边 [NavigationRail] + [HorizontalPager]。state=null 表示固定展开的经典形态
- * （图标+文字、无折叠按钮）；NavigationRail 会自动处理 statusBar/navBar/cutout insets。
+ * 宽屏（横屏/平板）内容布局，侧边导航随应用风格开关切换：
+ * - [glassStyle]=true：[GlassNavigationRail] 悬浮玻璃侧栏（覆盖在页面之上，官方 demo 写法）
+ * - [glassStyle]=false：经典 [NavigationRail]（占据一列，图标+文字固定展开）
  *
+ * @param glassStyle 应用风格（复用「渐进模糊」开关）：true=Glass，false=经典
+ * @param blurEnabled 模糊总开关（来自主题设置）
  * @param pagerState 三个主页共用的 Pager 状态
  * @param mainPagerState 导航与 Pager 的联动状态（选中页高亮）
  * @param haptic 触觉反馈实例，导航项点击时震动
@@ -354,41 +464,113 @@ private fun CompactScreenContent(
  */
 @Composable
 private fun WideScreenContent(
+    glassStyle: Boolean,
+    blurEnabled: Boolean,
     pagerState: PagerState,
     mainPagerState: MainPagerState,
     haptic: HapticFeedback,
     onRequestShizukuPermission: ((Boolean) -> Unit) -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        // 侧边导航栏：state=null → 固定展开的经典形态（图标+文字，无折叠按钮）
-        NavigationRail(state = NavigationRailState(NavigationRailValue.Expanded)) {
-            Screen.allPages.forEachIndexed { index, screen ->
-                NavigationRailItem(
-                    selected = mainPagerState.selectedPage == index,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        mainPagerState.animateToPage(index)
-                    },
-                    icon = screen.icon(),
-                    label = stringResource(screen.titleRes),
-                )
+    val backdrop = rememberBlurBackdrop(enabled = blurEnabled)
+    // 页面共用的导航点击回调
+    val onPageSelect: (Int) -> Unit = { index ->
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        mainPagerState.animateToPage(index)
+    }
+
+    if (!glassStyle) {
+        // ===== 经典风格：侧栏占一列，Pager 占剩余空间（原版行为） =====
+        CompositionLocalProvider(LocalOverlayBackdrop provides backdrop) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                NavigationRail(state = NavigationRailState(NavigationRailValue.Expanded)) {
+                    Screen.allPages.forEachIndexed { index, screen ->
+                        NavigationRailItem(
+                            selected = mainPagerState.selectedPage == index,
+                            onClick = { onPageSelect(index) },
+                            icon = screen.icon(),
+                            label = stringResource(screen.titleRes),
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .consumeWindowInsets(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
+                        .consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Start))
+                ) {
+                    AppPager(
+                        pagerState = pagerState,
+                        onRequestShizukuPermission = onRequestShizukuPermission,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
-        // 剩余区域交给 Pager（宽屏无毛玻璃，内容直铺）。
-        // 起始侧（横屏左侧摄像头挖孔/导航条区域）的 insets 已由 NavigationRail 自行避让并铺满背景，
-        // 这里在内容区消费掉同样的起始侧 insets，避免各页面自己的 TopAppBar/内容再重复叠加左边距
-        // （consumeWindowInsets 会沿 Modifier 树向下传播，windowInsetsPadding 会自动减去已消费部分）。
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .consumeWindowInsets(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
-                .consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Start))
-        ) {
-            AppPager(
-                pagerState = pagerState,
-                onRequestShizukuPermission = onRequestShizukuPermission,
-                modifier = Modifier.fillMaxSize()
+        return
+    }
+
+    // ===== 玻璃风格：侧栏为 overlay，页面按展开进度让出宽度 =====
+    // 固定展开的经典形态：显示图标+文字、无折叠按钮
+    val railState = rememberGlassNavigationRailState(initialExpanded = true)
+    val glassItems = Screen.allPages.map { screen ->
+        GlassNavigationItem(
+            icon = screen.icon(),
+            label = stringResource(screen.titleRes),
+        )
+    }
+
+    CompositionLocalProvider(LocalOverlayBackdrop provides backdrop) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 对齐官方 demo 的关键点：backdrop 录制层保持全宽，不被让位压缩或平移。
+            // 侧栏是覆盖在页面之上的 overlay，采样的是这一整层画面；若把 layerBackdrop 挂在
+            // 被 layout 压缩右移后的 AppPager 上，侧栏所在的起始侧区域就不在录制层内，
+            // 玻璃采样会错位/发虚（demo 注释原话：pager stays full width for backdrop recording）。
+            // 外层 surface 背景：页面让位后露出的起始侧空隙填成与页面一致的表面色（demo 同款）。
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MiuixTheme.colorScheme.surface)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                ) {
+                    AppPager(
+                        pagerState = pagerState,
+                        onRequestShizukuPermission = onRequestShizukuPermission,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layout { measurable, constraints ->
+                                val reserved = ((GlassNavigationRailDefaults.Margin +
+                                    GlassNavigationRailDefaults.ExpandedWidth) * railState.progress).roundToPx()
+                                val placeable = measurable.measure(
+                                    constraints.copy(
+                                        minWidth = (constraints.minWidth - reserved).coerceAtLeast(0),
+                                        maxWidth = if (constraints.hasBoundedWidth) {
+                                            (constraints.maxWidth - reserved).coerceAtLeast(0)
+                                        } else {
+                                            constraints.maxWidth
+                                        },
+                                    )
+                                )
+                                layout(placeable.width + reserved, placeable.height) {
+                                    placeable.placeRelative(reserved, 0)
+                                }
+                            }
+                            .consumeWindowInsets(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
+                            .consumeWindowInsets(WindowInsets.navigationBars.only(WindowInsetsSides.Start))
+                    )
+                }
+            }
+
+            GlassNavigationRail(
+                items = glassItems,
+                selectedIndex = mainPagerState.selectedPage,
+                onSelect = onPageSelect,
+                backdrop = backdrop,
+                state = railState,
             )
         }
     }

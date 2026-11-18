@@ -40,8 +40,12 @@ fun shouldShowSplitPane(): Boolean {
 
 /**
  * 页面内容的底部预留高度：
- * - 窄屏：底部导航栏高度 + 系统手势条 + 16dp（保持现有观感）
+ * - 窄屏：底部玻璃导航栏高度 + 系统手势条 + 16dp（保持现有观感）
  * - 宽屏：无底部导航栏，只留系统手势条 + 16dp
+ *
+ * 注：玻璃导航栏（GlassNavigationBar）为悬浮胶囊，内容会在其下方延伸供玻璃采样，
+ * 这里的高度仅作为「最后一个列表项不被遮挡」的最小留白，沿用 NavigationBarDefaults.ItemHeight
+ * 作为近似常量（与其实际胶囊高度接近），避免各页面重复计算。
  */
 @Composable
 fun contentBottomPadding(): Dp {

@@ -152,8 +152,8 @@
     <string name="settings_dynamic_color_summary">使用 Monet 配色</string>
     <string name="settings_blur_title">模糊效果</string>
     <string name="settings_blur_summary">顶栏 / 底栏的模糊</string>
-    <string name="settings_progressive_blur_title">渐进模糊</string>
-    <string name="settings_progressive_blur_summary">顶栏使用渐变模糊效果</string>
+    <string name="settings_progressive_blur_title">OS4 样式</string>
+    <string name="settings_progressive_blur_summary">使用全新的玻璃组件</string>
     <!-- 磁贴名预设下拉 -->
     <string name="settings_preset_more_tiles">更多磁贴</string>
     <string name="settings_preset_expand_collapse">展开 / 收起</string>
