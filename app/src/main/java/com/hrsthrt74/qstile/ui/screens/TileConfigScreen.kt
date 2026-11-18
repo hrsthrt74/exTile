@@ -46,7 +46,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.withoutEventHandling
 import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
@@ -104,6 +103,7 @@ import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.TopLayer
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppChip
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.GlassTileOperationMenu
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -1307,25 +1307,14 @@ fun TileConfigScreen() {
                     )
                 }
             },
-            // 标题栏右侧：「连续放置」开关（自绘文字按钮，不用 miuix 的按钮组件）
-            // 开启后点磁贴只添加、不收起 Sheet，方便一次放多个；开/关用主色与次要色区分
+            // 标题栏右侧：「连续放置」开关（自绘胶囊 Chip，靠底色区分开关态，
+            // 选中 = primaryContainer 底 / onPrimaryContainer 文字）
+            // 开启后点磁贴只添加、不收起 Sheet，方便一次放多个
             endAction = {
-                Text(
+                AppChip(
                     text = stringResource(R.string.config_add_continuous),
-                    style = MiuixTheme.textStyles.body1,
-                    color = if (continuousAdd) MiuixTheme.colorScheme.primary
-                            else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier
-                        // 圆角裁剪 + 自管点击（不用水波纹，靠颜色切换表达开关态）
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            continuousAdd = !continuousAdd
-                        }
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                    selected = continuousAdd,
+                    onClick = { continuousAdd = !continuousAdd },
                 )
             },
             // 关闭动画完成后清空两个 Tab 各自的搜索关键字、退出搜索态与连续放置，并把 Tab 复位到「系统磁贴」
