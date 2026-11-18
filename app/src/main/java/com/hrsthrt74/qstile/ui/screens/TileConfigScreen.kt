@@ -4,10 +4,10 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDpAsState
@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,13 +46,15 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.withoutEventHandling
 import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,6 +70,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
@@ -78,25 +82,23 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.R
-import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.CustomTileUtils
-import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
-import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.TopLayer
@@ -107,15 +109,13 @@ import com.hrsthrt74.qstile.ui.components.GlassTileOperationMenu
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.LocalNavPageAction
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.TileConfigViewModel
 import com.microsoft.clarity.modifiers.clarityMask
-import com.microsoft.clarity.modifiers.clarityUnmask
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 import top.yukonga.miuix.kmp.basic.Button
@@ -127,6 +127,7 @@ import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -134,7 +135,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PlainTooltip
 import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SearchBar
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
@@ -144,14 +145,17 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassIconDropdownMenu
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.glass.glassPopupAnchor
 import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
+import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -195,9 +199,19 @@ fun TileConfigScreen() {
 
     val haptic = LocalHapticFeedback.current
 
-    // 添加磁贴 / 添加第三方磁贴 Sheet 的显示状态（统一由 AppBottomSheet 管理）
+    // 「添加磁贴」Sheet 的显示状态（统一由 AppBottomSheet 管理）。
+    // 系统磁贴与第三方磁贴已合并到同一个 Sheet，通过顶部的 TabRow 切换来源。
     val addSheetState = rememberSheetState()
-    val customSheetState = rememberSheetState()
+    // 当前选中的来源 Tab：0 = 系统磁贴，1 = 第三方磁贴（关闭 Sheet 后复位为 0）
+    var addTileTab by remember { mutableIntStateOf(0) }
+
+    // 把「添加磁贴」入口注册到导航栏动作桥：窄屏 + 玻璃风格时，底栏右侧会多出一个跟随按钮
+    // （App 层按「当前选中页 == 编辑页」决定是否显示，见 App.kt 的 navTrailingAction）
+    val navPageAction = LocalNavPageAction.current
+    DisposableEffect(navPageAction, addSheetState) {
+        navPageAction?.onAddTile = { addSheetState.show() }
+        onDispose { navPageAction?.onAddTile = null }
+    }
     // 两个确认操作对话框的显示状态（统一由 AppDialog 管理）
     val clearConfirmDialogState = rememberDialogState()
     // 「恢复默认设置」入口已下架，对应对话框状态一并注释
@@ -230,9 +244,9 @@ fun TileConfigScreen() {
     val importedToast = stringResource(R.string.settings_imported_toast)
     val importFailedToast = stringResource(R.string.settings_read_failed_toast)
 
-    // 打开「添加第三方磁贴」sheet 时，加载第三方磁贴服务列表
-    LaunchedEffect(customSheetState.show) {
-        if (customSheetState.show) {
+    // 切到「第三方磁贴」Tab 时才加载第三方磁贴服务列表（首次加载较重，避免每次打开 Sheet 都扫描）
+    LaunchedEffect(addSheetState.show, addTileTab) {
+        if (addSheetState.show && addTileTab == 1) {
             viewModel.loadCustomTileServices(context)
         }
     }
@@ -368,7 +382,7 @@ fun TileConfigScreen() {
 
     // 小米设备特化：固定卡片（网格中占 1 个不可拖拽 item，不参与排序）
     @Composable
-    fun LazyGridItemScope.FixedTilesRow() {
+    fun FixedTilesRow() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -437,52 +451,28 @@ fun TileConfigScreen() {
         }
     }
 
-    // 网格末尾的添加按钮区域（添加磁贴 / 添加第三方磁贴），占满整行
+    // 网格末尾的添加按钮区域，占满整行。
+    // 系统磁贴与第三方磁贴已合并到同一个 Sheet（用 TabRow 切换来源），故只需一个入口按钮。
     @Composable
-    fun LazyGridItemScope.AddTilesSection() {
-        Card(
+    fun AddTilesSection() {
+        Button(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                addSheetState.show()
+            },
+            colors = ButtonDefaults.buttonColorsPrimary(),
+            // 与网格内的磁贴保持同样的左右 8dp 边距，上下留出与列表的间距
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 8.dp)
+                .pressable(
+                    interactionSource = null,
+                    indication = SinkFeedback(),
+                    delay = null
+                )
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        addSheetState.show()
-                    },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pressable(
-                            interactionSource = null,
-                            indication = SinkFeedback(),
-                            delay = null
-                        )
-                ) {
-                    Icon(MiuixIcons.AddCircle, contentDescription = stringResource(R.string.config_add_desc))
-                    Text(stringResource(R.string.config_add_tiles), modifier = Modifier.padding(start = 8.dp))
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        customSheetState.show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pressable(
-                            interactionSource = null,
-                            indication = SinkFeedback(),
-                            delay = null
-                        )
-                ) {
-                    Icon(MiuixIcons.AddCircle, contentDescription = stringResource(R.string.config_add_custom_desc))
-                    Text(stringResource(R.string.config_add_custom_tiles), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
+            Icon(MiuixIcons.AddCircle, contentDescription = stringResource(R.string.config_add_desc))
+            Text(stringResource(R.string.config_add_tiles), modifier = Modifier.padding(start = 8.dp))
         }
     }
 
@@ -508,6 +498,10 @@ fun TileConfigScreen() {
             val innerKeys = viewModel.innerKeys
             val renderList = viewModel.renderList
             val headerKey = viewModel.headerKey
+            // 底栏「添加磁贴」跟随按钮是否可见：必须与 App.kt 里的判断保持一致
+            // （只能挂在本页面提供的动作桥存在时，且窄屏 + 玻璃风格）
+            val addTileOnNavBar = LocalNavPageAction.current != null &&
+                isGlassStyle && !LocalIsWideScreen.current
             val fixedItemCount = viewModel.fixedItemCount
             val outerCount = outerTiles.size
 
@@ -872,7 +866,7 @@ fun TileConfigScreen() {
                     top = gridContentTopPadding,
                     start = paddingValues.calculateStartPadding(LocalLayoutDirection.current) + 10.dp,
                     end = paddingValues.calculateEndPadding(LocalLayoutDirection.current) + 10.dp,
-                    bottom = contentBottomPadding()
+                    bottom = contentBottomPadding() + 96.dp
                     )
             ) {
                 // 固定卡片（小米特化，不参与拖拽）
@@ -897,142 +891,328 @@ fun TileConfigScreen() {
                     }
                 }
 
-                // 磁贴区域 / 按钮区域之间的间隔
-                item { Spacer(modifier = Modifier.height(24.dp)) }
+                // 窄屏 + 玻璃风格时，底栏已有「添加磁贴」跟随按钮，
+                // 这里就不再重复给网格末尾的按钮（避免两个入口同时出现）
+                if (!addTileOnNavBar) {
+                    // 磁贴区域 / 按钮区域之间的间隔
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
 
-                // 添加按钮区域，占满整行
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    AddTilesSection()
+                    // 添加按钮区域，占满整行
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        AddTilesSection()
+                    }
                 }
             }
         }
     }
 
-    // 「添加磁贴」底部 Sheet：按分类分组展示可用系统磁贴，点击添加到框内末尾
+    // 系统磁贴选择区：按分类分组展示可用系统磁贴，点击添加到框内末尾
     @Composable
-    fun AddTileSheet() {
-        AppBottomSheet(
-            state = addSheetState,
-            title = stringResource(R.string.config_add_tiles),
-            // 关闭动画完成后清空搜索关键字，避免下次打开残留
-            onDismissed = { viewModel.clearAddSearchQuery() },
-        ) {
-            // 当前已添加的磁贴（含固定卡片、edit、exTile，用于过滤重复项）
-            val currentTiles = viewModel.config.expandedTiles
+    // topPadding：列表顶部预留的高度（= 头部浮层高度），让列表从 Sheet 顶部铺满、滚动时滑到头部下方
+    fun SystemTilePicker(topPadding: Dp, continuousAdd: Boolean) {
+        // 当前已添加的磁贴（含固定卡片、edit、exTile，用于过滤重复项）
+        val currentTiles = viewModel.config.expandedTiles
 
-            // 读取调试 flag（订阅变化），切换后刷新可用磁贴列表
-            // showUnavailableTiles：调试开关，开启后额外显示预设内因设备能力不满足而不可用的磁贴
-            val capabilityKey = listOf(
-                TileCapabilityFlags.satelliteOverride,
-                TileCapabilityFlags.coolingFanOverride,
-                TileCapabilityFlags.propOverrides.toMap(),
-                TileCapabilityFlags.featureOverrides.toMap(),
-                TileCapabilityFlags.showUnavailableTiles,
-                TileCapabilityFlags.showNoIconTiles,
-            )
-            val availableTiles = remember(currentTiles, viewModel.profile, capabilityKey) {
-                // 基础来源：默认仅设备可用磁贴；调试开关开启时放宽为全量静态清单（不可用磁贴降透明度展示）
-                val catalog = if (TileCapabilityFlags.showUnavailableTiles) {
-                    TileCatalog.systemTiles
-                } else {
-                    TileCatalog.getAvailableTiles(viewModel.profile)
-                }
-                // 过滤已添加磁贴；无图标磁贴默认隐藏（空白占位不展示），调试开关开启时保留（降透明度展示）
-                catalog.filter {
-                    it.value !in currentTiles && (hasTileIcon(it.value) || TileCapabilityFlags.showNoIconTiles)
+        // 读取调试 flag（订阅变化），切换后刷新可用磁贴列表
+        // showUnavailableTiles：调试开关，开启后额外显示预设内因设备能力不满足而不可用的磁贴
+        val capabilityKey = listOf(
+            TileCapabilityFlags.satelliteOverride,
+            TileCapabilityFlags.coolingFanOverride,
+            TileCapabilityFlags.propOverrides.toMap(),
+            TileCapabilityFlags.featureOverrides.toMap(),
+            TileCapabilityFlags.showUnavailableTiles,
+            TileCapabilityFlags.showNoIconTiles,
+        )
+        val availableTiles = remember(currentTiles, viewModel.profile, capabilityKey) {
+            // 基础来源：默认仅设备可用磁贴；调试开关开启时放宽为全量静态清单（不可用磁贴降透明度展示）
+            val catalog = if (TileCapabilityFlags.showUnavailableTiles) {
+                TileCatalog.systemTiles
+            } else {
+                TileCatalog.getAvailableTiles(viewModel.profile)
+            }
+            // 过滤已添加磁贴；无图标磁贴默认隐藏（空白占位不展示），调试开关开启时保留（降透明度展示）
+            catalog.filter {
+                it.value !in currentTiles && (hasTileIcon(it.value) || TileCapabilityFlags.showNoIconTiles)
+            }
+        }
+        // 调试开关开启时，用于区分「不可用」磁贴的能力快照（渲染时降透明度）：
+        // 设备能力不满足，或因无图标而本应隐藏（现被调试开关保留展示）的磁贴
+        val availableValues = remember(availableTiles, viewModel.profile, capabilityKey) {
+            availableTiles.filter {
+                it.isAvailable(viewModel.profile) && hasTileIcon(it.value)
+            }.map { it.value }.toSet()
+        }
+
+        // 根据搜索关键字过滤：同时匹配磁贴显示名和 value（不区分大小写）
+        val query = viewModel.addSearchQuery.trim()
+        val filteredTiles = remember(availableTiles, query) {
+            if (query.isEmpty()) {
+                availableTiles
+            } else {
+                availableTiles.filter { tile ->
+                    tile.displayName.contains(query, ignoreCase = true) ||
+                        tile.value.contains(query, ignoreCase = true)
                 }
             }
-            // 调试开关开启时，用于区分「不可用」磁贴的能力快照（渲染时降透明度）：
-            // 设备能力不满足，或因无图标而本应隐藏（现被调试开关保留展示）的磁贴
-            val availableValues = remember(availableTiles, viewModel.profile, capabilityKey) {
-                availableTiles.filter {
-                    it.isAvailable(viewModel.profile) && hasTileIcon(it.value)
-                }.map { it.value }.toSet()
-            }
+        }
 
-            // 根据搜索关键字过滤：同时匹配磁贴显示名和 value（不区分大小写）
-            val query = viewModel.addSearchQuery.trim()
-            val filteredTiles = remember(availableTiles, query) {
-                if (query.isEmpty()) {
-                    availableTiles
-                } else {
-                    availableTiles.filter { tile ->
-                        tile.displayName.contains(query, ignoreCase = true) ||
-                            tile.value.contains(query, ignoreCase = true)
+        // 按分类分组
+        val tilesByCategory = remember(filteredTiles) {
+            filteredTiles.groupBy { it.category }
+        }
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (filteredTiles.isEmpty()) {
+                // 无可添加磁贴 / 搜索无结果提示（区分文案）
+                Text(
+                    text = if (query.isEmpty()) stringResource(R.string.config_no_tiles)
+                           else stringResource(R.string.config_no_matching_tiles),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 顶部让出头部浮层高度，避免提示文字被 TabRow / 搜索框挡住
+                        .padding(top = topPadding, bottom = 24.dp)
+                )
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                    contentPadding = PaddingValues(top = topPadding + 8.dp, bottom = 64.dp)
+                ) {
+                    tilesByCategory.forEach { (category, tiles) ->
+                        // 分类标题
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                text = category,
+                                style = MiuixTheme.textStyles.subtitle,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                            )
+                        }
+
+                        // 磁贴网格
+                        items(tiles.size) { index ->
+                            val tile = tiles[index]
+                            // 调试开关保留展示的「不可用/无图标」磁贴整体降透明度区分
+                            val isUnavailable = tile.value !in availableValues
+                            Column(
+                                modifier = Modifier
+                                    // 竖向要比横向大一点
+                                    .padding(horizontal = 4.dp, vertical = 12.dp)
+                                    .alpha(if (isUnavailable) 0.4f else 1f),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MiuixTheme.colorScheme.secondaryVariant)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
+                                            viewModel.addTile(tile.value, context)
+                                            // 「连续放置」开启时不收起 Sheet，可以接着点下一个
+                                            if (!continuousAdd) addSheetState.dismiss()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val icon = rememberTileIcon(tile.value)
+                                    Icon(
+                                        painter = icon,
+                                        contentDescription = tile.displayName,
+                                        tint = MiuixTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+
+                                Text(
+                                    text = tile.displayName,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    //                                 ↓ 图标 <=> 文字的间距
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                )
+
+                                Text(
+                                    text = tile.value,
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        // 分类结束分割线
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
                     }
                 }
             }
+        }
+    }
 
-            // 按分类分组
-            val tilesByCategory = remember(filteredTiles) {
-                filteredTiles.groupBy { it.category }
-            }
+    // 第三方磁贴选择区：展示其他应用的 QS Tile 服务（需 QUERY_ALL_PACKAGES 权限）
+    @Composable
+    // topPadding：同 SystemTilePicker，为头部浮层预留顶部内边距
+    fun ThirdPartyTilePicker(topPadding: Dp, continuousAdd: Boolean) {
+        // 检查是否有 QUERY_ALL_PACKAGES 权限
+        val hasQueryPermission = remember {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.QUERY_ALL_PACKAGES
+            ) == PackageManager.PERMISSION_GRANTED
+        }
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // 搜索框（支持按磁贴名或 value 搜索）
-                SearchBar(
-                    expanded = false,
-                    onExpandedChange = { expanded ->
-                        if (!expanded) {
-                            addSheetState.dismiss()
-                        }
-                    },
-                    insideMargin = DpSize(0.dp, 4.dp),
-                    inputField = {
-                        InputField(
-                            query = viewModel.addSearchQuery,
-                            onQueryChange = { viewModel.addSearchQuery = it },
-                            onSearch = {},
-                            // 避免打开 sheet 时自动聚焦弹键盘
-                            expanded = false,
-                            onExpandedChange = {},
-                            label = stringResource(R.string.common_search),
-                            color = MiuixTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { }
+        // 获取所有 QS Tile 服务（后台线程已加载，见顶部 LaunchedEffect）
+        val services = viewModel.allTileServices
 
-                if (filteredTiles.isEmpty()) {
-                    // 无可添加磁贴 / 搜索无结果提示（区分文案）
+        // 获取当前已添加的磁贴
+        val currentTiles = viewModel.config.expandedTiles
+
+        // 获取系统预定义的磁贴 ComponentName 集合（用于过滤）
+        val systemTileComponents = remember {
+            TileCatalog.getAllValues()
+                .filter { it.startsWith("custom(") }
+                .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
+                .toSet()
+        }
+
+        // 获取已添加的磁贴 ComponentName 集合（用于过滤）
+        val currentTileComponents = remember(currentTiles) {
+            currentTiles
+                .filter { it.startsWith("custom(") }
+                .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
+                .toSet()
+        }
+
+        // 过滤掉已添加的磁贴和系统预定义的磁贴
+        val availableTileServices = remember(services, currentTileComponents, systemTileComponents) {
+            services
+                ?.filter { service ->
+                    val component = ComponentName(service.packageName, service.className)
+                    // 过滤掉已添加的磁贴
+                    if (component in currentTileComponents) return@filter false
+                    // 过滤掉系统预定义的磁贴
+                    component !in systemTileComponents
+                }
+                ?: emptyList()
+        }
+
+        when {
+            // 无权限时显示引导页面
+            !hasQueryPermission -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 顶部让出头部浮层（TabRow / 搜索框）的高度
+                        .padding(start = 24.dp, end = 24.dp, top = topPadding + 24.dp, bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        text = if (query.isEmpty()) stringResource(R.string.config_no_tiles)
-                               else stringResource(R.string.config_no_matching_tiles),
+                        text = stringResource(R.string.config_permission_needed),
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp)
+                        textAlign = TextAlign.Center
                     )
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
-                    ) {
-                        tilesByCategory.forEach { (category, tiles) ->
-                            // 分类标题
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Text(
-                                    text = category,
-                                    style = MiuixTheme.textStyles.subtitle,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                                )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            // 跳转到应用详情设置页面
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
                             }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.config_go_grant))
+                    }
+                }
+            }
+            // 加载中：显示 Miuix 无限进度指示器
+            services == null -> {
+                // 用 fillMaxHeight 撑满，与加载完成后的 sheet 高度一致，避免高度突变
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    InfiniteProgressIndicator()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.common_loading),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+            }
+            // 有权限但过滤后没有可用的磁贴
+            availableTileServices.isEmpty() -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 顶部让出头部浮层（TabRow / 搜索框）的高度
+                        .padding(start = 24.dp, end = 24.dp, top = topPadding + 24.dp, bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = stringResource(R.string.config_no_custom_tiles),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            // 显示磁贴网格
+            else -> {
+                // 根据搜索关键字过滤：同时匹配磁贴 label、应用名和包名（不区分大小写）
+                val query = viewModel.customSearchQuery.trim()
+                val filteredServices = remember(availableTileServices, query) {
+                    if (query.isEmpty()) {
+                        availableTileServices
+                    } else {
+                        availableTileServices.filter { service ->
+                            service.label.contains(query, ignoreCase = true) ||
+                                service.appName.contains(query, ignoreCase = true) ||
+                                service.packageName.contains(query, ignoreCase = true)
+                        }
+                    }
+                }
 
-                            // 磁贴网格
-                            items(tiles.size) { index ->
-                                val tile = tiles[index]
-                                // 调试开关保留展示的「不可用/无图标」磁贴整体降透明度区分
-                                val isUnavailable = tile.value !in availableValues
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (filteredServices.isEmpty()) {
+                        // 搜索无结果提示
+                        Text(
+                            text = stringResource(R.string.config_no_matching_tiles),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 顶部让出头部浮层高度
+                                .padding(top = topPadding, bottom = 24.dp)
+                        )
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(4),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scrollEndHaptic(HapticFeedbackType.TextHandleMove)
+                                .clarityMask(),
+                            contentPadding = PaddingValues(top = topPadding + 8.dp, bottom = 64.dp)
+                        ) {
+                            gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
+                                val tileValue = "custom(${service.packageName}/${service.className})"
                                 Column(
                                     modifier = Modifier
-                                        // 竖向要比横向大一点
-                                        .padding(horizontal = 4.dp, vertical = 12.dp)
-                                        .alpha(if (isUnavailable) 0.4f else 1f),
+                                        .padding(horizontal = 4.dp, vertical = 12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(
@@ -1042,32 +1222,34 @@ fun TileConfigScreen() {
                                             .background(MiuixTheme.colorScheme.secondaryVariant)
                                             .clickable {
                                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
-                                                viewModel.addTile(tile.value, context)
-                                                addSheetState.dismiss()
+                                                viewModel.addTile(tileValue, context)
+                                                // 「连续放置」开启时不收起 Sheet
+                                                if (!continuousAdd) addSheetState.dismiss()
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val icon = rememberTileIcon(tile.value)
+                                        // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
+                                        val bitmap = remember(service.icon) { service.icon.toBitmap() }
                                         Icon(
-                                            painter = icon,
-                                            contentDescription = tile.displayName,
+                                            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                            contentDescription = service.label,
                                             tint = MiuixTheme.colorScheme.primary,
                                             modifier = Modifier.size(36.dp)
                                         )
                                     }
 
+                                    Spacer(modifier = Modifier.height(8.dp))
+
                                     Text(
-                                        text = tile.displayName,
+                                        text = service.label,
                                         style = MiuixTheme.textStyles.footnote1,
                                         maxLines = 2,
                                         textAlign = TextAlign.Center,
-                                        //                                 ↓ 图标 <=> 文字的间距
-                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                        modifier = Modifier.fillMaxWidth()
                                     )
 
                                     Text(
-                                        text = tile.value,
+                                        text = service.appName,
                                         style = MiuixTheme.textStyles.footnote2,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                         maxLines = 2,
@@ -1076,11 +1258,6 @@ fun TileConfigScreen() {
                                     )
                                 }
                             }
-
-                            // 分类结束分割线
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            }
                         }
                     }
                 }
@@ -1088,237 +1265,185 @@ fun TileConfigScreen() {
         }
     }
 
-    // 「添加第三方磁贴」底部 Sheet：展示其他应用的 QS Tile 服务（需 QUERY_ALL_PACKAGES 权限）
+    // 「添加磁贴」底部 Sheet：系统磁贴与第三方磁贴合并为同一个 Sheet。
+    // 头部默认显示 TabRow 切换来源（0=系统磁贴 / 1=第三方磁贴）；点击标题栏右侧的搜索按钮后，
+    // TabRow 会在同一位置变换为搜索框（AnimatedContent），退出搜索再变回来。
     @Composable
-    fun AddCustomTileSheet() {
+    fun AddTileSheet() {
+        // 头部是否处于搜索态：false = 显示 TabRow，true = 显示搜索框
+        var searchActive by remember { mutableStateOf(false) }
+        // 「连续放置」开关：开启后点击磁贴不会收起 Sheet，可以连续添加多个
+        var continuousAdd by remember { mutableStateOf(false) }
+
+        // Tab 文案（两种风格共用）
+        val tabLabels = listOf(
+            stringResource(R.string.config_add_tab_system),
+            stringResource(R.string.config_add_tab_custom),
+        )
+
+        // 写入当前 Tab 的搜索词（两种来源各有一份独立搜索状态，切换 Tab 互不干扰）
+        fun updateQuery(newQuery: String) {
+            if (addTileTab == 0) viewModel.addSearchQuery = newQuery
+            else viewModel.customSearchQuery = newQuery
+        }
+
         AppBottomSheet(
-            state = customSheetState,
-            title = stringResource(R.string.config_add_custom_tiles),
-            // 关闭动画完成后清空上次输入的磁贴值与搜索关键字，避免下次打开残留
+            state = addSheetState,
+            title = stringResource(R.string.config_add_tiles),
+            // 标题栏左侧：搜索 / 退出搜索（退出时顺手清空当前 Tab 的搜索词）
+            startAction = {
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (searchActive) updateQuery("")
+                        searchActive = !searchActive
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (searchActive) MiuixIcons.Close else MiuixIcons.Search,
+                        contentDescription = stringResource(
+                            if (searchActive) R.string.common_close else R.string.common_search
+                        ),
+                    )
+                }
+            },
+            // 标题栏右侧：「连续放置」开关（自绘文字按钮，不用 miuix 的按钮组件）
+            // 开启后点磁贴只添加、不收起 Sheet，方便一次放多个；开/关用主色与次要色区分
+            endAction = {
+                Text(
+                    text = stringResource(R.string.config_add_continuous),
+                    style = MiuixTheme.textStyles.body1,
+                    color = if (continuousAdd) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        // 圆角裁剪 + 自管点击（不用水波纹，靠颜色切换表达开关态）
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            continuousAdd = !continuousAdd
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+            },
+            // 关闭动画完成后清空两个 Tab 各自的搜索关键字、退出搜索态与连续放置，并把 Tab 复位到「系统磁贴」
             onDismissed = {
-                viewModel.clearCustomTileValue()
+                viewModel.clearAddSearchQuery()
                 viewModel.clearCustomSearchQuery()
+                viewModel.clearCustomTileValue()
+                addTileTab = 0
+                searchActive = false
+                continuousAdd = false
             },
         ) {
-            // 检查是否有 QUERY_ALL_PACKAGES 权限
-            val hasQueryPermission = remember {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.QUERY_ALL_PACKAGES
-                ) == PackageManager.PERMISSION_GRANTED
-            }
+            // 头部高度（px）：由头部浮层测量后回填，作为列表顶部的内边距，
+            // 使列表内容铺满整个 Sheet 并在滚动时滑到头部下方（而不是被头部挤下去、留出空白）。
+            var headerHeightPx by remember { mutableIntStateOf(0) }
+            val density = LocalDensity.current
+            val headerHeight = with(density) { headerHeightPx.toDp() }
 
-            // 获取所有 QS Tile 服务（后台线程已加载，见顶部 LaunchedEffect）
-            val services = viewModel.allTileServices
+            // 头部玻璃控件的采样源：必须在 Sheet 内单独录制（只含列表层），
+            // 不能用页面级 backdrop——那样会采样到 Sheet 后面的编辑页，看起来像「穿透了 Sheet」。
+            // 模糊关闭 / 不支持 / 经典风格时返回 null：经典风格不需要录制（省一次离屏绘制），
+            // 玻璃控件在 backdrop 为 null 时也回退经典样式。
+            val headerBackdrop = rememberBlurBackdrop(enabled = isGlassStyle && themeSettings.enableBlur)
 
-            // 获取当前已添加的磁贴
-            val currentTiles = viewModel.config.expandedTiles
-
-            // 获取系统预定义的磁贴 ComponentName 集合（用于过滤）
-            val systemTileComponents = remember {
-                TileCatalog.getAllValues()
-                    .filter { it.startsWith("custom(") }
-                    .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
-                    .toSet()
-            }
-
-            // 获取已添加的磁贴 ComponentName 集合（用于过滤）
-            val currentTileComponents = remember(currentTiles) {
-                currentTiles
-                    .filter { it.startsWith("custom(") }
-                    .mapNotNull { CustomTileUtils.parseCustomComponent(it) }
-                    .toSet()
-            }
-
-            // 过滤掉已添加的磁贴和系统预定义的磁贴
-            val availableTileServices = remember(services, currentTileComponents, systemTileComponents) {
-                services
-                    ?.filter { service ->
-                        val component = ComponentName(service.packageName, service.className)
-                        // 过滤掉已添加的磁贴
-                        if (component in currentTileComponents) return@filter false
-                        // 过滤掉系统预定义的磁贴
-                        component !in systemTileComponents
+            // 用 Box 叠放：列表在下层铺满，头部浮在上层（TabRow / 搜索框高度变化会自动同步）
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // 列表层：既是内容层，也是玻璃控件的 backdrop 录制层（头部浮层在其之外，不会被自身采样）
+                // 顶部留出头部高度，滚动时内容会进入该区域（contentPadding 在视口内部，
+                // 条目滑上来时会画在 padding 区域里），形成「列表延伸到头部下方」的效果
+                Box(
+                    modifier = if (headerBackdrop != null) {
+                        Modifier.fillMaxWidth().layerBackdrop(headerBackdrop)
+                    } else {
+                        Modifier.fillMaxWidth()
                     }
-                    ?: emptyList()
-            }
-
-            when {
-                // 无权限时显示引导页面
-                !hasQueryPermission -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.config_permission_needed),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                // 跳转到应用详情设置页面
-                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                }
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.config_go_grant))
-                        }
+                ) {
+                    when (addTileTab) {
+                        0 -> SystemTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
+                        else -> ThirdPartyTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
                     }
                 }
-                // 加载中：显示 Miuix 无限进度指示器
-                services == null -> {
-                    // 用 fillMaxHeight 撑满，与加载完成后的 sheet 高度一致，避免高度突变
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        InfiniteProgressIndicator()
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = stringResource(R.string.common_loading),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                        )
-                    }
-                }
-                // 有权限但过滤后没有可用的磁贴
-                availableTileServices.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.config_no_custom_tiles),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-                // 显示磁贴网格
-                else -> {
-                    // 根据搜索关键字过滤：同时匹配磁贴 label、应用名和包名（不区分大小写）
-                    val query = viewModel.customSearchQuery.trim()
-                    val filteredServices = remember(availableTileServices, query) {
-                        if (query.isEmpty()) {
-                            availableTileServices
-                        } else {
-                            availableTileServices.filter { service ->
-                                service.label.contains(query, ignoreCase = true) ||
-                                    service.appName.contains(query, ignoreCase = true) ||
-                                    service.packageName.contains(query, ignoreCase = true)
-                            }
-                        }
-                    }
 
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        // 搜索框（支持按磁贴名 / 应用名 / 包名搜索）
-                        SearchBar(
-                            expanded = false,
-                            onExpandedChange = { expanded ->
-                                if (!expanded) {
-                                    customSheetState.dismiss()
-                                }
-                            },
-                            insideMargin = DpSize(0.dp, 4.dp),
-                            inputField = {
-                                InputField(
-                                    query = viewModel.customSearchQuery,
-                                    onQueryChange = { viewModel.customSearchQuery = it },
-                                    onSearch = {},
-                                    // 避免打开 sheet 时自动聚焦弹键盘
-                                    expanded = false,
-                                    onExpandedChange = {},
-                                    label = stringResource(R.string.common_search),
-                                    color = MiuixTheme.colorScheme.surfaceContainerHighest,
-                                    modifier = Modifier.fillMaxWidth()
+                // 头部浮层：TabRow <-> 搜索框 原位变换（交叉淡入淡出 + 轻微缩放）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .onSizeChanged { headerHeightPx = it.height }
+                ) {
+                    // 渐隐遮罩：颜色与 Sheet 底色一致，上半段不透明、下半段渐隐到透明，
+                    // 让滑到头部下方的列表条目自然淡出，而不是被生硬裁断
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        MiuixTheme.colorScheme.background,
+                                        MiuixTheme.colorScheme.background,
+                                        Color.Transparent,
+                                    )
                                 )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { }
+                            )
+                    )
 
-                        if (filteredServices.isEmpty()) {
-                            // 搜索无结果提示
-                            Text(
-                                text = stringResource(R.string.config_no_matching_tiles),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 24.dp)
+                    AnimatedContent(
+                        targetState = searchActive,
+                        transitionSpec = {
+                            (fadeIn(tween(160)) + scaleIn(tween(160), initialScale = 0.92f)) togetherWith
+                                (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.92f))
+                        },
+                        contentAlignment = Alignment.Center,
+                        label = "addTileHeader",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) { searching ->
+                        if (searching) {
+                            // 搜索框：进入即自动聚焦弹出键盘；失焦不退出搜索态，统一由标题栏按钮退出
+                            InputField(
+                                query = if (addTileTab == 0) viewModel.addSearchQuery else viewModel.customSearchQuery,
+                                onQueryChange = { updateQuery(it) },
+                                onSearch = {},
+                                expanded = true,
+                                onExpandedChange = {},
+                                label = stringResource(R.string.common_search),
+                                color = MiuixTheme.colorScheme.surfaceContainerHighest,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else if (isGlassStyle && headerBackdrop != null) {
+                            // 玻璃风格：官方 GlassSegmentedTabRow（胶囊轨道 + 滑动指示器）
+                            // 采样的是 Sheet 内的 headerBackdrop（列表层），不会被自身内容污染
+                            GlassSegmentedTabRow(
+                                tabs = tabLabels,
+                                selectedIndex = addTileTab,
+                                onSelect = { index ->
+                                    // 只在真正切换时给触感反馈
+                                    if (index != addTileTab) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        addTileTab = index
+                                    }
+                                },
+                                backdrop = headerBackdrop,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(4),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove)
-                                    .clarityMask(),
-                                contentPadding = PaddingValues(top = 8.dp, bottom = 64.dp)
-                            ) {
-                                gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
-                                    val tileValue = "custom(${service.packageName}/${service.className})"
-                                    Column(
-                                        modifier = Modifier
-                                            .padding(horizontal = 4.dp, vertical = 12.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(64.dp)
-                                                .clip(CircleShape)
-                                                .background(MiuixTheme.colorScheme.secondaryVariant)
-                                                .clickable {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    viewModel.addTile(tileValue, context)
-                                                    customSheetState.dismiss()
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
-                                            val bitmap = remember(service.icon) { service.icon.toBitmap() }
-                                            Icon(
-                                                painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                                contentDescription = service.label,
-                                                tint = MiuixTheme.colorScheme.primary,
-                                                modifier = Modifier.size(36.dp)
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        Text(
-                                            text = service.label,
-                                            style = MiuixTheme.textStyles.footnote1,
-                                            maxLines = 2,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-
-                                        Text(
-                                            text = service.appName,
-                                            style = MiuixTheme.textStyles.footnote2,
-                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                            maxLines = 2,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                            // 经典风格：Miuix 描边分段控件
+                            TabRowWithContour(
+                                tabs = tabLabels,
+                                selectedTabIndex = addTileTab,
+                                onTabSelected = { index ->
+                                    if (index != addTileTab) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        addTileTab = index
                                     }
-                                }
-                            }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
                 }
@@ -1409,9 +1534,8 @@ fun TileConfigScreen() {
         }
     }
 
+    // 合并后的「添加磁贴」Sheet（内置 TabRow 切换系统 / 第三方来源）
     AddTileSheet()
-
-    AddCustomTileSheet()
 
     ConfirmationDialogs()
 }

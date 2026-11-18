@@ -75,10 +75,12 @@ fun rememberSheetState(initialShow: Boolean = false): SheetState =
  * @param state Sheet 的显示状态（由 [rememberSheetState] 创建）
  * @param modifier 应用到 Sheet 内容上的修饰符
  * @param title 标题（显示在 Sheet 顶部居中）
+ * @param startAction 标题行左侧的动作区；为 null 时不显示
+ * @param endAction 标题行右侧的动作区（如搜索按钮）；为 null 时不显示
  * @param allowDismiss 是否允许通过拖拽 / 返回手势 / 点击遮罩关闭；为 false 时这些操作不生效
  * @param enableNestedScroll 是否启用内容的嵌套滚动（用于下拉关闭联动）
  * @param onDismissed 关闭动画完成后的回调（用于清理临时状态）；注意 show 为 false 但从未显示时不会触发
- * @param maxHeightFraction 内容区最大高度占窗口高度的比例（默认 0.9，即 90%）。
+ * @param maxHeightFraction 内容区最大高度占窗口高度的比例。
  *   超高的内容（如可滚动列表）会在受限高度内滚动，避免 sheet 几乎占满整屏；
  *   注意约束作用于内容区，面板顶部的拖动条/标题会在此基础上叠加数十 dp
  * @param content Sheet 内容
@@ -88,6 +90,8 @@ fun AppBottomSheet(
     state: SheetState,
     modifier: Modifier = Modifier,
     title: String? = null,
+    startAction: (@Composable () -> Unit)? = null,
+    endAction: (@Composable () -> Unit)? = null,
     allowDismiss: Boolean = true,
     enableNestedScroll: Boolean = true,
     onDismissed: (() -> Unit)? = null,
@@ -119,6 +123,8 @@ fun AppBottomSheet(
             show = state.show,
             backdrop = backdrop,
             title = title,
+            startAction = startAction,
+            endAction = endAction,
             modifier = modifier,
             allowDismiss = allowDismiss,
             enableNestedScroll = enableNestedScroll,
@@ -131,6 +137,8 @@ fun AppBottomSheet(
         WindowBottomSheet(
             show = state.show,
             title = title,
+            startAction = startAction,
+            endAction = endAction,
             modifier = modifier,
             allowDismiss = allowDismiss,
             enableNestedScroll = enableNestedScroll,

@@ -255,8 +255,9 @@
     <string name="config_fixed_label">固定磁贴</string>
     <string name="config_add_desc">添加</string>
     <string name="config_add_tiles">添加磁贴</string>
-    <string name="config_add_custom_desc">添加自定义</string>
-    <string name="config_add_custom_tiles">添加第三方磁贴</string>
+    <string name="config_add_tab_system">系统</string>
+    <string name="config_add_continuous">连续放置</string>
+    <string name="config_add_tab_custom">第三方</string>
     <string name="config_move_top">移动到顶端</string>
     <string name="config_move_bottom">移动到底端</string>
     <string name="config_section_expanded">展开后显示的磁贴</string>

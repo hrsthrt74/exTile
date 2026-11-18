@@ -2,7 +2,13 @@ package com.hrsthrt74.qstile
 
 import androidx.annotation.StringRes
 import android.content.Intent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -42,6 +49,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -52,11 +61,17 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.glass.glassPress
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.drawEdgeStroke
+import top.yukonga.miuix.kmp.material.drawGlassMask
 import android.net.Uri
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.LocalNavPageAction
+import com.hrsthrt74.qstile.ui.NavPageActionState
 import com.hrsthrt74.qstile.ui.AppBlurRadius
 import com.hrsthrt74.qstile.ui.LocalTopLayer
 import com.hrsthrt74.qstile.ui.MaxContentWidth
@@ -78,6 +93,7 @@ import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationRail
@@ -87,6 +103,8 @@ import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.glass.GlassNavigationRail
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
@@ -94,6 +112,7 @@ import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.icon.glass.All
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.icon.glass.HomeFill
@@ -219,11 +238,16 @@ fun MainApp(
     // 保证其窗口坐标与层级正确、不被顶栏/玻璃侧栏遮挡或被 Pager 页面裁剪。
     val topLayerState = remember { TopLayerState() }
 
+    // 页面 → 底部导航栏的动作桥：磁贴编辑页把「添加磁贴」入口注册进来，
+    // 窄屏玻璃底栏在选中编辑页时把它渲染成 trailingAction（跟随按钮）。
+    val navPageAction = remember { NavPageActionState() }
+
     // 注入宽屏标志（供 contentBottomPadding 计算）与顶层浮层宿主。
     // TopLayerHost 放在导航内容之后绘制，位于所有 chrome 之上。
     CompositionLocalProvider(
         LocalIsWideScreen provides isWideScreen,
         LocalTopLayer provides topLayerState,
+        LocalNavPageAction provides navPageAction,
     ) {
         // 全局唯一的 root Scaffold（官方 demo 同款）：任何方向的界面都套在同一层 Scaffold 内，
         // 让 renderInRootScaffold=true 的玻璃 Dialog/Sheet 提升到这里（全屏、z-index 最高，
@@ -352,6 +376,73 @@ private fun CompactScreenContent(
     // 捕获内容像素的 backdrop（内部已判断模糊开关与 RuntimeShader 支持）
     val backdrop = rememberBlurBackdrop(enabled = blurEnabled)
 
+    // 底部导航栏的「跟随按钮」（官方 demo 的 trailingAction 写法）：
+    // 仅当处于玻璃风格、且当前选中「磁贴编辑」页、并且该页已把「添加磁贴」动作注册进来时才显示。
+    // 经典 NavigationBar 没有 trailingAction 槽，故经典风格不提供（入口仍在网格末尾的按钮）。
+    val navPageAction = LocalNavPageAction.current
+    val configPageIndex = Screen.allPages.indexOf(Screen.Config)
+    val onAddTile = navPageAction?.onAddTile
+    val navTrailingAction: (@Composable () -> Unit)? =
+        if (glassStyle && mainPagerState.selectedPage == configPageIndex && onAddTile != null) {
+            {
+                // 「添加磁贴」跟随按钮：主色实心圆 + 反白图标，尺寸沿用官方 example 的
+                // 「NavigationBar search button」（直径 = 胶囊高度，图标 28dp）。
+                // 按钮改为主色实心后不再需要玻璃材质，故直接用 Box 绘制，并挂 miuix 自带的
+                // Modifier.glassPress 做「按压下沉」（缩放量按短边换算，松手回弹，无需自己写动画）。
+                val pressSource = remember { MutableInteractionSource() }
+                // 按钮轮廓（圆形 squircle）与官方按钮同款描边（TopAppBar 小号 bloom stroke）
+                val buttonShape = GlassShape(GlassNavigationBarDefaults.Height / 2)
+                val buttonStroke = GlassTopAppBarDefaults.buttonStroke()
+                Box(
+                    modifier = Modifier
+                        .size(GlassNavigationBarDefaults.Height)
+                        // 下沉动画作用在背景 + 内容上（graphicsLayer 缩放整层）
+                        .glassPress(pressSource)
+                        .clickable(
+                            interactionSource = pressSource,
+                            indication = null,
+                        ) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAddTile()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // 底色层：主色填充 + 玻璃描边高光 + 玻璃遮罩
+                    // （照搬 GlassIconButton 在「无 backdrop」时的绘制：drawEdgeStroke + drawGlassMask，
+                    //   DstIn 遮罩需要独立离屏层，否则会把整个窗口内容一起裁掉）
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .background(MiuixTheme.colorScheme.primary, buttonShape)
+                            .drawWithContent {
+                                drawContent()
+                                drawEdgeStroke(buttonShape, buttonStroke, 1f)
+                                drawGlassMask(buttonShape)
+                            }
+                    )
+                    Icon(
+                        imageVector = MiuixIcons.Glass.Add,
+                        contentDescription = stringResource(R.string.config_add_desc),
+                        modifier = Modifier.size(28.dp),
+                        tint = MiuixTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        } else {
+            null
+        }
+
+    // 底栏左右留白：
+    // - 常态（无跟随按钮）= 64dp，胶囊不会拉得太长；
+    // - 出现跟随按钮时 = 24dp，给按钮腾出空间，避免胶囊被压得过短。
+    // 用无回弹的 spring 过渡（与官方 navShowHide 同风格的临界阻尼），切页时宽度平滑变化而不是突跳。
+    val barSidePadding by animateDpAsState(
+        targetValue = if (navTrailingAction != null) 24.dp else 64.dp,
+        animationSpec = spring(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
+        label = "navBarSidePadding",
+    )
+
     // 玻璃风格 item 模型（icon/label）；经典风格直接用 NavigationBarItem
     val glassItems = Screen.allPages.map { screen ->
         GlassNavigationItem(
@@ -404,8 +495,10 @@ private fun CompactScreenContent(
                             backdrop = backdrop,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 64.dp)
-                            ,
+                                // 留白随跟随按钮出现与否变化（动画过渡，见 barSidePadding）
+                                .padding(horizontal = barSidePadding),
+                            // 官方 demo 写法：trailingAction 是胶囊之外、自带材质的独立圆形按钮
+                            trailingAction = navTrailingAction,
                         )
                     }
                 } else {
