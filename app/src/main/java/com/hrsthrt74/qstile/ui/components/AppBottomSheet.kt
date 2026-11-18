@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,14 +108,17 @@ fun AppBottomSheet(
     val backdrop = LocalOverlayBackdrop.current
 
     // 内容区共用：限制最大高度为窗口高度的 maxHeightFraction（内容少时按实际高度，
-    // 内容超高时可滚动列表在受限高度内滚动）
+    // 内容超高时可滚动列表在受限高度内滚动）。
+    // 同时标记「内容位于浮层内」：磁贴格子会自动改用紧凑尺寸（64dp），调用方无需传参。
     val sheetContent: @Composable () -> Unit = {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxContentHeight)
-        ) {
-            content()
+        CompositionLocalProvider(LocalTileCellInOverlay provides true) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxContentHeight)
+            ) {
+                content()
+            }
         }
     }
 

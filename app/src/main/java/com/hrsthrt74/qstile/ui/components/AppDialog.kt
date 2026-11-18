@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -133,7 +134,10 @@ fun AppDialog(
     // 额外内容 + 按钮区：两种风格共用结构，仅按钮实现随风格切换，
     // 避免各屏幕调用点重复（它们只声明文案与回调）。
     val dialogContent: @Composable () -> Unit = {
-        content()
+        // 标记「内容位于浮层内」：磁贴格子会自动改用紧凑尺寸（64dp），调用方无需传参
+        CompositionLocalProvider(LocalTileCellInOverlay provides true) {
+            content()
+        }
         // 经典 dialog 缺这个间距，留一点呼吸感（玻璃态同样适用）
         Spacer(modifier = Modifier.height(8.dp))
 

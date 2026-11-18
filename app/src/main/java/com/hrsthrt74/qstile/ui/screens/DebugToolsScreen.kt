@@ -12,8 +12,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +30,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.shape.CircleShape
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,26 +42,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
-import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
@@ -74,7 +64,9 @@ import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.TileGridCell
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.components.rememberTileIcon
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
@@ -147,21 +139,8 @@ fun DebugToolsScreen() {
         TileCatalog.getAvailableTiles(profile).filter { it.value !in currentTiles && !it.value.startsWith("custom(") }
     }
 
-    // 获取磁贴图标的辅助函数：内置磁贴查静态清单；custom 磁贴运行时取第三方 Service 自身图标；
-    // 拿不到时一律回退空白占位图标（tile_blank，不回退应用图标——染色后会变成实心圆角矩形），
-    // 保证始终有图标可渲染。与 TileConfigScreen 的同名函数保持一致。
-    @Composable
-    fun rememberTileIcon(tile: String): Painter {
-        // 内置磁贴：静态清单直查
-        TileCatalog.iconRes(tile)?.let { return painterResource(it) }
-        // custom 磁贴：getCustomTileIcon 内部已保证非空（blank 兜底）；其他未知磁贴值直接用 blank 占位
-        val drawable = remember(tile) {
-            if (tile.startsWith("custom(")) CustomTileUtils.getCustomTileIcon(context, tile)
-            else null
-        } ?: context.getDrawable(R.drawable.tile_blank)!!
-        val bitmap = remember(drawable) { drawable.toBitmap() }
-        return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
-    }
+    // 磁贴图标统一走通用实现（ui/components/TileGridCell.kt 中的 rememberTileIcon），
+    // 与编辑页、添加磁贴 Sheet 保持一致的兜底策略
 
     /**
      * 模糊浮现动画演示：单个尺寸图标的格子。
@@ -816,79 +795,46 @@ fun DebugToolsScreen() {
 
                     // 磁贴网格
                     gridItems(tiles) { tile ->
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            val icon = rememberTileIcon(tile.value)
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.secondaryVariant)
-                                    .clickable {
-                                        scope.launch {
-                                            try {
-                                                // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
-                                                val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
-                                                if (currentTileList.isEmpty()) {
-                                                    Toast.makeText(context, cannotGetTilesToast, Toast.LENGTH_SHORT).show()
-                                                    return@launch
-                                                }
-                                                // 检查是否需要添加 ,edit
-                                                val isXiaomi = profile.isXiaomi
-                                                val hasEdit = currentTileList.contains("edit")
-                                                // 添加磁贴到末尾（在 edit 之前）
-                                                if (isXiaomi && hasEdit) {
-                                                    val editIndex = currentTileList.indexOf("edit")
-                                                    currentTileList.add(editIndex, tile.value)
-                                                } else {
-                                                    currentTileList.add(tile.value)
-                                                }
-                                                // 立即设置到系统
-                                                val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
-                                                if (success) {
-                                                    Toast.makeText(context, addedToastTemplate.format(tile.displayName), Toast.LENGTH_SHORT).show()
-                                                    addTileSheetState.dismiss()
-                                                    refreshDebugInfo()
-                                                } else {
-                                                    Toast.makeText(context, addFailedToast, Toast.LENGTH_SHORT).show()
-                                                }
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, operationFailedToastTemplate.format(e.message ?: ""), Toast.LENGTH_SHORT).show()
-                                            }
+                        TileGridCell(
+                            icon = rememberTileIcon(tile.value),
+                            // 标题来源：系统磁贴用静态清单里的显示名，副标题显示原始 value
+                            title = tile.displayName,
+                            subtitle = tile.value,
+                            contentDescription = tile.displayName,
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        // 获取当前磁贴列表（内部优先直接 API，Shizuku 兜底）
+                                        val currentTileList = SecureSettingsHelper.getCurrentTiles(context).toMutableList()
+                                        if (currentTileList.isEmpty()) {
+                                            Toast.makeText(context, cannotGetTilesToast, Toast.LENGTH_SHORT).show()
+                                            return@launch
                                         }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = icon,
-                                    contentDescription = tile.displayName,
-                                    tint = MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = tile.displayName,
-                                style = MiuixTheme.textStyles.body2,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Text(
-                                text = tile.value,
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                                        // 检查是否需要添加 ,edit
+                                        val isXiaomi = profile.isXiaomi
+                                        val hasEdit = currentTileList.contains("edit")
+                                        // 添加磁贴到末尾（在 edit 之前）
+                                        if (isXiaomi && hasEdit) {
+                                            val editIndex = currentTileList.indexOf("edit")
+                                            currentTileList.add(editIndex, tile.value)
+                                        } else {
+                                            currentTileList.add(tile.value)
+                                        }
+                                        // 立即设置到系统
+                                        val success = SecureSettingsHelper.setCurrentTiles(context, currentTileList)
+                                        if (success) {
+                                            Toast.makeText(context, addedToastTemplate.format(tile.displayName), Toast.LENGTH_SHORT).show()
+                                            addTileSheetState.dismiss()
+                                            refreshDebugInfo()
+                                        } else {
+                                            Toast.makeText(context, addFailedToast, Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, operationFailedToastTemplate.format(e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                        )
                     }
                 }
             }

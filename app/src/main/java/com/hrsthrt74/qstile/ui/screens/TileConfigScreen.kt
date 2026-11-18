@@ -13,7 +13,6 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,7 +44,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.overscroll
 import androidx.compose.foundation.rememberOverscrollEffect
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.withoutEventHandling
 import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
@@ -65,7 +63,6 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -76,17 +73,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -107,8 +100,10 @@ import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppChip
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.GlassTileOperationMenu
+import com.hrsthrt74.qstile.ui.components.TileGridCell
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
+import com.hrsthrt74.qstile.ui.components.rememberTileIcon
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.LocalNavPageAction
 import com.hrsthrt74.qstile.ui.contentBottomPadding
@@ -254,22 +249,6 @@ fun TileConfigScreen() {
 
     // 配置尚未从 DataStore 读出前不渲染页面主体（未就绪就空白，与主题/OOBE 的门控策略一致）
     if (!viewModel.isConfigLoaded) return
-
-    // 获取磁贴图标的辅助函数：内置磁贴查静态清单；custom 磁贴运行时取第三方 Service 自身图标；
-    // 拿不到时一律回退空白占位图标（tile_blank，不回退应用图标——染色后会变成实心圆角矩形），
-    // 保证始终有图标可渲染。
-    @Composable
-    fun rememberTileIcon(tile: String): Painter {
-        // 内置磁贴：静态清单直查
-        TileCatalog.iconRes(tile)?.let { return painterResource(it) }
-        // custom 磁贴：getCustomTileIcon 内部已保证非空（blank 兜底）；其他未知磁贴值直接用 blank 占位
-        val drawable = remember(tile) {
-            if (tile.startsWith("custom(")) CustomTileUtils.getCustomTileIcon(context, tile)
-            else null
-        } ?: context.getDrawable(R.drawable.tile_blank)!!
-        val bitmap = remember(drawable) { drawable.toBitmap() }
-        return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
-    }
 
     // 判断磁贴能否取到真实图标（不含空白占位兜底）：
     // 内置磁贴查静态清单的 iconResId；custom 磁贴运行时查第三方 Service 是否声明了图标；
@@ -535,6 +514,107 @@ fun TileConfigScreen() {
             val frameColor = MiuixTheme.colorScheme.primary
 
             /**
+             * 磁贴操作菜单：移动到顶端 / 移动到底端 / 删除。
+             *
+             * 玻璃风格走 [GlassTileOperationMenu]（窗口坐标 + 根层渲染），经典风格走 [WindowListPopup]；
+             * 两者共用同一份动作定义，锚点来自格子上报的圆形底窗口矩形。
+             *
+             * @param tile 目标磁贴 value
+             * @param gridTiles 当前网格中的磁贴顺序（用于判断顶端/底端是否可点）
+             */
+            @Composable
+            fun TileActionMenu(tile: String, gridTiles: List<String>) {
+                // 注意：外层不能用 `showTileMenu` 参与条件，否则关闭时弹窗会直接从组合树移除、
+                // 退场动画来不及播放；只在目标磁贴匹配时组合，显隐由 show 参数控制。
+                val tileIndex = gridTiles.indexOf(tile)
+
+                val onMoveTop = {
+                    viewModel.moveTileToTop(tile, context)
+                    viewModel.showTileMenu = false
+                }
+                val onMoveBottom = {
+                    viewModel.moveTileToBottom(tile, context)
+                    viewModel.showTileMenu = false
+                }
+                val onDelete = {
+                    viewModel.deleteTile(tile, context)
+                    viewModel.showTileMenu = false
+                }
+
+                if (isGlassStyle) {
+                    // 玻璃风格：官方 GlassDropdownPopup（窗口坐标 + PopupLayout 根层）
+                    GlassTileOperationMenu(
+                        show = viewModel.showTileMenu,
+                        anchorBounds = tileMenuAnchorBounds[tile]
+                            ?: androidx.compose.ui.geometry.Rect.Zero,
+                        backdrop = pageBackdrop,
+                        tileName = TileCatalog.getDisplayName(tile, viewModel.profile),
+                        moveTopLabel = stringResource(R.string.config_move_top),
+                        moveBottomLabel = stringResource(R.string.config_move_bottom),
+                        deleteLabel = stringResource(R.string.common_delete),
+                        moveTopEnabled = tileIndex > 0,
+                        moveBottomEnabled = tileIndex < gridTiles.size - 1,
+                        onMoveTop = onMoveTop,
+                        onMoveBottom = onMoveBottom,
+                        onDelete = onDelete,
+                        onDismissRequest = { viewModel.showTileMenu = false },
+                    )
+                } else {
+                    // 经典风格：原版 WindowListPopup
+                    val errorColors = DropdownDefaults.dropdownColors(
+                        contentColor = MiuixTheme.colorScheme.error,
+                        selectedContentColor = MiuixTheme.colorScheme.error
+                    )
+                    WindowListPopup(
+                        show = viewModel.showTileMenu,
+                        popupPositionProvider = asymmetricDropdownPositionProvider(
+                            verticalMargin = 8.dp,
+                            startMargin = 0.dp,
+                            endMargin = 8.dp
+                        ),
+                        onDismissRequest = { viewModel.showTileMenu = false }
+                    ) {
+                        ListPopupColumn {
+                            Text(
+                                text = TileCatalog.getDisplayName(tile, viewModel.profile),
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier
+                                    .padding(top = 20.dp)
+                                    .padding(start = 20.dp)
+                                    .padding(bottom = 16.dp)
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            DropdownImpl(
+                                text = stringResource(R.string.config_move_top),
+                                optionSize = 3,
+                                isSelected = false,
+                                index = 0,
+                                enabled = tileIndex > 0,
+                                onSelectedIndexChange = { onMoveTop() }
+                            )
+                            DropdownImpl(
+                                text = stringResource(R.string.config_move_bottom),
+                                optionSize = 3,
+                                isSelected = false,
+                                index = 1,
+                                enabled = tileIndex < gridTiles.size - 1,
+                                onSelectedIndexChange = { onMoveBottom() }
+                            )
+                            DropdownImpl(
+                                text = stringResource(R.string.common_delete),
+                                optionSize = 3,
+                                isSelected = false,
+                                index = 2,
+                                dropdownColors = errorColors,
+                                onSelectedIndexChange = { onDelete() }
+                            )
+                        }
+                    }
+                }
+            }
+
+            /**
              * 单个磁贴格子的渲染（含拖拽、点击菜单）。虚线框不再画在磁贴上（会随拖拽移动），
              * 改由网格 overlay 统一绘制。
              * 使用 LazyGridItemScope receiver：ReorderableItem 是其扩展函数，只能在网格 item 作用域内调用。
@@ -544,6 +624,7 @@ fun TileConfigScreen() {
                 tile: String,
             ) {
                 ReorderableItem(reorderableState, key = tile) { isDragging ->
+                    // 拖起时轻微放大并抬高阴影，松手回弹
                     val scale by animateFloatAsState(
                         targetValue = if (isDragging) 1.1f else 1f,
                         label = "tileScale"
@@ -552,9 +633,30 @@ fun TileConfigScreen() {
                         targetValue = if (isDragging) 12.dp else 0.dp,
                         label = "tileElevation"
                     )
+                    // 标题来源由调用方决定：第三方磁贴用 Service 自己的 label + 应用名，
+                    // 系统磁贴用静态清单名 + 原始 value
+                    val customNames = rememberCustomTileNames(tile)
+                    val displayName = customNames?.first
+                        ?: TileCatalog.getDisplayName(tile, viewModel.profile)
                     Box {
-                        // 一个 Grid（图标+图标背景+名+名）
-                        Column(
+                        TileGridCell(
+                            icon = rememberTileIcon(tile),
+                            title = displayName,
+                            subtitle = customNames?.second ?: tile,
+                            onClick = {
+                                viewModel.selectedTileForMenu = tile
+                                viewModel.showTileMenu = true
+                            },
+                            // 「移动网络」图标用绿色（关闭动态取色时才覆盖，保留品牌色）
+                            iconTint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39)
+                                       else MiuixTheme.colorScheme.primary,
+                            contentDescription = displayName,
+                            elevation = elevation,
+                            // 玻璃菜单用窗口坐标定位：每个磁贴都上报自己的窗口矩形，
+                            // 打开时按 selectedTileForMenu 取用（mutableMap 读取触发不了重组，
+                            // 但 showTileMenu 变化会重组，届时 map 已是最新值）
+                            onCirclePositioned = { tileMenuAnchorBounds[tile] = it },
+                            // 长按拖拽把手 + 拖起缩放挂在最外层；间距与尺寸由组件统一
                             modifier = Modifier
                                 .longPressDraggableHandle(
                                     onDragStarted = {
@@ -562,157 +664,11 @@ fun TileConfigScreen() {
                                     }
                                 )
                                 .scale(scale)
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(68.dp)
-                                    // 玻璃菜单用窗口坐标定位：每个磁贴都上报自己的窗口矩形，
-                                    // 打开时按 selectedTileForMenu 取用（mutableMap 读取触发不了重组，
-                                    // 但 showTileMenu 变化会重组，届时 map 已是最新值）
-                                    .onGloballyPositioned { coords ->
-                                        tileMenuAnchorBounds[tile] = coords.boundsInWindow()
-                                    }
-                                    .pressable(
-                                        interactionSource = null,
-                                        indication = SinkFeedback(sinkAmount = 0.9f, animationSpec = spring(0.8f, 120f)),
-                                        delay = null
-                                    )
-                                    .shadow(elevation, CircleShape)
-                                    .clip(CircleShape)
-                                    .background(MiuixTheme.colorScheme.surfaceVariant)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.selectedTileForMenu = tile
-                                        viewModel.showTileMenu = true
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val icon = rememberTileIcon(tile)
-                                Icon(
-                                    painter = icon,
-                                    contentDescription = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                    tint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39) else MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier.size(36.dp)
-                                )
-
-                                // 磁贴操作弹出菜单（锚定到 icon 外的圆形 Box，而非整个 grid item）。
-                                // 注意：这里不能用 `showTileMenu` 参与条件，否则关闭时弹窗
-                                // 会直接从组合树移除，退场动画来不及播放。
-                                // 因此只在目标磁贴匹配时组合，show 参数单独控制显隐。
-                                if (viewModel.selectedTileForMenu == tile) {
-                                    val gridTilesForMenu = gridTiles
-                                    val tileIndexForMenu = gridTilesForMenu.indexOf(tile)
-
-                                    val onMoveTop = {
-                                        viewModel.moveTileToTop(tile, context)
-                                        viewModel.showTileMenu = false
-                                    }
-                                    val onMoveBottom = {
-                                        viewModel.moveTileToBottom(tile, context)
-                                        viewModel.showTileMenu = false
-                                    }
-                                    val onDelete = {
-                                        viewModel.deleteTile(tile, context)
-                                        viewModel.showTileMenu = false
-                                    }
-
-                                    if (isGlassStyle) {
-                                        // 玻璃风格：官方 GlassDropdownPopup（窗口坐标 + PopupLayout 根层）
-                                        GlassTileOperationMenu(
-                                            show = viewModel.showTileMenu,
-                                            anchorBounds = tileMenuAnchorBounds[tile]
-                                                ?: androidx.compose.ui.geometry.Rect.Zero,
-                                            backdrop = pageBackdrop,
-                                            tileName = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                            moveTopLabel = stringResource(R.string.config_move_top),
-                                            moveBottomLabel = stringResource(R.string.config_move_bottom),
-                                            deleteLabel = stringResource(R.string.common_delete),
-                                            moveTopEnabled = tileIndexForMenu > 0,
-                                            moveBottomEnabled = tileIndexForMenu < gridTilesForMenu.size - 1,
-                                            onMoveTop = onMoveTop,
-                                            onMoveBottom = onMoveBottom,
-                                            onDelete = onDelete,
-                                            onDismissRequest = { viewModel.showTileMenu = false },
-                                        )
-                                    } else {
-                                        // 经典风格：原版 WindowListPopup
-                                        val errorColors = DropdownDefaults.dropdownColors(
-                                            contentColor = MiuixTheme.colorScheme.error,
-                                            selectedContentColor = MiuixTheme.colorScheme.error
-                                        )
-                                        WindowListPopup(
-                                            show = viewModel.showTileMenu,
-                                            popupPositionProvider = asymmetricDropdownPositionProvider(
-                                                verticalMargin = 8.dp,
-                                                startMargin = 0.dp,
-                                                endMargin = 8.dp
-                                            ),
-                                            onDismissRequest = { viewModel.showTileMenu = false }
-                                        ) {
-                                            ListPopupColumn {
-                                                Text(
-                                                    text = TileCatalog.getDisplayName(tile, viewModel.profile),
-                                                    style = MiuixTheme.textStyles.footnote1,
-                                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                                    modifier = Modifier
-                                                        .padding(top = 20.dp)
-                                                        .padding(start = 20.dp)
-                                                        .padding(bottom = 16.dp)
-                                                )
-                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                                DropdownImpl(
-                                                    text = stringResource(R.string.config_move_top),
-                                                    optionSize = 3,
-                                                    isSelected = false,
-                                                    index = 0,
-                                                    enabled = tileIndexForMenu > 0,
-                                                    onSelectedIndexChange = { onMoveTop() }
-                                                )
-                                                DropdownImpl(
-                                                    text = stringResource(R.string.config_move_bottom),
-                                                    optionSize = 3,
-                                                    isSelected = false,
-                                                    index = 1,
-                                                    enabled = tileIndexForMenu < gridTilesForMenu.size - 1,
-                                                    onSelectedIndexChange = { onMoveBottom() }
-                                                )
-                                                DropdownImpl(
-                                                    text = stringResource(R.string.common_delete),
-                                                    optionSize = 3,
-                                                    isSelected = false,
-                                                    index = 2,
-                                                    dropdownColors = errorColors,
-                                                    onSelectedIndexChange = { onDelete() }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            // 操作菜单锚定在圆形底内部（Popup 自身不受父布局限制）
+                            if (viewModel.selectedTileForMenu == tile) {
+                                TileActionMenu(tile, gridTiles)
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // 第一行：磁贴显示名（第三方磁贴显示其 label，而非包名后缀）
-                            Text(
-                                text = rememberCustomTileNames(tile)?.first
-                                    ?: TileCatalog.getDisplayName(tile, viewModel.profile),
-                                style = MiuixTheme.textStyles.body2,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            // 第二行：系统磁贴显示 value；第三方磁贴显示应用名
-                            Text(
-                                text = rememberCustomTileNames(tile)?.second ?: tile,
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
                         }
                     }
                 }
@@ -998,54 +954,20 @@ fun TileConfigScreen() {
                             val tile = tiles[index]
                             // 调试开关保留展示的「不可用/无图标」磁贴整体降透明度区分
                             val isUnavailable = tile.value !in availableValues
-                            Column(
-                                modifier = Modifier
-                                    // 竖向要比横向大一点
-                                    .padding(horizontal = 4.dp, vertical = 12.dp)
-                                    .alpha(if (isUnavailable) 0.4f else 1f),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(CircleShape)
-                                        .background(MiuixTheme.colorScheme.secondaryVariant)
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
-                                            viewModel.addTile(tile.value, context)
-                                            // 「连续放置」开启时不收起 Sheet，可以接着点下一个
-                                            if (!continuousAdd) addSheetState.dismiss()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val icon = rememberTileIcon(tile.value)
-                                    Icon(
-                                        painter = icon,
-                                        contentDescription = tile.displayName,
-                                        tint = MiuixTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-
-                                Text(
-                                    text = tile.displayName,
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    //                                 ↓ 图标 <=> 文字的间距
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                                )
-
-                                Text(
-                                    text = tile.value,
-                                    style = MiuixTheme.textStyles.footnote2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                            TileGridCell(
+                                icon = rememberTileIcon(tile.value),
+                                // 标题来源：系统磁贴用静态清单里的显示名，副标题直接显示原始 value
+                                title = tile.displayName,
+                                subtitle = tile.value,
+                                contentDescription = tile.displayName,
+                                onClick = {
+                                    // 添加到网格末尾（框内末尾），拖出框外即可让收起时也显示
+                                    viewModel.addTile(tile.value, context)
+                                    // 「连续放置」开启时不收起 Sheet，可以接着点下一个
+                                    if (!continuousAdd) addSheetState.dismiss()
+                                },
+                                modifier = Modifier.alpha(if (isUnavailable) 0.4f else 1f),
+                            )
                         }
 
                         // 分类结束分割线
@@ -1211,53 +1133,20 @@ fun TileConfigScreen() {
                         ) {
                             gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
                                 val tileValue = "custom(${service.packageName}/${service.className})"
-                                Column(
-                                    modifier = Modifier
-                                        .padding(horizontal = 4.dp, vertical = 12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(CircleShape)
-                                            .background(MiuixTheme.colorScheme.secondaryVariant)
-                                            .clickable {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                viewModel.addTile(tileValue, context)
-                                                // 「连续放置」开启时不收起 Sheet
-                                                if (!continuousAdd) addSheetState.dismiss()
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
-                                        val bitmap = remember(service.icon) { service.icon.toBitmap() }
-                                        Icon(
-                                            painter = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
-                                            contentDescription = service.label,
-                                            tint = MiuixTheme.colorScheme.primary,
-                                            modifier = Modifier.size(36.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Text(
-                                        text = service.label,
-                                        style = MiuixTheme.textStyles.footnote1,
-                                        maxLines = 2,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    Text(
-                                        text = service.appName,
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                        maxLines = 2,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                                // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
+                                val bitmap = remember(service.icon) { service.icon.toBitmap() }
+                                TileGridCell(
+                                    icon = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                    // 标题来源：第三方磁贴用 Service 自己声明的 label，副标题显示所属应用名
+                                    title = service.label,
+                                    subtitle = service.appName,
+                                    contentDescription = service.label,
+                                    onClick = {
+                                        viewModel.addTile(tileValue, context)
+                                        // 「连续放置」开启时不收起 Sheet
+                                        if (!continuousAdd) addSheetState.dismiss()
+                                    },
+                                )
                             }
                         }
                     }
