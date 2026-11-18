@@ -21,6 +21,8 @@ devicecompat = "2.6"
 clarity = "3.+"
 markwon = "4.6.2"
 aboutlibraries = "15.2.0"
+# kyant shapes：连续曲率（squircle / capsule）形状库，提供 Capsule()、RoundedRectangle() 等 Compose Shape
+shapes = "1.2.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -63,6 +65,8 @@ reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reo
 devicecompat = { module = "com.github.getActivity:DeviceCompat", version.ref = "devicecompat" }
 clarity-compose = { group = "com.microsoft.clarity", name = "clarity-compose", version.ref = "clarity" }
 markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
+# kyant shapes：胶囊/连续圆角形状（com.kyant.shapes.Capsule 等），用于玻璃底栏等部件的轮廓
+shapes = { module = "io.github.kyant0:shapes", version.ref = "shapes" }
 # AboutLibraries 核心库：在运行时读取插件生成的开源许可数据（aboutlibraries.json）
 aboutlibraries-core = { group = "com.mikepenz", name = "aboutlibraries-core", version.ref = "aboutlibraries" }
 

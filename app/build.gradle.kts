@@ -120,6 +120,8 @@ dependencies {
     implementation(libs.devicecompat)
     implementation(libs.clarity.compose)
     implementation(libs.markwon.core)
+    // kyant shapes：连续曲率形状库（提供 Capsule() 等），用于玻璃底栏的胶囊轮廓
+    implementation(libs.shapes)
     // AboutLibraries 核心库：解析插件生成的许可数据
     implementation(libs.aboutlibraries.core)
     testImplementation(libs.junit)

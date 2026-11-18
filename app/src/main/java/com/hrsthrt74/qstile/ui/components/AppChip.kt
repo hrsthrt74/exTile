@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -16,6 +15,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+// kyant shapes：连续曲率胶囊轮廓（替代 RoundedCornerShape(percent = 50)）
+import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
@@ -64,8 +65,10 @@ fun AppChip(
         modifier = modifier
             // 按下时的吸收反馈（miuix 自带），与水波纹二选一，这里不用 indication
             .pressable(interactionSource = null, indication = SinkFeedback(), delay = null)
-            // 50% 圆角 = 完整胶囊
-            .clip(RoundedCornerShape(percent = 50))
+            // 胶囊轮廓：kyant 的 Capsule()（连续曲率 / squircle，比正圆胶囊的转场更顺）
+            // 半径本就等于最小边长的一半，与 RoundedCornerShape(percent = 50) 尺寸一致，
+            // 只是四个端头由「圆弧」变成「连续曲率」，与底栏、分段控件保持同一套轮廓语言。
+            .clip(Capsule())
             .background(backgroundColor)
             .clickable(interactionSource = null, indication = null) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

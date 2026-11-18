@@ -94,6 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kyant.shapes.Capsule
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
@@ -1407,19 +1408,37 @@ fun TileConfigScreen() {
                         } else if (isGlassStyle && headerBackdrop != null) {
                             // 玻璃风格：官方 GlassSegmentedTabRow（胶囊轨道 + 滑动指示器）
                             // 采样的是 Sheet 内的 headerBackdrop（列表层），不会被自身内容污染
-                            GlassSegmentedTabRow(
-                                tabs = tabLabels,
-                                selectedIndex = addTileTab,
-                                onSelect = { index ->
-                                    // 只在真正切换时给触感反馈
-                                    if (index != addTileTab) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        addTileTab = index
-                                    }
-                                },
-                                backdrop = headerBackdrop,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            //
+                            // 轮廓：外层用 kyant shapes 的 Capsule() 裁剪成「连续曲率胶囊」。
+                            // miuix 的 GlassSegmentedTabRow **没有开放 shape 参数**，内部写死
+                            // GlassShape(height / 2, smoothing = 0f)（正圆胶囊），也无法从外部替换，
+                            // 所以这里在 modifier 最外层裁剪：轨道、指示器、标签都是同尺寸嵌套结构，
+                            // 一起被裁不会互相裁坏。
+                            // 两点注意：
+                            // 1. 外层 clip 会顺带裁掉玻璃阴影（drawBehind 绘制、会溢出节点边界），
+                            //    故显式传 shadow = null，避免留一圈「被裁一半」的硬边阴影；
+                            // 2. 裁剪会让胶囊外的四个角落不再响应点击（命中测试跟随裁剪），
+                            //    对分段控件来说这是期望行为。
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(Capsule())
+                            ) {
+                                GlassSegmentedTabRow(
+                                    tabs = tabLabels,
+                                    selectedIndex = addTileTab,
+                                    onSelect = { index ->
+                                        // 只在真正切换时给触感反馈
+                                        if (index != addTileTab) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            addTileTab = index
+                                        }
+                                    },
+                                    backdrop = headerBackdrop,
+                                    shadow = null,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         } else {
                             // 经典风格：Miuix 描边分段控件
                             TabRowWithContour(

@@ -66,6 +66,8 @@ import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.drawEdgeStroke
 import top.yukonga.miuix.kmp.material.drawGlassMask
 import android.net.Uri
+// kyant shapes：连续曲率胶囊轮廓（玻璃底栏使用）
+import com.kyant.shapes.Capsule
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
@@ -79,6 +81,7 @@ import com.hrsthrt74.qstile.ui.TopLayerHost
 import com.hrsthrt74.qstile.ui.TopLayerState
 import com.hrsthrt74.qstile.ui.blurBarColors
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
+import com.hrsthrt74.qstile.ui.toGlassShape
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.LocalOverlayBackdrop
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -493,6 +496,13 @@ private fun CompactScreenContent(
                                 mainPagerState.animateToPage(index)
                             },
                             backdrop = backdrop,
+                            // 胶囊轮廓改用 kyant shapes 的 Capsule()：
+                            // miuix 只接受 GlassShape，故用 toGlassShape() 把 Capsule 的几何 + 连续曲率
+                            // 翻译过去（Capsule = 最小边长一半的圆角，smoothing=1f），轮廓与官方默认一致，
+                            // 但由 kyant 定义来源，后续要换 RoundedRectangle 等形状时只改这一行。
+                            // 注意：**不能**在 modifier 上直接 clip(Capsule())——底栏是「胶囊 + 胶囊外
+                            // 跟随按钮」一整个节点，外层裁剪会把「添加磁贴」按钮和玻璃阴影一起裁掉。
+                            shape = remember { Capsule().toGlassShape() },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // 留白随跟随按钮出现与否变化（动画过渡，见 barSidePadding）
