@@ -48,6 +48,7 @@
 17. **系统配置导入**：`ConfigRepository.importSystemTiles` 复用 `SecureSettingsHelper.getCurrentTiles` 读 `sysui_qs_tiles`（读 secure settings 免权限）；展开=完整列表原样保存，收起=[0..exTileIndex]+补 `edit`，`isExpanded=true`；返回 `SystemImportResult`（Success/NoExtile/ReadFailed）。配置合法性以 `Success.hideCount>0` 判定：无收纳磁贴时弹窗提示、不显示导入预览卡片、按钮停留「我已配置完成」
 18. **MS Clarity 匿名统计**：`ExTileApplication` 管理 Clarity 生命周期；默认不初始化，仅在用户同意隐私政策且前台启动时初始化（后台 TileService 不触发）；`ConfigRepository.clarity_consent` 存储同意状态；OOBE P1「数据与隐私」页用开关选择；设置页「关于」分类可随时修改；`setCustomTag` 上传展开/收起计数；`clarityMask()` 遮挡敏感信息（应用选择器、自定义磁贴名、跳转目标）
 19. **离线法律文档**：`LegalDocumentsActivity` + `LegalDocumentsScreen` 用 Markwon（`io.noties.markwon`）离线渲染仓库 docs/ 下的 Markdown 法律文档（从 assets 读取，不访问网络）；`LegalDocumentType` 枚举（隐私政策/用户协议）由 Intent extra 选择；设置页「文档」分类 + OOBE P1 各提供入口；OOBE P1 需勾选「我已阅读并同意 隐私政策和用户协议」（`rememberSaveable` 保存勾选，旋转不丢）后才能进入下一步，链接用 `LinkAnnotation.Clickable` 点击跳转对应文档
+20. **自动收起（关键平台差异）**：`ExTileService.onStopListening()` **不等于面板已收起**——HyperOS 的磁贴列表是 RecyclerView，磁贴被滚出可视区域、以及上滑关闭手势松手回弹都会停监听（用户反馈「控制中心里滑一下、面板还没收磁贴就被收了」即此）。故 `onStopListening` 只登记「疑似关闭」，用进程级 `pendingScope` 跑 1.2s + 0.8s 两段确认：期间任何 `onStartListening`（面板仍监听）或 `onClick`（用户在点磁贴，另有 1.2s 冷却）都通过 `listeningEpoch` 作废本次判定，全部通过才写收起布局；自动收起路径不调 `updateTileState()`（面板已关，只需等下次 `onStartListening` 刷新）。平台没有可靠且廉价的「面板是否展开」查询接口：`dumpsys window windows` 里的 NotificationShade 窗口在面板收起后仍可能是 `isVisible=true`（据此判断不可靠），`dumpsys activity service …SystemUIService` 里的 `isPanelExpanded()` 体积大且状态不可信——**不要**为此改成 dumpsys 轮询（磁贴路径上禁止耗时操作）
 
 ## UI 设计规范
 
