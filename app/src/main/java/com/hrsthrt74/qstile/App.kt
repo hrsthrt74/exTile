@@ -1,25 +1,25 @@
 package com.hrsthrt74.qstile
 
-import androidx.annotation.StringRes
+// kyant shapes：连续曲率胶囊轮廓（玻璃底栏使用）
 import android.content.Intent
+import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -27,17 +27,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -45,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -59,46 +59,34 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.glass.glassPress
-import top.yukonga.miuix.kmp.material.GlassColorBlendMode
-import top.yukonga.miuix.kmp.material.GlassColorLayer
-import top.yukonga.miuix.kmp.material.GlassMaterial
-import top.yukonga.miuix.kmp.material.GlassShape
-import top.yukonga.miuix.kmp.material.drawEdgeStroke
-import top.yukonga.miuix.kmp.material.drawGlassMask
-import android.net.Uri
-// kyant shapes：连续曲率胶囊轮廓（玻璃底栏使用）
-import com.kyant.shapes.Capsule
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
+import com.hrsthrt74.qstile.ui.AppBlurRadius
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.LocalNavPageAction
-import com.hrsthrt74.qstile.ui.NavPageActionState
-import com.hrsthrt74.qstile.ui.AppBlurRadius
 import com.hrsthrt74.qstile.ui.LocalTopLayer
 import com.hrsthrt74.qstile.ui.MaxContentWidth
+import com.hrsthrt74.qstile.ui.NavPageActionState
 import com.hrsthrt74.qstile.ui.TopLayerHost
 import com.hrsthrt74.qstile.ui.TopLayerState
 import com.hrsthrt74.qstile.ui.blurBarColors
-import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
-import com.hrsthrt74.qstile.ui.toGlassShape
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.LocalOverlayBackdrop
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.navigation.MainPagerState
 import com.hrsthrt74.qstile.ui.navigation.rememberMainPagerState
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.HomeScreen
 import com.hrsthrt74.qstile.ui.screens.OobeScreen
 import com.hrsthrt74.qstile.ui.screens.SettingsScreen
 import com.hrsthrt74.qstile.ui.screens.TileConfigScreen
 import com.hrsthrt74.qstile.ui.shouldShowSplitPane
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import com.hrsthrt74.qstile.ui.toGlassShape
+import com.kyant.shapes.Capsule
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -107,22 +95,29 @@ import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.NavigationRailState
 import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
-import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.glass.GlassNavigationRail
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
+import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.glassPress
 import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Edit
-import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.icon.glass.All
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.icon.glass.HomeFill
 import top.yukonga.miuix.kmp.icon.glass.SettingsFill
+import top.yukonga.miuix.kmp.material.GlassColorBlendMode
+import top.yukonga.miuix.kmp.material.GlassColorLayer
+import top.yukonga.miuix.kmp.material.GlassMaterial
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.drawEdgeStroke
+import top.yukonga.miuix.kmp.material.drawGlassMask
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 
 /**
  * 导航路由封装类。
@@ -450,7 +445,7 @@ private fun CompactScreenContent(
                             }
                     )
                     Icon(
-                        imageVector = MiuixIcons.Glass.Add,
+                        imageVector = MiuixIcons.Glass.Demibold.Add,
                         contentDescription = stringResource(R.string.config_add_desc),
                         modifier = Modifier.size(28.dp),
                         tint = MiuixTheme.colorScheme.onPrimary,
