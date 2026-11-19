@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -51,6 +52,27 @@ fun blurBarColors(): BlurColors = BlurDefaults.blurColors(
         BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.7f))
     )
 )
+
+/**
+ * 让出冷启动首帧之后的若干帧，把「首帧之后才开始的重活」挪到首屏真正画出来之后。
+ *
+ * 背景（不要删，也别随手改小）：
+ * `GlassNavigationBar` 的指示器几何要等条幅**第一次布局结束**（`onSizeChanged` 回填
+ * `barWidth`）之后、在下一次重组里才 snap 到位，所以首帧里指示器必然是空的。
+ * 如果首帧之后主线程立刻被别的活占住（例如 Pager 非当前页的首次加载 / 整页首次组合），
+ * 那次重组会被推迟到主线程空出来为止 —— 表现为「胶囊先出现、高亮块过一会儿才突然冒出来」，
+ * 而且这段时间点击、滑动全部无响应（debug 构建尤其明显，release 下这点开销看不出来）。
+ *
+ * 因此：凡是「Pager 里所有页都会在冷启动首帧被组合」而只有当前页才需要立刻干的活，
+ * 请在这个 `LaunchedEffect` 的开头先 `awaitStartupFrames()` 再执行。
+ *
+ * @param frames 让出的帧数。默认 3 帧，刚好覆盖这条链：
+ *   第 1 帧布局回填 `barWidth` → 第 2 帧重组并 snap 指示器 → 第 3 帧把指示器画出来。
+ *   让出的帧要落在第 3 帧**之后**，否则仍会挡住指示器。
+ */
+suspend fun awaitStartupFrames(frames: Int = 3) {
+    repeat(frames) { withFrameNanos { } }
+}
 
 /**
  * 创建并记住一个可供玻璃组件（GlassTopAppBar / GlassNavigationBar / GlassNavigationRail）

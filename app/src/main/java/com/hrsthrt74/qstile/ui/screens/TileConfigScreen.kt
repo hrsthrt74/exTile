@@ -96,6 +96,7 @@ import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.TopLayer
 import com.hrsthrt74.qstile.ui.asymmetricDropdownPositionProvider
+import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppChip
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -171,8 +172,12 @@ fun TileConfigScreen() {
     // 获取 ViewModel 实例
     val viewModel: TileConfigViewModel = viewModel()
 
-    // 初始化 ViewModel 的设备信息并开始监听配置变更
+    // 初始化 ViewModel 的设备信息并开始监听配置变更。
+    // 先让出启动首帧后的几帧：本页在冷启动首帧就会随 Pager 一起被组合，若此处立即开跑，
+    // 配置流回填后的「整页网格首次组合」（每个磁贴还要 pm.getServiceInfo 取图标）会压住
+    // 玻璃底栏指示器所等的那次重组，表现为高亮块晚到、期间点击无响应。详见 awaitStartupFrames。
     LaunchedEffect(Unit) {
+        awaitStartupFrames()
         viewModel.initProfile(context)
         viewModel.startConfigObservation(context)
     }

@@ -92,6 +92,7 @@ import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
@@ -309,7 +310,11 @@ fun SettingsScreen() {
     val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
 
     // 首次进入页面：一次性读回全部设置项后再放行渲染（未就绪就空白，与主题/OOBE 门控策略一致）
+    // 先让出启动首帧后的几帧：本页在冷启动首帧就会随 Pager 一起被组合，若此处立即开跑，
+    // 加载完成后的「整页首次组合」（1300 多行 + 一堆卡片）会正好压住玻璃底栏指示器所等的
+    // 那次重组，表现为底栏先出现、高亮块过半秒才冒出来且期间点击无响应。详见 awaitStartupFrames 注释。
     LaunchedEffect(Unit) {
+        awaitStartupFrames()
         viewModel.loadSettings(context)
         viewModel.loadSystemTiles(context)
     }
