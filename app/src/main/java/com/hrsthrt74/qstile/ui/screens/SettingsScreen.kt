@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color as AndroidColor
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import android.widget.Toast
@@ -62,8 +61,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -90,8 +89,8 @@ import com.hrsthrt74.qstile.data.ThemeRepository
 import com.hrsthrt74.qstile.data.UpdateCheckState
 import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.ui.AppTopBar
-import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
+import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
@@ -131,25 +130,15 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
-import top.yukonga.miuix.kmp.icon.extended.Album
-import top.yukonga.miuix.kmp.icon.extended.Background
-import top.yukonga.miuix.kmp.icon.extended.Backup
 import top.yukonga.miuix.kmp.icon.extended.Community
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.File
-import top.yukonga.miuix.kmp.icon.extended.Forward
-import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Import
-import top.yukonga.miuix.kmp.icon.extended.Months
-import top.yukonga.miuix.kmp.icon.extended.MoreCircle
-import top.yukonga.miuix.kmp.icon.extended.Paste
 import top.yukonga.miuix.kmp.icon.extended.Remove
 import top.yukonga.miuix.kmp.icon.extended.Rename
 import top.yukonga.miuix.kmp.icon.extended.Theme
-import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.icon.extended.Unpin
 import top.yukonga.miuix.kmp.icon.glass.AiScan
 import top.yukonga.miuix.kmp.icon.glass.AiWriting
@@ -163,17 +152,15 @@ import top.yukonga.miuix.kmp.icon.glass.PasteEditPoint
 import top.yukonga.miuix.kmp.icon.glass.PhoneIcon
 import top.yukonga.miuix.kmp.icon.glass.PptNotes
 import top.yukonga.miuix.kmp.icon.glass.RepairFill
-import top.yukonga.miuix.kmp.icon.glass.RepairOutline
 import top.yukonga.miuix.kmp.icon.glass.SoundWave
 import top.yukonga.miuix.kmp.icon.glass.Start
-import top.yukonga.miuix.kmp.icon.glass.Widget
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import android.graphics.Color as AndroidColor
 
 // 配色模式下拉的选项(资源 id;stringResource 无法在文件级常量与 remember 内调用,使用处在 Composable 上下文解析)
 private val dayNightModeLabels = listOf(
@@ -1300,7 +1287,7 @@ fun SettingsScreen() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 32.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = TextAlign.Center
                     )
                 } else {
                     // 备份列表：每条显示日期时间、磁贴数量，右侧有删除按钮
@@ -1702,31 +1689,6 @@ fun SettingsScreen() {
 }
 
 /**
- * 调试信息行组件。
- * 左对齐显示标签文字，右对齐显示对应的数值。
- */
-@Composable
-private fun DebugInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-        )
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface
-        )
-    }
-}
-
-/**
  * 作者信息 Sheet 中的单个平台入口项。
  * 纵向布局：上方为平台图标，下方为平台名，整体可点击打开对应链接。
  * @param iconRes 平台图标 drawable 资源 id
@@ -1846,7 +1808,6 @@ private fun CategoryIcon(icon: ImageVector, iconSize: Dp = 26.dp) {
     Box(
         modifier = Modifier
             .size(32.dp)
-            // .clip(RoundedCornerShape(8.dp))
             .squircleClip(cornerRadius = 8.dp)
             .background(MiuixTheme.colorScheme.primary),
         contentAlignment = Alignment.Center
@@ -1915,7 +1876,7 @@ private fun ExpandableSettingsCard(
         ) {
             // 分类图标
             CategoryIcon(icon = icon, iconSize = iconSize)
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = title,
                 fontSize = MiuixTheme.textStyles.headline1.fontSize,
