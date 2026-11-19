@@ -18,8 +18,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -62,14 +63,18 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -143,7 +148,9 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassIconDropdownMenu
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.glass.glassPopupAnchor
 import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
@@ -155,6 +162,8 @@ import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
@@ -946,17 +955,24 @@ fun TileConfigScreen() {
                 ) {
                     tilesByCategory.forEach { (category, tiles) ->
                         // 分类标题
-                        item(span = { GridItemSpan(maxLineSpan) }) {
+                        item(key = "category:$category", span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = category,
                                 style = MiuixTheme.textStyles.subtitle,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                                modifier = Modifier
+                                    // 分类被整组加完时跟着淡出，不要「啪」地消失
+                                    // （animateItem 要挂在 item 根节点上，故放在 padding 之前）
+                                    .animateItem(fadeInSpec = null, fadeOutSpec = tween(160))
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
                             )
                         }
 
                         // 磁贴网格
-                        items(tiles.size) { index ->
-                            val tile = tiles[index]
+                        //
+                        // key 必须用磁贴自身的 value（唯一且稳定）：被添加后这一格会从数据源里
+                        // 被过滤掉，若沿用 items(tiles.size) 的「按 index 认身份」，animateItem
+                        // 会把淡出播到末位的另一格上（内容瞬间变成别人的）。
+                        gridItems(tiles, key = { it.value }) { tile ->
                             // 调试开关保留展示的「不可用/无图标」磁贴整体降透明度区分
                             val isUnavailable = tile.value !in availableValues
                             TileGridCell(
@@ -971,13 +987,21 @@ fun TileConfigScreen() {
                                     // 「连续放置」开启时不收起 Sheet，可以接着点下一个
                                     if (!continuousAdd) addSheetState.dismiss()
                                 },
-                                modifier = Modifier.alpha(if (isUnavailable) 0.4f else 1f),
+                                modifier = Modifier
+                                    // 消失动画：淡出这一格，同时让后面的格子滑过来补位
+                                    // （placement 用 animateItem 的默认 spring，不用另配）
+                                    .animateItem(fadeInSpec = null, fadeOutSpec = tween(160))
+                                    .alpha(if (isUnavailable) 0.4f else 1f),
                             )
                         }
 
                         // 分类结束分割线
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        item(key = "divider:$category", span = { GridItemSpan(maxLineSpan) }) {
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .animateItem(fadeInSpec = null, fadeOutSpec = tween(160))
+                                    .padding(vertical = 8.dp)
+                            )
                         }
                     }
                 }
@@ -1151,6 +1175,9 @@ fun TileConfigScreen() {
                                         // 「连续放置」开启时不收起 Sheet
                                         if (!continuousAdd) addSheetState.dismiss()
                                     },
+                                    // 消失动画：添加后被过滤出列表时淡出，后面的格子滑过来补位
+                                    // （key 已在 gridItems 上按「包名/类名」声明，身份稳定）
+                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = tween(160)),
                                 )
                             }
                         }
@@ -1246,9 +1273,74 @@ fun TileConfigScreen() {
                         Modifier.fillMaxWidth()
                     }
                 ) {
-                    when (addTileTab) {
-                        0 -> SystemTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
-                        else -> ThirdPartyTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
+                    // 顶部渐隐：让滑到头部下方的列表条目淡出，而不是被生硬裁断。
+                    //
+                    // 这里用 **alpha 遮罩**（BlendMode.DstIn），而不是在头部叠一层「Sheet 底色渐变」：
+                    // 叠色只有在颜色与 Sheet 真实底色完全一致时才隐形，而玻璃态 Sheet 的底色是材质
+                    // shader 混出来的（浅色模式下明显比 colorScheme.background 更白），
+                    // 叠一层 background 就会露出一块边缘笔直的浅灰色块——看起来既像「一道被反色的
+                    // 阴影」，又会在左上 / 右上露出两个直角。
+                    // alpha 遮罩与任何主题色都无关：它只把内容抹成透明、露出下面的 Sheet，
+                    // 深色 / 浅色模式下都只有「内容淡出」这一种表现，不留色块也不留硬边。
+                    //
+                    // 渐隐终点 = 头部高度 - 底部 8dp 间距（即胶囊下缘），再往下内容完全不透明
+                    val fadeEndPx = with(density) { (headerHeightPx - 8.dp.toPx()).coerceAtLeast(0f) }
+                    val topFadeBrush = remember(fadeEndPx) {
+                        if (fadeEndPx <= 0f) {
+                            null
+                        } else {
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                1f to Color.Black,
+                                startY = 0f,
+                                endY = fadeEndPx,
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // DstIn 只与本层「已经画好的内容」相乘，所以必须离屏隔离：
+                            // 没有独立图层时，它会连父层（Sheet 背景）一起擦掉
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                // 内容本身比头部还矮时（极端情况）不遮罩：
+                                // 渐隐终点落在内容之外会把整块内容擦成透明
+                                if (topFadeBrush != null && size.height > fadeEndPx) {
+                                    drawRect(brush = topFadeBrush, blendMode = BlendMode.DstIn)
+                                }
+                            }
+                    ) {
+                        // 两个来源之间切换：淡入淡出 + 小幅平移（1/8 页宽），
+                        // 与 afdian 的 OrderScreen / FavoritesScreen 用的是同一套参数——
+                        // 位移只走 1/8 而不是整屏，观感是「这一页换了」而不是真的翻页，
+                        // 不会让两页的列表在 Sheet 里整块横移（那样很跳）。
+                        // 方向：切到更靠后的 Tab 从右侧进来，切回去则从左。
+                        // 出场比入场快（150ms vs 220ms），旧页先让位、新页随后就位。
+                        AnimatedContent(
+                            targetState = addTileTab,
+                            transitionSpec = {
+                                val forward = targetState > initialState
+                                (
+                                    fadeIn(animationSpec = tween(220)) +
+                                        slideInHorizontally(animationSpec = tween(220)) {
+                                            if (forward) it / 8 else -it / 8
+                                        }
+                                ) togetherWith (
+                                    fadeOut(animationSpec = tween(150)) +
+                                        slideOutHorizontally(animationSpec = tween(150)) {
+                                            if (forward) -it / 8 else it / 8
+                                        }
+                                )
+                            },
+                            label = "addTileTabContent",
+                        ) { tab ->
+                            when (tab) {
+                                0 -> SystemTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
+                                else -> ThirdPartyTilePicker(topPadding = headerHeight, continuousAdd = continuousAdd)
+                            }
+                        }
                     }
                 }
 
@@ -1259,21 +1351,9 @@ fun TileConfigScreen() {
                         .fillMaxWidth()
                         .onSizeChanged { headerHeightPx = it.height }
                 ) {
-                    // 渐隐遮罩：颜色与 Sheet 底色一致，上半段不透明、下半段渐隐到透明，
-                    // 让滑到头部下方的列表条目自然淡出，而不是被生硬裁断
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MiuixTheme.colorScheme.background,
-                                        MiuixTheme.colorScheme.background,
-                                        Color.Transparent,
-                                    )
-                                )
-                            )
-                    )
+                    // 注意：这里**不要**再叠一层「Sheet 底色渐变」遮罩来做内容淡出。
+                    // 叠色的颜色没法与玻璃态 Sheet 的真实底色对齐（见列表层顶部的说明），
+                    // 浅色模式下会变成一块带直角的灰色块；淡出统一由列表层的 alpha 遮罩完成。
 
                     AnimatedContent(
                         targetState = searchActive,
@@ -1303,19 +1383,24 @@ fun TileConfigScreen() {
                             // 玻璃风格：官方 GlassSegmentedTabRow（胶囊轨道 + 滑动指示器）
                             // 采样的是 Sheet 内的 headerBackdrop（列表层），不会被自身内容污染
                             //
-                            // 轮廓：外层用 kyant shapes 的 Capsule() 裁剪成「连续曲率胶囊」。
-                            // miuix 的 GlassSegmentedTabRow **没有开放 shape 参数**，内部写死
-                            // GlassShape(height / 2, smoothing = 0f)（正圆胶囊），也无法从外部替换，
-                            // 所以这里在 modifier 最外层裁剪：轨道、指示器、标签都是同尺寸嵌套结构，
-                            // 一起被裁不会互相裁坏。
-                            // 两点注意：
-                            // 1. 外层 clip 会顺带裁掉玻璃阴影（drawBehind 绘制、会溢出节点边界），
-                            //    故显式传 shadow = null，避免留一圈「被裁一半」的硬边阴影；
-                            // 2. 裁剪会让胶囊外的四个角落不再响应点击（命中测试跟随裁剪），
-                            //    对分段控件来说这是期望行为。
+                            // 轮廓：miuix 的 GlassSegmentedTabRow 没有开放 shape 参数，内部写死
+                            // GlassShape(height / 2, smoothing = 0f)（正圆胶囊），这里仍在最外层再裁一次
+                            // ——轨道 / 指示器 / 标签是同一尺寸的嵌套结构，一起裁不会互相裁坏；
+                            // 裁剪同时让胶囊外的四个角落不响应点击（对分段控件是预期行为）。
+                            //
+                            // 阴影（关键）：玻璃阴影是 drawBehind 画的、会溢出节点边界，
+                            // 塞在 clip 之内只会被裁成一圈硬边（之前正是因此把 shadow 传成了 null，
+                            // 结果胶囊完全没有阴影）。现在改成**画在裁剪之前**：
+                            // glassShadow 挂在外层 Box、clip 在其之后，阴影就能完整铺在胶囊外侧。
+                            // 颜色用库自带的 GlassShadows.Float（纯黑 + 低透明度，随缩放自动外扩），
+                            // 不要贴主题色 / onSurface：浅色模式下那会变成一圈亮色，看着像「反色的阴影」。
+                            val tabTrackShape = remember {
+                                GlassShape(GlassSegmentedTabRowDefaults.Height / 2, smoothing = 0f)
+                            }
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .glassShadow(tabTrackShape, GlassShadows.Float)
                                     .clip(Capsule())
                             ) {
                                 GlassSegmentedTabRow(
@@ -1329,6 +1414,7 @@ fun TileConfigScreen() {
                                         }
                                     },
                                     backdrop = headerBackdrop,
+                                    // 阴影已在外层画好（见上）；组件内部再画会被外层 clip 裁成硬边
                                     shadow = null,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
