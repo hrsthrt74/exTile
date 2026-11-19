@@ -1,5 +1,7 @@
 package com.hrsthrt74.qstile.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -42,6 +45,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
+import kotlin.math.roundToInt
 
 /** 圆形底直径：页面内（非浮层），作为拖拽目标时手感更稳。 */
 private val TileCircleSizeOnPage = 68.dp
@@ -61,6 +65,15 @@ private val TileCircleBorderWidth = 1.dp
 /** 格子左右/上下留白：同时充当网格内的间距，保证 4 列排布不贴边。 */
 private val TileCellHorizontalPadding = 4.dp
 private val TileCellVerticalPadding = 12.dp
+
+/**
+ * 磁贴图标位图的最大边长（px）。
+ *
+ * 超过这个边长的源图在 [toTileIconBitmap] 里等比缩小。磁贴最大显示尺寸是 36dp
+ * （约 108px @3x），256px 有充足余量；设上限是为了让 `BitmapPainter.intrinsicSize`
+ * 始终可控——否则一张 512px 的图标会让漏掉 `Modifier.size` 的绘制点直接画出整张大图。
+ */
+private const val TileIconBitmapMaxPx = 256
 
 /**
  * 「当前磁贴格子是否位于浮层（BottomSheet / Dialog）内」的标记。
@@ -91,6 +104,11 @@ internal val LocalTileCellInOverlay = staticCompositionLocalOf { false }
  * @param elevation 圆形底阴影高度：拖拽抬起时由调用方给非 0 值
  * @param onCirclePositioned 圆形底的窗口坐标回调（玻璃菜单按窗口坐标定位时需要）
  * @param circleContent 圆形底内部的叠加内容（如锚定在磁贴上的操作菜单）
+ * @param circleModifier 只作用于**圆形底**的修饰符。玻璃菜单锚点（`glassPopupAnchor`）挂这里而
+ *   不是 [modifier]：锚点会在菜单展开期间把宿主节点瞬时置为 alpha 0，挂在整格上会连标题一起
+ *   「啪」地消失；挂在圆形底上则只隐藏圆底与图标，标题可以自己走淡出/淡入节奏（见 [titleAlpha]）
+ * @param titleAlpha 标题与副标题的不透明度，由调用方做动画（如菜单展开时先淡出、收起后后淡入）。
+ *   默认 1f 表示不做处理
  */
 @Composable
 fun TileGridCell(
@@ -103,6 +121,9 @@ fun TileGridCell(
     contentDescription: String? = null,
     elevation: Dp = 0.dp,
     onCirclePositioned: ((Rect) -> Unit)? = null,
+    circleModifier: Modifier = Modifier,
+    titleAlpha: Float = 1f,
+    // 必须保持在最后一个参数位：调用方普遍用 trailing lambda 传圆形底内的叠加内容
     circleContent: @Composable BoxScope.() -> Unit = {},
 ) {
     val haptic = LocalHapticFeedback.current
@@ -152,6 +173,8 @@ fun TileGridCell(
         Box(
             modifier = Modifier
                 .size(circleSize)
+                // 圆形底专属修饰符：玻璃菜单锚点挂在这里，只影响圆底与图标
+                .then(circleModifier)
                 .then(positionReporter)
                 // 按下内凹反馈：与水波纹二选一，所以下面的 clickable 不传 indication
                 .pressable(
@@ -189,7 +212,9 @@ fun TileGridCell(
             style = MiuixTheme.textStyles.body2,
             maxLines = 2,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(titleAlpha)
         )
 
         // 第二行：系统磁贴显示 value；第三方磁贴显示应用名
@@ -199,9 +224,48 @@ fun TileGridCell(
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             maxLines = 2,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(titleAlpha)
         )
     }
+}
+
+/**
+ * 把 Drawable 转成一张**独立、软件配置**的位图。
+ *
+ * 磁贴图标全部要经过这一步，原因是 `Drawable.toBitmap()` 的行为：
+ *
+ * 1. 对 `BitmapDrawable` 它**不拷贝**，直接返回内部 Bitmap。而磁贴图标统一来自
+ *    `PackageManager.getResourcesForApplication(...).getDrawable(...)`，命中跨包 Resources 的
+ *    DrawableCache —— 同一个资源在任意多个调用点拿到的都是**同一个 Drawable、同一张 Bitmap**。
+ * 2. Resources 分发的位图在 Android 8+ 常常是 `Config.HARDWARE`，只有一张 GPU 纹理。
+ *
+ * 共享纹理本身不出错，但一旦进入带 `RenderEffect` / 离屏隔离的图层（玻璃菜单的模糊层、
+ * 列表的 `clarityMask()`、形变副本等），同一张纹理会被多个绘制点重复采样，缩小或移动后
+ * 旧内容留在画面上——表现就是「磁贴位置残留一个小图标」或「列表里某项被画成一整张大图」。
+ * 位图图标的第三方磁贴（翻译 / 晕车缓解）最明显，矢量图标（`painterResource`）不受影响。
+ *
+ * 复制成 ARGB_8888 软件位图可同时解决这两点：每个调用点各持一份独立位图。
+ */
+internal fun Drawable.toTileIconBitmap(): Bitmap {
+    val source = toBitmap()
+    // 无论是否为 HARDWARE 都要复制：非 HARDWARE 的也可能仍是 Resources 缓存里的共享实例
+    val copy = source.copy(Bitmap.Config.ARGB_8888, false) ?: source
+    // 再压到边长上限。BitmapPainter 的 intrinsicSize 直接取位图像素尺寸，
+    // 一张 512px 的图标 intrinsicSize 就是 512px；一旦某个绘制点漏掉 Modifier.size，
+    // Icon 就会按 intrinsic 画出「一整张大图」（列表 / 形变副本里最容易撞上）。
+    // 磁贴最大显示尺寸是 36dp（约 108px @3x），256px 有充足余量，
+    // 既不会降低任何实际显示清晰度，也不会让下游拿到一个不受控的固有尺寸。
+    val longest = maxOf(copy.width, copy.height)
+    if (longest <= TileIconBitmapMaxPx) return copy
+    val ratio = TileIconBitmapMaxPx.toFloat() / longest
+    return Bitmap.createScaledBitmap(
+        copy,
+        (copy.width * ratio).roundToInt().coerceAtLeast(1),
+        (copy.height * ratio).roundToInt().coerceAtLeast(1),
+        true,
+    )
 }
 
 /**
@@ -227,6 +291,19 @@ fun rememberTileIcon(tile: String): Painter {
         }
         custom ?: context.getDrawable(R.drawable.tile_blank)!!
     }
-    val bitmap = remember(drawable) { drawable.toBitmap() }
+    return rememberTileIcon(drawable)
+}
+
+/**
+ * 已经持有 Drawable 时的图标入口（如第三方磁贴列表的后台预取结果）。
+ *
+ * 与 [rememberTileIcon] 的 String 重载共用同一套位图规范化（见 [toTileIconBitmap]），
+ * **不要在调用点就地写 `drawable.toBitmap()`**——那等于放弃拷贝，把共享纹理直接交给绘制层。
+ *
+ * 每次调用都是一次独立的 `remember`，所以每个调用点各持一份位图，互不影响。
+ */
+@Composable
+fun rememberTileIcon(drawable: Drawable): Painter {
+    val bitmap = remember(drawable) { drawable.toTileIconBitmap() }
     return remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) }
 }

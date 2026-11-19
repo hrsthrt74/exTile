@@ -24,8 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -33,7 +31,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toBitmap
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.TileCapabilityFlags
@@ -389,10 +386,14 @@ internal fun ThirdPartyTilePicker(
                     ) {
                         gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
                             val tileValue = "custom(${service.packageName}/${service.className})"
-                            // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC
-                            val bitmap = remember(service.icon) { service.icon.toBitmap() }
                             TileGridCell(
-                                icon = remember(bitmap) { BitmapPainter(bitmap.asImageBitmap()) },
+                                // 图标已在后台批量预取（Service 图标或 blank 占位），渲染时不再触发 IPC。
+                                // 但**必须**走 rememberTileIcon(drawable) 而不是就地 `service.icon.toBitmap()`：
+                                // 预取结果是 PackageManager 跨包 Resources 缓存里的共享 Drawable，
+                                // 直接 toBitmap() 不拷贝、多个列表项共用同一张位图；本列表又挂着
+                                // clarityMask() 的离屏层，共享纹理会错位——表现就是某个磁贴的图标
+                                // 被画成一整张与磁贴同尺寸的大图。helper 内部会复制出独立软件位图。
+                                icon = rememberTileIcon(service.icon),
                                 // 标题来源：第三方磁贴用 Service 自己声明的 label，副标题显示所属应用名
                                 title = service.label,
                                 subtitle = service.appName,

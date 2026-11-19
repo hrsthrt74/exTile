@@ -2,6 +2,7 @@ package com.hrsthrt74.qstile.ui.screens.tileconfig
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +28,9 @@ import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.foundation.withoutEventHandling
 import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,7 +40,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -75,7 +77,10 @@ import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
-import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchor
+import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
+import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Info
@@ -84,6 +89,14 @@ import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import androidx.compose.foundation.lazy.grid.items as gridItems
+
+/**
+ * 磁贴上报给玻璃菜单的锚点圆角。
+ *
+ * 取圆形底的半径（页面内 68dp / 2）。当前只用 `GlassDropdownPopup` 定位与展开方向，
+ * 这个值不会被消费；将来若换成 `GlassTransformPopup`，它就是形变起点的圆角。
+ */
+private val TileMenuAnchorCornerRadius = 34.dp
 
 /**
  * 磁贴编辑页的网格主体（一页式布局，含虚线框 overlay）。
@@ -104,28 +117,24 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
  * @param viewModel 磁贴配置 ViewModel（提供派生列表、索引映射与拖拽 / 增删动作）
  * @param contentPadding Scaffold 下发的内容内边距（顶栏高度 + 挖孔 / 导航条 insets）
  * @param isDynamicColor 是否启用动态取色（关闭时「移动网络」图标保留品牌绿）
- * @param overlayBackdrop 玻璃风格磁贴菜单的模糊采样背景
  * @param onAddTileClick 点击「添加磁贴」按钮（打开添加磁贴 Sheet）
  * @param scrollBehavior 与顶栏共享的滚动行为（网格滚动驱动大标题折叠）
+ * @param tileMenuAnchors 磁贴操作菜单的锚点表，由本组件的磁贴格子写入、页面级的菜单层读取
  */
 @Composable
 fun TileConfigGridPane(
     viewModel: TileConfigViewModel,
     contentPadding: PaddingValues,
     isDynamicColor: Boolean,
-    overlayBackdrop: Backdrop?,
     onAddTileClick: () -> Unit,
     scrollBehavior: ScrollBehavior,
+    tileMenuAnchors: MutableMap<String, GlassPopupAnchor>,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     // 应用风格：开 = Glass，关 = 经典（虚线框颜色等与风格无关，仅菜单与按钮形态相关）
     val isGlassStyle = LocalThemeSettings.current.progressiveBlur
-
-    // 玻璃磁贴菜单的锚点窗口坐标：每个磁贴圆形底在布局时上报自己的矩形，
-    // 打开菜单时按 selectedTileForMenu 取对应值（避免首次点击时坐标尚未上报的问题）。
-    val tileMenuAnchorBounds = remember { mutableMapOf<String, Rect>() }
 
     // 网格内容顶部避让：Scaffold 内容区从 (0,0) 开始、topBar 叠在上方，
     // 用 contentPadding 让内容从顶栏下方开始（同时内容顶部会进入顶栏采样区供模糊捕获）。
@@ -291,6 +300,33 @@ fun TileConfigGridPane(
         @Composable
         fun LazyGridItemScope.TileGridItem(tile: String) {
             ReorderableItem(reorderableState, key = tile) { isDragging ->
+                // 玻璃菜单锚点（每个磁贴一个）：上报 containerBounds 供形变起点使用，
+                // 并在菜单展开期间隐藏磁贴（GlassTransformPopup 会设置 contentHidden）。
+                // 经典风格的 WindowListPopup 不消费 anchor，contentHidden 永远是 false，磁贴保持可见。
+                val menuAnchor = rememberGlassPopupAnchor()
+                // 注册给页面级菜单层取用（见函数末尾）。map 非快照状态，写入不触发重组。
+                SideEffect { tileMenuAnchors[tile] = menuAnchor }
+                // 磁贴被删除（或滚出屏幕被回收）时把锚点一并撤掉：
+                // 锚点一旦失去宿主节点，containerBounds 会**冻结**在最后一帧的坐标上，
+                // 菜单退场动画就会缩回那个已经不存在的位置。清掉它，
+                // 页面级菜单层会按 `anchors[selectedTile] ?: return` 直接停止渲染。
+                DisposableEffect(tile) {
+                    onDispose { tileMenuAnchors.remove(tile) }
+                }
+                // 标题的淡出 / 淡入只服务于玻璃形态：
+                // 形变副本里没有文字，标题留在原地会与副本重影，所以打开时先淡出、收起后后淡入。
+                // 经典风格不做形变、磁贴整体保持可见，标题不能跟着消失。
+                val menuOpen = isGlassStyle &&
+                    viewModel.showTileMenu && viewModel.selectedTileForMenu == tile
+                val titleAlpha by animateFloatAsState(
+                    targetValue = if (menuOpen) 0f else 1f,
+                    animationSpec = if (menuOpen) {
+                        tween(durationMillis = 100)
+                    } else {
+                        tween(durationMillis = 160, delayMillis = 240)
+                    },
+                    label = "tileTitleAlpha",
+                )
                 // 拖起时轻微放大并抬高阴影，松手回弹
                 val scale by animateFloatAsState(
                     targetValue = if (isDragging) 1.1f else 1f,
@@ -307,6 +343,9 @@ fun TileConfigGridPane(
                     ?: TileCatalog.getDisplayName(tile, viewModel.profile)
                 Box {
                     TileGridCell(
+                        // 注意：这里与菜单标题行的图标是**两次独立调用**，不要提取成变量共用。
+                        // 第三方磁贴的图标来自 Resources 缓存，共用会让两处拿到同一份位图/纹理，
+                        // 在玻璃菜单的离屏模糊层里就会出现纹理残影（磁贴位置残留一个小图标）。
                         icon = rememberTileIcon(tile),
                         title = displayName,
                         subtitle = customNames?.second ?: tile,
@@ -319,10 +358,8 @@ fun TileConfigGridPane(
                                    else MiuixTheme.colorScheme.primary,
                         contentDescription = displayName,
                         elevation = elevation,
-                        // 玻璃菜单用窗口坐标定位：每个磁贴都上报自己的窗口矩形，
-                        // 打开时按 selectedTileForMenu 取用（mutableMap 读取触发不了重组，
-                        // 但 showTileMenu 变化会重组，届时 map 已是最新值）
-                        onCirclePositioned = { tileMenuAnchorBounds[tile] = it },
+                        // 标题自己走淡出/淡入（见上面 titleAlpha 的说明）
+                        titleAlpha = titleAlpha,
                         // 长按拖拽把手 + 拖起缩放挂在最外层；间距与尺寸由组件统一
                         modifier = Modifier
                             .longPressDraggableHandle(
@@ -330,17 +367,39 @@ fun TileConfigGridPane(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
                             )
-                            .scale(scale)
+                            .scale(scale),
+                        // 锚点只挂在**圆形底**上，而不是整格：
+                        // 它会在菜单展开期间把宿主节点瞬时置为 alpha 0，挂在整格上会连标题一起
+                        // 「啪」地消失（标题没有过渡，看起来就是闪现）；挂在圆底上则只隐藏圆底与图标，
+                        // 同一帧里形变副本在圆底位置接管，标题走自己的 alpha。
+                        // 经典风格不消费 anchor，contentHidden 恒 false，磁贴不会消失。
+                        circleModifier = Modifier.glassPopupAnchor(
+                            anchor = menuAnchor,
+                            cornerRadius = TileMenuAnchorCornerRadius,
+                        ),
                     ) {
-                        // 操作菜单锚定在圆形底内部（Popup 自身不受父布局限制）
-                        if (viewModel.selectedTileForMenu == tile) {
+                        // 上报圆形底的窗口边界：GlassTransformPopup 用它作为形变副本的落点。
+                        // 空 Box 不画任何内容，只做坐标上报。
+                        Box(modifier = Modifier.matchParentSize().glassPopupAnchorContent(menuAnchor))
+
+                        // 经典风格的操作菜单**必须**在圆形底内部渲染。
+                        // miuix 的 WindowListPopup 内部用一个 Spacer 取「父布局节点」的窗口矩形当锚点
+                        // （ListPopupLayout 里的 parentBounds），在圆形底里调用，锚点就是这颗磁贴；
+                        // 放到页面级（TileConfigTileActionMenu）父节点是整屏，锚点变成全屏，
+                        // 菜单会按整屏去算位置——表现就是贴到屏幕角上。
+                        // 玻璃形态反过来，必须有页面级全屏宿主（全屏 dismiss 层 + 窗口坐标定位），
+                        // 所以两者分别在这两处渲染。
+                        if (!isGlassStyle && viewModel.selectedTileForMenu == tile) {
                             TileActionMenu(
                                 show = viewModel.showTileMenu,
-                                anchorBounds = tileMenuAnchorBounds[tile] ?: Rect.Zero,
-                                backdrop = overlayBackdrop,
+                                anchor = menuAnchor,
+                                backdrop = null,
                                 tileName = displayName,
-                                isGlassStyle = isGlassStyle,
-                                // 顶端 / 底端是否可点：按磁贴在整个网格数据中的位置判断
+                                // 经典分支不消费图标与 anchor，这两个只为满足签名；
+                                // 组合条件已限定「当前选中的那个磁贴」，所以只会算一次
+                                tileIcon = rememberTileIcon(tile),
+                                iconTint = MiuixTheme.colorScheme.primary,
+                                isGlassStyle = false,
                                 canMoveTop = gridTiles.indexOf(tile) > 0,
                                 canMoveBottom = gridTiles.indexOf(tile) < gridTiles.size - 1,
                                 onMoveTop = {
@@ -352,8 +411,10 @@ fun TileConfigGridPane(
                                     viewModel.showTileMenu = false
                                 },
                                 onDelete = {
+                                    // 经典风格是系统弹窗，关闭本身瞬时，直接删
                                     viewModel.deleteTile(tile, context)
                                     viewModel.showTileMenu = false
+                                    viewModel.selectedTileForMenu = null
                                 },
                                 onDismissRequest = { viewModel.showTileMenu = false },
                             )

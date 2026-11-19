@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +21,7 @@ import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.tileconfig.AddTileSheet
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigDialogs
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigGridPane
+import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigTileActionMenu
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigTopBar
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.TileConfigViewModel
@@ -28,6 +30,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassPopupAnchor
 
 /**
  * 磁贴编辑页（主装配层）。
@@ -109,6 +112,18 @@ fun TileConfigScreen() {
     // 配置尚未从 DataStore 读出前不渲染页面主体（未就绪就空白，与主题/OOBE 的门控策略一致）
     if (!viewModel.isConfigLoaded) return
 
+    // 磁贴操作菜单的锚点表：由 TileConfigGridPane 里每个磁贴注册（见 TileGridItem），
+    // 菜单层在下面 Scaffold 之外读取。放在页面级而不是网格内，是为了让菜单脱离
+    // pageBackdrop 的录制子树（详见菜单层处的注释）。
+    val tileMenuAnchors = remember { mutableMapOf<String, GlassPopupAnchor>() }
+
+    // 外层 Box：把「磁贴操作菜单层」放到 Scaffold **之外**、但绘制在它之上。
+    // 这是硬性要求，不能把菜单塞回 Scaffold 子树：
+    // pageBackdrop 挂在 Scaffold 的 modifier 上，录制的是 Scaffold 的整个子树；
+    // 菜单的 Modifier.glass(backdrop = pageBackdrop) 一旦位于该子树内，就成了
+    // 「采样包含自己的图层」——miuix 的 Modifier.glass 明确要求 backdrop 必须在被采样子树之外。
+    // 违反的后果不是画错，而是 RenderNode 树成环，绘制阶段 prepareTreeImpl 无限递归 → native 栈溢出闪退。
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         // 弹窗专用 backdrop 挂在页面根节点（覆盖含顶栏的整页），供玻璃菜单形变动画采样
         modifier = if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier,
@@ -137,11 +152,22 @@ fun TileConfigScreen() {
                 viewModel = viewModel,
                 contentPadding = paddingValues,
                 isDynamicColor = isDynamicColor,
-                overlayBackdrop = pageBackdrop,
                 onAddTileClick = { addSheetState.show() },
                 scrollBehavior = scrollBehavior,
+                tileMenuAnchors = tileMenuAnchors,
             )
         }
+    }
+
+    // 磁贴操作菜单层：在 Scaffold 之后绘制（覆盖顶栏），但**不在** pageBackdrop 的录制子树内，
+    // 所以它采样 pageBackdrop 不会形成循环。菜单自身在关闭动画结束后自动停止渲染，
+    // 不需要像 PopupLayout 那样手动管理宿主挂载。
+    TileConfigTileActionMenu(
+        viewModel = viewModel,
+        anchors = tileMenuAnchors,
+        backdrop = pageBackdrop,
+        isDynamicColor = isDynamicColor,
+    )
     }
 
     // 「添加磁贴」Sheet（内置 TabRow 切换系统 / 第三方来源）
