@@ -97,7 +97,7 @@ fun TileConfigTopBar(
 
     // 菜单项列表：两种形态（玻璃 / 经典）共用同一份定义。
     // 「添加 exTile 磁贴」用 DropdownItem 的两行形态：text 是主标题，summary 是灰色副标题
-    //（miuix 0.9.5-beta01 的 DropdownItem 字段名就是 summary，玻璃走 GlassIconDropdownMenu、
+    //（DropdownItem 的字段名是 summary，玻璃走 GlassIconDropdownMenu、
     //  经典走 WindowIconDropdownMenu，两条路径都会渲染 summary，无需各写一套）。
     //
     // 与下面两项之间的分割线：miuix 的菜单只在**分组之间**画线（经典路径见

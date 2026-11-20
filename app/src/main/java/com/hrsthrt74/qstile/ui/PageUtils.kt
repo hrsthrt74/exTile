@@ -247,9 +247,11 @@ fun AppTopBar(
             }
             val barColor = if (blurActive) Color.Transparent else color
             // 统一用 TopAppBar，通过 expandable 控制大/小标题（窄屏大标题、宽屏紧凑）。
-            // 不要用 SmallTopAppBar：miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure
-            // actionIcons 却从不 placeRelative，会让 actions 槽（顶栏按钮）完全不可见。
-            // 官方 demo 的经典顶栏同样是统一 TopAppBar + expandable，从不使用 SmallTopAppBar。
+            // 不用 SmallTopAppBar：它专为「只有小标题」的场景设计，本项目窄屏要的是可折叠大标题，
+            // 语义与 TopAppBar(expandable=true) 一致；且官方 demo 的经典顶栏同样只用 TopAppBar。
+            //（历史背景：miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure actionIcons 却从不
+            //  placeRelative，会让 actions 槽（顶栏按钮）完全不可见；0.9.5-beta02 已修复该 bug，
+            //  但仍保持统一用法，避免两套顶栏行为分叉。）
             TopAppBar(
                 title = title,
                 largeTitle = largeTitle,

@@ -95,6 +95,7 @@ import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
+import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -125,7 +126,6 @@ import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -1197,7 +1197,7 @@ fun SettingsScreen() {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 // 以下为原有的「粘贴 JSON」恢复方式
-                TextField(
+                AppTextField(
                     value = viewModel.importBackupJson,
                     onValueChange = { viewModel.importBackupJson = it },
                     label = stringResource(R.string.settings_restore_paste_label),
@@ -1242,7 +1242,7 @@ fun SettingsScreen() {
                     .fillMaxWidth()
                     .padding(bottom = navBarBottomPadding)
             ) {
-                TextField(
+                AppTextField(
                     value = viewModel.customTileLabelInput,
                     onValueChange = { viewModel.customTileLabelInput = it },
                     label = stringResource(R.string.settings_custom_label_hint),

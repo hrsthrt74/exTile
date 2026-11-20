@@ -763,9 +763,9 @@ fun OobeScreen(
         // - P0-P3：actions 显示「跳过」Close 图标（点击弹二次确认，确认按钮带 3 秒倒计时）
         // - P1-P3：返回按钮（回上一页）
         // - P4 完成页：全空（避免遮挡大对勾与文案）
-        // 用 TopAppBar(expandable=false) 代替 SmallTopAppBar：
-        // miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure actionIcons 却从不 place，
-        // 会让「跳过」按钮（actions 槽）不可见。expandable=false 即紧凑单行形态。
+        // 用 TopAppBar(expandable=false) 代替 SmallTopAppBar，与全局 TopAppBar 用法保持一致。
+        //（历史背景：miuix 0.9.5-beta01 的 SmallTopAppBarLayout 只 measure actionIcons 却从不 place，
+        //  会让「跳过」按钮（actions 槽）不可见；0.9.5-beta02 已修复，本项目仍统一走 TopAppBar。）
         TopAppBar(
             title = "",
             expandable = false,

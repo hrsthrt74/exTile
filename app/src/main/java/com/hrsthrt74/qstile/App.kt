@@ -110,9 +110,6 @@ import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.icon.glass.All
 import top.yukonga.miuix.kmp.icon.glass.HomeFill
 import top.yukonga.miuix.kmp.icon.glass.SettingsFill
-import top.yukonga.miuix.kmp.material.GlassColorBlendMode
-import top.yukonga.miuix.kmp.material.GlassColorLayer
-import top.yukonga.miuix.kmp.material.GlassMaterial
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.drawEdgeStroke
 import top.yukonga.miuix.kmp.material.drawGlassMask
@@ -354,28 +351,6 @@ private fun UpdatePromptHost() {
 }
 
 /**
- * 玻璃导航栏材质的动态色补丁，等价官方 miuix 新版的 `dynamicGlassMaterial()`（internal，
- * v0.9.5-beta01 尚未暴露）：Monet 动态色开启时，把材质的 third 层换成
- * `surfaceContainerHigh`（alpha 0.6 + SrcOver），胶囊底色从而跟随主题；关闭时返回原始材质。
- *
- * TODO(miuix): 待 miuix 升级到 0.9.5-beta01 之后的版本（官方已在 GlassNavigationBarDefaults.material()
- * 内部接入 dynamicGlassMaterial），删除本函数，并移除 GlassNavigationBar(...) 处的 `material = ...` 覆盖，
- * 换回官方默认写法。同时清理仅为本补丁引入的 GlassColorLayer / GlassColorBlendMode / GlassMaterial import。
- */
-@Composable
-private fun dynamicNavBarMaterial(): GlassMaterial {
-    val base = GlassNavigationBarDefaults.material()
-    val tint = MiuixTheme.colorScheme.surfaceContainerHigh
-    return if (MiuixTheme.isDynamicColor) {
-        remember(base, tint) {
-            base.copy(third = GlassColorLayer(tint.copy(alpha = 0.6f), GlassColorBlendMode.SrcOver))
-        }
-    } else {
-        base
-    }
-}
-
-/**
  * 窄屏（竖屏手机）内容布局，底部导航随应用风格开关切换：
  * - [glassStyle]=true：[GlassNavigationBar]（悬浮玻璃胶囊，官方 demo 写法）
  * - [glassStyle]=false：经典 [NavigationBar] + textureBlur 毛玻璃
@@ -516,10 +491,6 @@ private fun CompactScreenContent(
                                 mainPagerState.animateToPage(index)
                             },
                             backdrop = backdrop,
-                            // 材质补上官方新版的 dynamicGlassMaterial 逻辑：Monet 开启时把 third 层
-                            // 换成 surfaceContainerHigh 染色，胶囊底色才会跟着主题走（v0.9.5-beta01
-                            // 的 GlassNavigationBarDefaults.material() 尚无这层，故这里手动补）。
-                            material = dynamicNavBarMaterial(),
                             // 胶囊轮廓改用 kyant shapes 的 Capsule()：
                             // miuix 只接受 GlassShape，故用 toGlassShape() 把 Capsule 的几何 + 连续曲率
                             // 翻译过去（Capsule = 最小边长一半的圆角，smoothing=1f），轮廓与官方默认一致，

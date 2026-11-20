@@ -64,6 +64,7 @@ import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.TileGridCell
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.components.rememberTileIcon
@@ -80,7 +81,6 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -855,7 +855,7 @@ fun DebugToolsScreen() {
                 .fillMaxWidth()
                 .padding(bottom = navBarBottomPadding)
         ) {
-            TextField(
+            AppTextField(
                 value = customTileInput,
                 onValueChange = { customTileInput = it },
                 label = stringResource(R.string.debug_input_hint),

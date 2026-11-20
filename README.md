@@ -172,7 +172,7 @@ exTile/
 | Core KTX / SplashScreen | 1.19.0 / 1.2.0 |
 | Material Icons Extended | 1.7.8 |
 | Shizuku API / Provider | 13.1.5 |
-| MIUIX UI / Icons / Preference / Blur | 0.9.4 |
+| MIUIX UI / Icons / Glass Icons / Preference / Blur / Glass / Material | 0.9.5-beta02 |
 | Calvin-LL/Reorderable | 3.1.0 |
 | DeviceCompat | 2.6 |
 | Microsoft Clarity Compose | 3.+ |
