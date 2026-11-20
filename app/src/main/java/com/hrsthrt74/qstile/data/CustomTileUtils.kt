@@ -6,7 +6,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.service.quicksettings.TileService
+import com.hrsthrt74.qstile.BuildConfig
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.tile.ExTileService
 
 /**
  * 第三方（custom）磁贴工具类。
@@ -18,6 +20,56 @@ import com.hrsthrt74.qstile.R
  */
 object CustomTileUtils {
 
+    /** release 变体的 applicationId */
+    const val RELEASE_PACKAGE = "com.hrsthrt74.qstile"
+
+    /** debug 变体的 applicationId（build.gradle.kts 里通过 applicationIdSuffix 追加） */
+    const val DEBUG_PACKAGE = "com.hrsthrt74.qstile.debug"
+
+    /** 两个变体共用的磁贴服务类名（代码包名不随 applicationId 变化） */
+    val EX_TILE_SERVICE_CLASS: String = ExTileService::class.java.name
+
+    /** 当前变体的「相反版本」包名：release 里是 debug，debug 里是 release */
+    val oppositePackage: String =
+        if (BuildConfig.APPLICATION_ID == DEBUG_PACKAGE) RELEASE_PACKAGE else DEBUG_PACKAGE
+
+    /**
+     * 生成指定变体的 exTile 磁贴 spec。
+     *
+     * 类名必须用完整限定名：debug 变体的 applicationId 带 `.debug` 后缀，
+     * 若沿用 `custom(pkg/.tile.ExTileService)` 的相对写法，ComponentName 会拼出不存在的类。
+     */
+    fun exTileSpec(packageName: String): String = "custom($packageName/$EX_TILE_SERVICE_CLASS)"
+
+    /**
+     * 判断 ComponentName 是否指向任一变体的 exTile 磁贴服务。
+     *
+     * 用于「切换 Release / Debug」与「添加磁贴 Sheet 排除相反版本」：
+     * 这两个场景都需要同时认识两个变体，不能只用 [isExTileSpec]（只认当前变体）。
+     */
+    fun isExTileComponent(component: ComponentName): Boolean {
+        val pkg = component.packageName
+        if (pkg != RELEASE_PACKAGE && pkg != DEBUG_PACKAGE) return false
+        // 除完整类名外，也接受 `custom(pkg/.tile.ExTileService)` 的相对写法：
+        // 解析后类名会变成 `pkg.tile.ExTileService`，在 debug 上它指向的是不存在的类，
+        // 但仍应被识别为「exTile 磁贴」，以便在切换时替换成正确的完整类名 spec。
+        return component.className == EX_TILE_SERVICE_CLASS ||
+            component.className == "$pkg.tile.ExTileService"
+    }
+
+    /** 判断 spec 是否指向任一变体的 exTile 磁贴（兼容相对/完整类名两种写法） */
+    fun isAnyExTileSpec(value: String): Boolean {
+        val component = parseCustomComponent(value) ?: return false
+        return isExTileComponent(component)
+    }
+
+    /** 检测指定包名是否已安装（两个版本据此决定是否显示「切换到相对版本」） */
+    fun isPackageInstalled(context: Context, packageName: String): Boolean = try {
+        context.packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0)) != null
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
+    }
+
     /**
      * 解析 custom 磁贴的 ComponentName。
      * @param value 磁贴值，格式为 "custom(包名/类名)"
@@ -27,6 +79,23 @@ object CustomTileUtils {
         if (!value.startsWith("custom(")) return null
         val componentStr = value.removePrefix("custom(").removeSuffix(")")
         return ComponentName.unflattenFromString(componentStr)
+    }
+
+    /**
+     * 判断一个磁贴 spec 是否指向 exTile 自身的磁贴服务。
+     *
+     * 用 ComponentName 规范化后比较，而不是字符串相等，原因有两点：
+     * 1. 兼容 `custom(包名/.相对类名)` 与 `custom(包名/完整类名)` 两种写法 —— 老版本写入系统配置的
+     *    是相对写法，必须继续识别，否则旧用户升级后锚点丢失；
+     * 2. 用 [BuildConfig.APPLICATION_ID] 而非硬编码包名 —— debug 变体带 `.debug` 后缀，
+     *    其系统磁贴 spec 的包名部分也带后缀，硬编码会把自己的磁贴当成普通第三方磁贴。
+     *
+     * @param value 磁贴 value，custom 格式为 "custom(包名/类名)"
+     * @return 是否为本应用的 exTile 磁贴
+     */
+    fun isExTileSpec(value: String): Boolean {
+        val component = parseCustomComponent(value) ?: return false
+        return component.packageName == BuildConfig.APPLICATION_ID && isExTileComponent(component)
     }
 
     /**

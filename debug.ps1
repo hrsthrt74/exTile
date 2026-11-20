@@ -1,1 +1,1 @@
- .\gradlew.bat installDebug 2>&1; adb shell am force-stop com.hrsthrt74.qstile; adb shell am start -n "com.hrsthrt74.qstile/.MainActivity"
+ .\gradlew.bat installDebug 2>&1; adb shell am force-stop com.hrsthrt74.qstile.debug; adb shell am start -n "com.hrsthrt74.qstile.debug/com.hrsthrt74.qstile.MainActivity"

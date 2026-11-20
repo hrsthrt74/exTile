@@ -260,6 +260,12 @@
     <string name="config_add_tab_custom">第三方</string>
     <string name="config_move_top">移动到顶端</string>
     <string name="config_move_bottom">移动到底端</string>
+    <!-- exTile 磁贴菜单：在系统配置中把 Release / Debug 磁贴互换（不影响应用内列表） -->
+    <string name="tile_switch_to_release">切换到 Release</string>
+    <string name="tile_switch_to_debug">切换到 Debug</string>
+    <string name="tile_switch_success">系统磁贴已切换到另一版本</string>
+    <string name="tile_switch_failed">切换失败，请检查权限</string>
+    <string name="tile_switch_no_tile">系统配置中未找到 exTile 磁贴</string>
     <string name="config_section_expanded">展开后显示的磁贴</string>
     <string name="config_tip_title">提示</string>
     <string name="config_tip_content">将磁贴拖动到 exTile 后面，即可收纳进「展开」磁贴。建议将 exTile 磁贴放置在行尾。</string>

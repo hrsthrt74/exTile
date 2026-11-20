@@ -17,6 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** 「切换到 Release / Debug」操作的结果，供界面提示用户 */
+enum class VariantSwitchResult { SUCCESS, FAILED, NO_TILE }
+
 /**
  * TileConfigScreen 的 ViewModel，负责管理磁贴配置页面的状态和业务逻辑。
  *
@@ -74,6 +77,19 @@ class TileConfigViewModel : ViewModel() {
     /** 当前选中要操作的磁贴 */
     var selectedTileForMenu by mutableStateOf<String?>(null)
 
+    // ==================== 变体切换菜单项状态 ====================
+
+    /**
+     * 「切换到 Release / Debug」的目标包名（由系统配置里当前的 exTile 变体推出）。
+     * null = 尚未检测；读取系统配置失败时也会给出兜底目标，保证菜单项显示但禁用。
+     */
+    var variantSwitchTarget by mutableStateOf<String?>(null)
+        private set
+
+    /** 变体切换菜单项是否可用：读取系统配置失败时为 false（菜单项禁用而非隐藏） */
+    var variantSwitchEnabled by mutableStateOf(false)
+        private set
+
     // ==================== 设备信息（延迟初始化） ====================
 
     /** 设备能力快照 */
@@ -95,7 +111,8 @@ class TileConfigViewModel : ViewModel() {
 
     /** exTile 在 gridTiles 中的索引 */
     private val exTileIndex: Int
-        get() = gridTiles.indexOf(TileCatalog.EXTILE_CUSTOM)
+        // 规范化比较：debug 变体包名带 .debug 后缀，且历史配置里可能是相对类名写法
+        get() = gridTiles.indexOfFirst { CustomTileUtils.isExTileSpec(it) }
 
     /** 框外磁贴 = exTile 及其之前 */
     val outerTiles: List<String>
@@ -208,11 +225,92 @@ class TileConfigViewModel : ViewModel() {
      */
     fun updateGridTiles(newGridTiles: List<String>, context: Context) {
         val isXiaomi = _profile?.isXiaomi ?: false
-        val exTileIdx = newGridTiles.indexOf(TileCatalog.EXTILE_CUSTOM)
+        // 规范化比较：避免 debug 变体或旧版相对类名 spec 导致锚点定位失败
+        val exTileIdx = newGridTiles.indexOfFirst { CustomTileUtils.isExTileSpec(it) }
         val outerTiles = if (exTileIdx >= 0) newGridTiles.take(exTileIdx + 1) else newGridTiles
         val expanded = if (isXiaomi) fixedTileValues + newGridTiles + listOf("edit") else newGridTiles
         val collapsed = if (isXiaomi) fixedTileValues + outerTiles + listOf("edit") else outerTiles
         updateConfig(config.copy(expandedTiles = expanded, collapsedTiles = collapsed), context)
+    }
+
+    /**
+     * 由系统磁贴列表推出「切换到 Release / Debug」的目标包名。
+     *
+     * 目标取**系统配置里当前 exTile 变体**的相反版本，而不是当前 app 的相反版本：
+     * 用户可能已经从另一个变体切换过，菜单文案必须对应系统里真实存在的那个磁贴。
+     * 两个变体的 spec 同时存在时以第一个为准；系统里没有 exTile 时兜底为当前 app 的相对版本。
+     */
+    private fun targetPackageFor(tiles: List<String>): String {
+        val currentPackage = tiles.firstOrNull { CustomTileUtils.isAnyExTileSpec(it) }
+            ?.let { CustomTileUtils.parseCustomComponent(it)?.packageName }
+        return when (currentPackage) {
+            CustomTileUtils.DEBUG_PACKAGE -> CustomTileUtils.RELEASE_PACKAGE
+            CustomTileUtils.RELEASE_PACKAGE -> CustomTileUtils.DEBUG_PACKAGE
+            else -> CustomTileUtils.oppositePackage
+        }
+    }
+
+    /**
+     * 打开菜单时刷新变体切换项的目标与可用性。
+     *
+     * 读取失败时给出兜底目标（当前 app 的相对版本）并把 [variantSwitchEnabled] 置 false，
+     * 让菜单项保持**显示但禁用**，而不是凭空消失。
+     */
+    suspend fun refreshVariantSwitch(context: Context) {
+        // 先清空上一次的结果：重新检测期间菜单项保持禁用，文案回落到「当前版本的相对版本」
+        variantSwitchTarget = null
+        variantSwitchEnabled = false
+        val rawTiles = SecureSettingsHelper.getSysuiQsTiles(context)
+        if (rawTiles == null) {
+            variantSwitchTarget = CustomTileUtils.oppositePackage
+            variantSwitchEnabled = false
+            return
+        }
+        val tiles = rawTiles.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        variantSwitchTarget = targetPackageFor(tiles)
+        variantSwitchEnabled = true
+    }
+
+    /**
+     * 把系统配置（sysui_qs_tiles）里的 exTile 磁贴切换到相反变体。
+     *
+     * 只改系统配置，**不动应用内的 expanded/collapsed 列表**：用户切换的是系统里实际启用的
+     * 那个磁贴服务，应用内的编辑数据（顺序、框内/框外划分）保持原样。
+     *
+     * 目标由**系统配置里当前的变体**推出（见 [targetPackageFor]），与菜单文案保持一致。
+     * 两个变体的 spec 若同时存在，统一收敛为一个目标 spec，避免出现两个 exTile 磁贴。
+     * 若系统配置里原本没有 exTile 锚点，则补到 "edit" 之前，保证切换后磁贴确实存在。
+     *
+     * @param context Context
+     * @return 操作结果（成功 / 写入失败 / 读不到系统配置）
+     */
+    suspend fun switchExTileVariant(context: Context): VariantSwitchResult {
+        val currentTiles = SecureSettingsHelper.getCurrentTiles(context)
+        if (currentTiles.isEmpty()) return VariantSwitchResult.NO_TILE
+
+        val targetSpec = CustomTileUtils.exTileSpec(targetPackageFor(currentTiles))
+        val newTiles = mutableListOf<String>()
+        var replaced = false
+        currentTiles.forEach { tile ->
+            if (CustomTileUtils.isAnyExTileSpec(tile)) {
+                // 只保留第一个锚点位置，其余变体的重复项一并去掉
+                if (!replaced) {
+                    newTiles.add(targetSpec)
+                    replaced = true
+                }
+            } else {
+                newTiles.add(tile)
+            }
+        }
+        if (!replaced) {
+            val editIndex = newTiles.indexOf("edit")
+            if (editIndex >= 0) newTiles.add(editIndex, targetSpec) else newTiles.add(targetSpec)
+        }
+        return if (SecureSettingsHelper.setCurrentTiles(context, newTiles)) {
+            VariantSwitchResult.SUCCESS
+        } else {
+            VariantSwitchResult.FAILED
+        }
     }
 
     /**

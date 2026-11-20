@@ -52,8 +52,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * @param anchorContent 形变起点的副本：应画出与磁贴一致的「圆形底 + 图标」，
  *   尺寸由 `glassPopupAnchorContent` 上报的区域决定
  * @param moveTopLabel / moveBottomLabel / deleteLabel 三个操作项文案
+ * @param switchLabel 变体切换项文案；为 null 时不显示该项（非 exTile 磁贴、或相对版本未安装）
+ * @param switchEnabled 变体切换项可用性；读取系统配置失败时置灰但仍显示
  * @param moveTopEnabled / moveBottomEnabled 移动项可用性
- * @param onMoveTop / onMoveBottom / onDelete 三个操作回调（由调用方负责关闭菜单）
+ * @param onMoveTop / onMoveBottom / onSwitchVariant / onDelete 操作回调（由调用方负责关闭菜单）
  * @param onDismissRequest 点击外部 / 返回键请求关闭
  */
 @Composable
@@ -66,10 +68,13 @@ fun GlassTileOperationMenu(
     moveTopLabel: String,
     moveBottomLabel: String,
     deleteLabel: String,
+    switchLabel: String?,
+    switchEnabled: Boolean,
     moveTopEnabled: Boolean,
     moveBottomEnabled: Boolean,
     onMoveTop: () -> Unit,
     onMoveBottom: () -> Unit,
+    onSwitchVariant: () -> Unit,
     onDelete: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -125,6 +130,15 @@ fun GlassTileOperationMenu(
                 enabled = moveBottomEnabled,
                 onClick = onMoveBottom,
             )
+            // 变体切换项：只对 exTile 磁贴显示，且相对版本已安装
+            // 读取系统配置失败时置灰但仍显示（enabled=false）
+            if (switchLabel != null) {
+                GlassPopupItem(
+                    text = switchLabel,
+                    enabled = switchEnabled,
+                    onClick = onSwitchVariant,
+                )
+            }
             GlassPopupItem(
                 text = deleteLabel,
                 // 删除不可逆，文案用错误色（与经典风格的 DropdownImpl 一致）

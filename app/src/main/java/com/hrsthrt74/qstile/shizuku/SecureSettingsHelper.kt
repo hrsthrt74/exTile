@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import com.hrsthrt74.qstile.BuildConfig
 import com.hrsthrt74.qstile.ICommandService
 import com.hrsthrt74.qstile.root.RootHelper
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +40,10 @@ object SecureSettingsHelper {
 
     fun bindService() {
         try {
+            // 用 APPLICATION_ID 而非硬编码包名：debug 变体带 .debug 后缀，
+            // Shizuku UserService 的组件必须落在当前变体的包名下才能绑定成功。
             val componentName = ComponentName(
-                "com.hrsthrt74.qstile",
+                BuildConfig.APPLICATION_ID,
                 CommandService::class.java.name
             )
             val userServiceArgs = Shizuku.UserServiceArgs(componentName)
@@ -57,8 +60,10 @@ object SecureSettingsHelper {
 
     fun unbindService() {
         try {
+            // 用 APPLICATION_ID 而非硬编码包名：debug 变体带 .debug 后缀，
+            // Shizuku UserService 的组件必须落在当前变体的包名下才能绑定成功。
             val componentName = ComponentName(
-                "com.hrsthrt74.qstile",
+                BuildConfig.APPLICATION_ID,
                 CommandService::class.java.name
             )
             val userServiceArgs = Shizuku.UserServiceArgs(componentName)

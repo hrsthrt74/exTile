@@ -1,6 +1,8 @@
 package com.hrsthrt74.qstile.data
 
+import com.hrsthrt74.qstile.BuildConfig
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.tile.ExTileService
 
 /**
  * 系统磁贴目录：集中管理全部磁贴的静态声明（内部 spec 值、显示名、分类、图标、可用性需求）。
@@ -10,8 +12,18 @@ import com.hrsthrt74.qstile.R
  */
 object TileCatalog {
 
-    /** exTile 自身磁贴的 spec 值（custom 格式） */
-    const val EXTILE_CUSTOM = "custom(com.hrsthrt74.qstile/.tile.ExTileService)"
+    /**
+     * exTile 自身磁贴的 spec 值（custom 格式）。
+     *
+     * 这里必须用 [BuildConfig.APPLICATION_ID] 而不是硬编码 release 包名：
+     * debug 变体加了 `.debug` 后缀，系统写入 sysui_qs_tiles 的 custom spec 也带后缀，
+     * 硬编码会让应用认不出自己的磁贴，把它当成普通第三方磁贴（锚点丢失）。
+     *
+     * 类名使用完整限定名：release 与 debug 的代码包名都是 `com.hrsthrt74.qstile.tile`，
+     * 与 applicationId 无关；旧的 `custom(com.hrsthrt74.qstile/.tile.ExTileService)` 写法
+     * 由 [CustomTileUtils.isExTileSpec] 做规范化兼容，不会让老用户配置失效。
+     */
+    val EXTILE_CUSTOM: String = "custom(${BuildConfig.APPLICATION_ID}/${ExTileService::class.java.name})"
 
     /**
      * 单个磁贴的静态声明。

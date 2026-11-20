@@ -260,6 +260,12 @@
     <string name="config_add_tab_custom">Third-party</string>
     <string name="config_move_top">Move to top</string>
     <string name="config_move_bottom">Move to bottom</string>
+    <!-- exTile 磁贴菜单：在系统配置中把 Release / Debug 磁贴互换（不影响应用内列表） -->
+    <string name="tile_switch_to_release">Switch to Release</string>
+    <string name="tile_switch_to_debug">Switch to Debug</string>
+    <string name="tile_switch_success">System tile switched to the other variant</string>
+    <string name="tile_switch_failed">Failed to switch, check permissions</string>
+    <string name="tile_switch_no_tile">exTile tile not found in system settings</string>
     <string name="config_section_expanded">Tiles shown when expanded</string>
     <string name="config_tip_title">Tip</string>
     <string name="config_tip_content">Drag tiles behind exTile to collapse them. exTile itself is recommended to be placed at the end of the row.</string>

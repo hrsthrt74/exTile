@@ -6,7 +6,7 @@
 
 | 属性 | 值 |
 |------|------|
-| 包名 | `com.hrsthrt74.qstile` |
+| 包名 | `com.hrsthrt74.qstile`（debug 变体为 `com.hrsthrt74.qstile.debug`，应用名 `exTile DEBUG`，`drawable/icon.xml` 为反色版） |
 | 语言 | Kotlin 2.4.0 |
 | UI | Jetpack Compose + MIUIX (HyperOS 设计) |
 | 构建系统 | Gradle (Kotlin DSL) + AGP 9.3.0 |

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug 构建类型的资源覆盖层（app/src/debug）。
+  这里的资源只在 debug 变体生效，会覆盖 main 源集中的同名资源，
+  用于让调试包在桌面上与应用信息里能与正式包区分开。
+-->
+<resources>
+
+    <!-- 应用名：debug 包追加 DEBUG 后缀，便于与正式包肉眼区分 -->
+    <string name="app_name">exTile DEBUG</string>
+
+</resources>

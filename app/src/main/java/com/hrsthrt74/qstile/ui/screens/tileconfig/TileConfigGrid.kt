@@ -1,5 +1,6 @@
 package com.hrsthrt74.qstile.ui.screens.tileconfig
 
+import android.widget.Toast
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -62,6 +63,7 @@ import com.hrsthrt74.qstile.ui.components.rememberTileIcon
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.TileConfigViewModel
+import com.hrsthrt74.qstile.viewmodel.VariantSwitchResult
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
@@ -382,6 +384,26 @@ fun TileConfigGridPane(
                         // 空 Box 不画任何内容，只做坐标上报。
                         Box(modifier = Modifier.matchParentSize().glassPopupAnchorContent(menuAnchor))
 
+                        // 经典风格：菜单展开时读一次系统配置，决定「切到哪个版本」与是否禁用。
+                        // 玻璃形态的对应逻辑在 TileConfigTileActionMenu 里。
+                        val showVariantSwitch = CustomTileUtils.isAnyExTileSpec(tile) &&
+                            CustomTileUtils.isPackageInstalled(context, CustomTileUtils.oppositePackage)
+                        LaunchedEffect(tile, viewModel.showTileMenu, showVariantSwitch, viewModel.selectedTileForMenu) {
+                            if (viewModel.showTileMenu && !isGlassStyle && showVariantSwitch &&
+                                viewModel.selectedTileForMenu == tile
+                            ) {
+                                viewModel.refreshVariantSwitch(context)
+                            }
+                        }
+                        val switchTarget = viewModel.variantSwitchTarget ?: CustomTileUtils.oppositePackage
+                        val switchLabel = stringResource(
+                            if (switchTarget == CustomTileUtils.DEBUG_PACKAGE) {
+                                R.string.tile_switch_to_debug
+                            } else {
+                                R.string.tile_switch_to_release
+                            }
+                        )
+
                         // 经典风格的操作菜单**必须**在圆形底内部渲染。
                         // miuix 的 WindowListPopup 内部用一个 Spacer 取「父布局节点」的窗口矩形当锚点
                         // （ListPopupLayout 里的 parentBounds），在圆形底里调用，锚点就是这颗磁贴；
@@ -409,6 +431,23 @@ fun TileConfigGridPane(
                                 onMoveBottom = {
                                     viewModel.moveTileToBottom(tile, context)
                                     viewModel.showTileMenu = false
+                                },
+                                // 只对 exTile 磁贴显示，且相对版本已安装；读取失败时置灰但仍显示
+                                switchLabel = if (showVariantSwitch) switchLabel else null,
+                                switchEnabled = viewModel.variantSwitchEnabled,
+                                onSwitchVariant = {
+                                    // 只替换系统配置，应用内列表不动
+                                    scope.launch {
+                                        val result = viewModel.switchExTileVariant(context)
+                                        val messageRes = when (result) {
+                                            VariantSwitchResult.SUCCESS -> R.string.tile_switch_success
+                                            VariantSwitchResult.FAILED -> R.string.tile_switch_failed
+                                            VariantSwitchResult.NO_TILE -> R.string.tile_switch_no_tile
+                                        }
+                                        Toast.makeText(context, messageRes, Toast.LENGTH_SHORT).show()
+                                        viewModel.showTileMenu = false
+                                        viewModel.selectedTileForMenu = null
+                                    }
                                 },
                                 onDelete = {
                                     // 经典风格是系统弹窗，关闭本身瞬时，直接删

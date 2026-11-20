@@ -1,5 +1,6 @@
 package com.hrsthrt74.qstile.ui.screens.tileconfig
 
+import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +33,8 @@ import com.hrsthrt74.qstile.ui.components.GlassTileOperationMenu
 import com.hrsthrt74.qstile.ui.components.rememberTileIcon
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.TileConfigViewModel
+import com.hrsthrt74.qstile.viewmodel.VariantSwitchResult
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -133,6 +137,29 @@ fun TileConfigTileActionMenu(
     }
     val gridTiles = viewModel.gridTiles
 
+    // 「切换到 Release / Debug」：两个版本统一——先确认相对版本已安装才显示这一项
+    val showVariantSwitch = remember(selectedTile) {
+        CustomTileUtils.isAnyExTileSpec(selectedTile) &&
+            CustomTileUtils.isPackageInstalled(context, CustomTileUtils.oppositePackage)
+    }
+    // 菜单展开时读一次系统配置：用它决定「切到哪个版本」以及读取失败时是否禁用
+    LaunchedEffect(selectedTile, viewModel.showTileMenu, showVariantSwitch) {
+        if (viewModel.showTileMenu && showVariantSwitch) {
+            viewModel.refreshVariantSwitch(context)
+        }
+    }
+    // 文案 = 切到「系统当前版本的相对版本」；检测未完成时先按当前 app 的相对版本兜底
+    val switchTarget = viewModel.variantSwitchTarget ?: CustomTileUtils.oppositePackage
+    val switchLabel = stringResource(
+        if (switchTarget == CustomTileUtils.DEBUG_PACKAGE) {
+            R.string.tile_switch_to_debug
+        } else {
+            R.string.tile_switch_to_release
+        }
+    )
+    val switchEnabled = viewModel.variantSwitchEnabled
+    val switchScope = rememberCoroutineScope()
+
     // GlassTransformPopup 用 `updateTransition(show)` 驱动动画：如果它**首次组合**时 show 已经是 true，
     // transition 的 currentState 直接等于目标状态，`animateFloat` 的初始值就是 1，0→1 的行程不存在，
     // 动画整个被跳过——表现就是「首次点击磁贴菜单直接出现，之后才有动画」。
@@ -178,6 +205,22 @@ fun TileConfigTileActionMenu(
                 viewModel.moveTileToBottom(selectedTile, context)
                 viewModel.showTileMenu = false
             },
+            switchLabel = if (showVariantSwitch) switchLabel else null,
+            switchEnabled = switchEnabled,
+            onSwitchVariant = {
+                // 只替换系统配置里的磁贴，应用内的 expanded/collapsed 列表保持原样
+                switchScope.launch {
+                    val result = viewModel.switchExTileVariant(context)
+                    val messageRes = when (result) {
+                        VariantSwitchResult.SUCCESS -> R.string.tile_switch_success
+                        VariantSwitchResult.FAILED -> R.string.tile_switch_failed
+                        VariantSwitchResult.NO_TILE -> R.string.tile_switch_no_tile
+                    }
+                    Toast.makeText(context, messageRes, Toast.LENGTH_SHORT).show()
+                    viewModel.showTileMenu = false
+                    viewModel.selectedTileForMenu = null
+                }
+            },
             onDelete = {
                 if (isGlassStyle) {
                     // 保持 show=true 让面板维持展开形态，由上面的 effect 先整层淡出、
@@ -220,6 +263,8 @@ fun TileConfigTileActionMenu(
  * @param isGlassStyle 是否玻璃风格
  * @param canMoveTop 「移动到顶端」是否可用（已经是第一个时置灰）
  * @param canMoveBottom 「移动到底端」是否可用（已经是最后一个时置灰）
+ * @param switchLabel 变体切换项文案；null 表示不显示该项（未安装相对版本 / 非 exTile 磁贴）
+ * @param switchEnabled 变体切换项是否可用；读取系统配置失败时置灰但仍显示
  * @param onMoveTop / onMoveBottom / onDelete 三个操作回调（由调用方负责关闭菜单）
  * @param onDismissRequest 菜单被点击外部 / 返回键关闭时回调
  */
@@ -234,8 +279,11 @@ fun TileActionMenu(
     isGlassStyle: Boolean,
     canMoveTop: Boolean,
     canMoveBottom: Boolean,
+    switchLabel: String?,
+    switchEnabled: Boolean,
     onMoveTop: () -> Unit,
     onMoveBottom: () -> Unit,
+    onSwitchVariant: () -> Unit,
     onDelete: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -266,10 +314,13 @@ fun TileActionMenu(
             moveTopLabel = stringResource(R.string.config_move_top),
             moveBottomLabel = stringResource(R.string.config_move_bottom),
             deleteLabel = stringResource(R.string.common_delete),
+            switchLabel = switchLabel,
+            switchEnabled = switchEnabled,
             moveTopEnabled = canMoveTop,
             moveBottomEnabled = canMoveBottom,
             onMoveTop = onMoveTop,
             onMoveBottom = onMoveBottom,
+            onSwitchVariant = onSwitchVariant,
             onDelete = onDelete,
             onDismissRequest = onDismissRequest,
         )
@@ -280,6 +331,9 @@ fun TileActionMenu(
             contentColor = MiuixTheme.colorScheme.error,
             selectedContentColor = MiuixTheme.colorScheme.error
         )
+        // 有切换项时总共 4 项，否则仍是原来的 3 项
+        val optionCount = if (switchLabel != null) 4 else 3
+        val deleteIndex = optionCount - 1
         WindowListPopup(
             show = show,
             popupPositionProvider = asymmetricDropdownPositionProvider(
@@ -303,7 +357,7 @@ fun TileActionMenu(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 DropdownImpl(
                     text = stringResource(R.string.config_move_top),
-                    optionSize = 3,
+                    optionSize = optionCount,
                     isSelected = false,
                     index = 0,
                     enabled = canMoveTop,
@@ -311,17 +365,27 @@ fun TileActionMenu(
                 )
                 DropdownImpl(
                     text = stringResource(R.string.config_move_bottom),
-                    optionSize = 3,
+                    optionSize = optionCount,
                     isSelected = false,
                     index = 1,
                     enabled = canMoveBottom,
                     onSelectedIndexChange = { onMoveBottom() }
                 )
+                if (switchLabel != null) {
+                    DropdownImpl(
+                        text = switchLabel,
+                        optionSize = optionCount,
+                        isSelected = false,
+                        index = 2,
+                        enabled = switchEnabled,
+                        onSelectedIndexChange = { onSwitchVariant() }
+                    )
+                }
                 DropdownImpl(
                     text = stringResource(R.string.common_delete),
-                    optionSize = 3,
+                    optionSize = optionCount,
                     isSelected = false,
-                    index = 2,
+                    index = deleteIndex,
                     dropdownColors = errorColors,
                     onSelectedIndexChange = { onDelete() }
                 )

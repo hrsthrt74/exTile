@@ -62,6 +62,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 调试包使用独立的 applicationId 后缀，使 debug 与 release 可以同时安装在同一台设备上，
+            // 且两者的数据目录、Shizuku 授权、磁贴配置互不干扰。
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -80,6 +85,9 @@ android {
     buildFeatures {
         compose = true
         aidl = true
+        // 生成 BuildConfig：磁贴 spec 与 Shizuku 组件名需要用 APPLICATION_ID 区分 release/debug，
+        // debug 变体带 .debug 后缀时不能继续硬编码 release 包名。
+        buildConfig = true
     }
 
     // 使用确定的生成目录，避免 Android SourceSet API 拒绝 Provider 类型目录。

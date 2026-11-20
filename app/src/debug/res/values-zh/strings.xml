@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug 构建类型的中文资源覆盖层。
+  说明：语言/地区等限定符的匹配优先级高于源集覆盖，
+  因此 main 里的 values-zh/strings.xml 会盖掉 debug 里 values 的默认资源，
+  必须在 debug 的 values-zh 中同样声明一份，中文界面下才能看到 DEBUG 后缀。
+-->
+<resources>
+
+    <!-- 应用名：debug 包追加 DEBUG 后缀（中文环境同样保留英文后缀） -->
+    <string name="app_name">exTile DEBUG</string>
+
+</resources>

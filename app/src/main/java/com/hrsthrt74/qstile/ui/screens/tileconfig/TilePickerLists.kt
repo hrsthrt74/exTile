@@ -274,8 +274,14 @@ internal fun ThirdPartyTilePicker(
                 val component = ComponentName(service.packageName, service.className)
                 // 过滤掉已添加的磁贴
                 if (component in currentTileComponents) return@filter false
-                // 过滤掉系统预定义的磁贴
-                component !in systemTileComponents
+                // 过滤掉系统预定义的磁贴（当前变体的 exTile 已在这里面）
+                if (component in systemTileComponents) return@filter false
+                // 过滤掉相反版本的 exTile 磁贴：反向磁贴由菜单里的「切换到 Release / Debug」
+                // 直接改系统配置来互换，不应该在添加 Sheet 里被当第三方磁贴手动添加
+                if (component.packageName == CustomTileUtils.oppositePackage &&
+                    component.className == CustomTileUtils.EX_TILE_SERVICE_CLASS
+                ) return@filter false
+                true
             }
             ?: emptyList()
     }

@@ -19,6 +19,8 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.hrsthrt74.qstile", appContext.packageName)
+        // 目标应用包名：release 为 com.hrsthrt74.qstile，debug 带 .debug 后缀，
+        // 因此这里只校验主包名前缀，避免换了构建类型后断言失败。
+        assertTrue(appContext.packageName.startsWith("com.hrsthrt74.qstile"))
     }
 }

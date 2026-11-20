@@ -449,8 +449,9 @@ object ConfigRepository {
         // 读取系统完整列表（读 secure settings 无需任何权限）
         val tiles = SecureSettingsHelper.getCurrentTiles(context)
         if (tiles.isEmpty()) return SystemImportResult.ReadFailed
-        // 校验是否含 exTile 锚点，否则无法确定展开/收起的边界
-        val extileIndex = tiles.indexOf(TileCatalog.EXTILE_CUSTOM)
+        // 校验是否含 exTile 锚点，否则无法确定展开/收起的边界。
+        // 用规范化比较兼容相对/完整类名两种 spec 写法，以及 debug 变体的 .debug 包名后缀。
+        val extileIndex = tiles.indexOfFirst { CustomTileUtils.isExTileSpec(it) }
         if (extileIndex < 0) return SystemImportResult.NoExtile
 
         // 展开 = 系统完整列表原样保存
