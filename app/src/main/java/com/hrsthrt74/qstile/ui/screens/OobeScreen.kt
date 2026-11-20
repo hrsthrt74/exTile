@@ -1,7 +1,5 @@
 package com.hrsthrt74.qstile.ui.screens
 
-import android.app.StatusBarManager
-import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -65,9 +63,8 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.TileCatalog
-import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
-import com.hrsthrt74.qstile.tile.ExTileService
+import com.hrsthrt74.qstile.tile.TileAddHelper
 import com.hrsthrt74.qstile.ui.MaxContentWidth
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
@@ -99,15 +96,6 @@ import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import java.util.function.Consumer
-import android.graphics.drawable.Icon as AndroidIcon
-
-/**
- * 添加磁贴成功后，延迟多久再展开控制面板。
- * 系统的「添加磁贴」确认弹窗关闭有一小段退场动画，立刻展开会与它抢焦点、
- * 导致控制中心闪一下就收回去，故留出余量。
- */
-private const val EXPAND_PANEL_DELAY_MS = 400L
 
 /**
  * OOBE（首次使用引导）页面。
@@ -252,39 +240,19 @@ fun OobeScreen(
      * 请求系统把 exTile 磁贴加入当前 QS 磁贴集合（SDK 33+）。
      * 系统会弹出确认框，用户同意后磁贴即加入集合；回调仅作兜底，无需强提示。
      *
+     * 具体实现（含回调判定、添加后延迟展开控制中心）统一收敛在 [TileAddHelper]，
+     * 磁贴编辑页「更多」菜单里的同名操作复用同一份逻辑，保证两处行为一致。
+     *
      * @param tileLabel 磁贴显示名（由调用方用 [stringResource] 获取，避免在普通函数里
      *   用 context.getString 触发「Querying resource values」lint 警告）
      */
     fun requestAddTile(tileLabel: String) {
-        val statusBarManager = context.getSystemService(StatusBarManager::class.java) ?: return
-        val componentName = ComponentName(context, ExTileService::class.java)
-        // 图标加载：android.graphics.drawable.Icon（别名 AndroidIcon），
-        // 与 miuix 的 Icon 组件重名，故用 import alias 区分
-        val tileIcon = AndroidIcon.createWithResource(context, R.drawable.ic_tile)
-        statusBarManager.requestAddTileService(
-            componentName,
-            tileLabel,
-            tileIcon,
-            context.mainExecutor,
-            Consumer { result ->
-                // result 为 StatusBarManager 的回调常量：
-                // TILE_ADD_REQUEST_RESULT_TILE_ADDED(2) / TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED(1)
-                // 表示磁贴已在集合中，此时把按钮置灰；其余（未添加 0 或各种错误码）保持可用
-                if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED ||
-                    result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
-                ) {
-                    tileAddRequested = true
-                    // 磁贴已在集合中：顺带把控制中心拉起来，方便用户接着点「编辑」排布磁贴。
-                    // 理想情况是直接进入系统的磁贴编辑页，但该页面是控制中心内部 View，
-                    // shell 权限下没有任何入口（详见 SecureSettingsHelper.openQsTileEditor
-                    // 的逆向注释），因此这里实际执行的是「展开控制面板」的回退分支。
-                    // 先等系统的添加确认弹窗退场，避免两个面板的动画打架。
-                    scope.launch {
-                        delay(EXPAND_PANEL_DELAY_MS)
-                        SecureSettingsHelper.openQsTileEditor()
-                    }
-                }
-            }
+        TileAddHelper.requestAdd(
+            context = context,
+            tileLabel = tileLabel,
+            scope = scope,
+            // 磁贴已在集合中：把按钮置灰（引导用户直接去排布磁贴）
+            onAdded = { tileAddRequested = true },
         )
     }
 

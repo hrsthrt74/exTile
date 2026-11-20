@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.tile.TileAddHelper
 import com.hrsthrt74.qstile.ui.LocalNavPageAction
 import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -108,6 +109,9 @@ fun TileConfigScreen() {
     // Toast 文案在 Composable 上下文预解析，避免协程/onClick 内触发非配置感知的资源读取
     val importedToast = stringResource(R.string.settings_imported_toast)
     val importFailedToast = stringResource(R.string.settings_read_failed_toast)
+    // 磁贴显示名同样在此预解析（供「更多」菜单里的「添加 exTile 磁贴」使用，
+    // 与 OOBE 的 requestAddTile 保持一致，避免在普通函数里读资源）
+    val tileLabel = stringResource(R.string.tile_label)
 
     // 配置尚未从 DataStore 读出前不渲染页面主体（未就绪就空白，与主题/OOBE 的门控策略一致）
     if (!viewModel.isConfigLoaded) return
@@ -131,6 +135,16 @@ fun TileConfigScreen() {
             TileConfigTopBar(
                 canUndo = viewModel.undoSnapshot != null,
                 onUndo = { viewModel.undo(context) },
+                // 「添加 exTile 磁贴」：纯粹请求系统把它加入控制中心，与 OOBE P3 同一套逻辑
+                //（系统弹确认框 → 成功/已存在则延迟展开控制中心）。这条路径不动本应用内的配置数据，
+                // 用户之后可在控制中心里自由拖动磁贴，需要时再用「从系统导入」同步回来。
+                onAddTileClick = {
+                    TileAddHelper.requestAdd(
+                        context = context,
+                        tileLabel = tileLabel,
+                        scope = scope,
+                    )
+                },
                 // 菜单项只负责弹出确认对话框，真正的数据操作在对话框确认后执行
                 onClearClick = { clearConfirmDialogState.show() },
                 onImportClick = { importConfirmDialogState.show() },

@@ -51,7 +51,8 @@ import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
  *
  * 由原来的页内局部函数 [TileConfigScreen] 的 `TileTopAppBar` 拆分而来，职责保持不变：
  * - 标题：宽屏（侧边 NavigationRail）用紧凑形态，窄屏保留大标题形态；
- * - 右侧动作：撤销上一步（仅在存在可撤销快照时显示）+「更多」菜单（清除配置 / 从系统导入）；
+ * - 右侧动作：撤销上一步（仅在存在可撤销快照时显示）+「更多」菜单
+ *   （添加 exTile 磁贴 / 从系统导入 / 清除配置）；
  * - 玻璃风格下，「更多」菜单用 [GlassIconDropdownMenu] 并经 [TopLayer] 提升到应用根部，
  *   避免被顶栏 / 玻璃侧栏遮挡或被 Pager 页面裁剪；
  * - 经典风格下直接用 [WindowIconDropdownMenu]（内部自管显隐状态）。
@@ -65,6 +66,7 @@ import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
  *
  * @param canUndo 是否存在可撤销快照（false 时撤销按钮整体不显示，连占位也没有）
  * @param onUndo 点击「撤销上一步」
+ * @param onAddTileClick 点击「添加 exTile 磁贴」——把 exTile 磁贴加入控制中心（动作与 OOBE 一致）
  * @param onClearClick 点击「清除配置」（由调用方弹确认对话框，本组件不直接操作数据）
  * @param onImportClick 点击「从系统导入磁贴」（同上）
  * @param scrollBehavior 顶栏滚动行为（大标题折叠等），由页面与网格共享同一个实例
@@ -75,6 +77,7 @@ import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
 fun TileConfigTopBar(
     canUndo: Boolean,
     onUndo: () -> Unit,
+    onAddTileClick: () -> Unit,
     onClearClick: () -> Unit,
     onImportClick: () -> Unit,
     scrollBehavior: ScrollBehavior,
@@ -88,18 +91,48 @@ fun TileConfigTopBar(
 
     // 菜单项回调：entry 用 remember 只构造一次以保证弹窗内条目身份稳定，
     // 而回调本身取最新值（remember 里闭包捕获的 lambda 可能已过期）
+    val currentOnAddTile by rememberUpdatedState(onAddTileClick)
     val currentOnClear by rememberUpdatedState(onClearClick)
     val currentOnImport by rememberUpdatedState(onImportClick)
 
-    // 菜单项列表：两种形态（玻璃 / 经典）共用同一份定义
+    // 菜单项列表：两种形态（玻璃 / 经典）共用同一份定义。
+    // 「添加 exTile 磁贴」用 DropdownItem 的两行形态：text 是主标题，summary 是灰色副标题
+    //（miuix 0.9.5-beta01 的 DropdownItem 字段名就是 summary，玻璃走 GlassIconDropdownMenu、
+    //  经典走 WindowIconDropdownMenu，两条路径都会渲染 summary，无需各写一套）。
+    //
+    // 与下面两项之间的分割线：miuix 的菜单只在**分组之间**画线（经典路径见
+    // DropdownEntriesContent 在 entry 之间插 HorizontalDivider；玻璃路径见
+    // GlassIconDropdownMenu 在 groups 之间插 GlassMenuDivider），DropdownItem 本身没有
+    // 「分隔」属性。因此这里刻意拆成两个 DropdownEntry 分组——「加磁贴」独占一组，
+    // 「从系统导入」+「清除配置」一组，天然得到一条分割线，且两种风格表现一致。
+    val addTileMenuText = stringResource(R.string.config_menu_add_tile)
+    val addTileMenuSummary = stringResource(R.string.config_menu_add_tile_summary)
     val clearMenuText = stringResource(R.string.config_menu_clear)
     val importSystemMenuText = stringResource(R.string.settings_import_system_title)
-    val moreMenuEntry = remember(clearMenuText, importSystemMenuText) {
-        DropdownEntry(
-            items = listOf(
-                DropdownItem(text = clearMenuText, onClick = { currentOnClear() }),
-                DropdownItem(text = importSystemMenuText, onClick = { currentOnImport() }),
-            )
+    val moreMenuEntries = remember(
+        addTileMenuText,
+        addTileMenuSummary,
+        clearMenuText,
+        importSystemMenuText
+    ) {
+        listOf(
+            // 第一组：「添加 exTile 磁贴」（增益动作）
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = addTileMenuText,
+                        summary = addTileMenuSummary,
+                        onClick = { currentOnAddTile() },
+                    )
+                )
+            ),
+            // 第二组：导入 + 清除（清除是破坏性动作，固定压尾）
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(text = importSystemMenuText, onClick = { currentOnImport() }),
+                    DropdownItem(text = clearMenuText, onClick = { currentOnClear() }),
+                )
+            ),
         )
     }
 
@@ -170,8 +203,14 @@ fun TileConfigTopBar(
                 )
             }
         } else {
-            // 原版形态：内部自带普通 IconButton 触发器
-            WindowIconDropdownMenu(entry = moreMenuEntry) {
+            // 原版形态：内部自带普通 IconButton 触发器。
+            // 用 entries 版本才能保留分组（分组之间才有分割线）；注意它的
+            // collapseOnSelection 默认值是 `entries.size <= 1`——多组时默认不收起，
+            // 而这三个菜单项都会弹对话框 / 拉起系统面板，必须显式传 true。
+            WindowIconDropdownMenu(
+                entries = moreMenuEntries,
+                collapseOnSelection = true,
+            ) {
                 Icon(MiuixIcons.More, contentDescription = stringResource(R.string.config_more_desc))
             }
         }
@@ -205,7 +244,7 @@ fun TileConfigTopBar(
                         modifier = Modifier.size(28.dp),
                     )
                 },
-                entries = listOf(moreMenuEntry),
+                entries = moreMenuEntries,
                 backdrop = overlayBackdrop,
                 collapseOnSelection = true,
             )

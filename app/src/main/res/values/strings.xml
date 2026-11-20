@@ -245,6 +245,9 @@
     <string name="config_title">Tile config</string>
     <string name="config_undo_desc">Undo last step</string>
     <string name="config_more_desc">More actions</string>
+    <!-- 更多菜单：把 exTile 磁贴加入控制中心（标题 + 副标题两行，对应 DropdownItem 的 text / summary） -->
+    <string name="config_menu_add_tile">Add exTile tile</string>
+    <string name="config_menu_add_tile_summary">To the control center</string>
     <string name="config_menu_clear">Clear current tiles</string>
     <string name="config_clear_summary">This will clear all tile config. This action cannot be undone.</string>
     <string name="config_clear_confirm">Clear</string>

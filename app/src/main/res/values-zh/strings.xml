@@ -245,6 +245,9 @@
     <string name="config_title">磁贴配置</string>
     <string name="config_undo_desc">撤销上一步</string>
     <string name="config_more_desc">更多操作</string>
+    <!-- 更多菜单：把 exTile 磁贴加入控制中心（标题 + 副标题两行，对应 DropdownItem 的 text / summary） -->
+    <string name="config_menu_add_tile">添加 exTile 磁贴</string>
+    <string name="config_menu_add_tile_summary">到控制中心</string>
     <string name="config_menu_clear">清除当前配置的磁贴</string>
     <string name="config_clear_summary">将清空全部磁贴配置，此操作不可撤销。</string>
     <string name="config_clear_confirm">确认清除</string>
