@@ -103,6 +103,7 @@ import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.glass.GlassNavigationRail
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
+import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.glass.glassPress
 import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -110,6 +111,7 @@ import top.yukonga.miuix.kmp.icon.glass.Add
 import top.yukonga.miuix.kmp.icon.glass.All
 import top.yukonga.miuix.kmp.icon.glass.HomeFill
 import top.yukonga.miuix.kmp.icon.glass.SettingsFill
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.drawEdgeStroke
 import top.yukonga.miuix.kmp.material.drawGlassMask
@@ -394,6 +396,11 @@ private fun CompactScreenContent(
                 Box(
                     modifier = Modifier
                         .size(GlassNavigationBarDefaults.Height)
+                        // 阴影要画在按钮轮廓之外，且不能被 graphicsLayer 缩放影响，
+                        // 故挂在 glassPress 之前：阴影参数照搬玻璃底栏胶囊的默认值
+                        // （GlassShadows.Float：黑色 5%、radius 24、dispersion 0.5），
+                        // 让跟随按钮和底栏胶囊的投影保持一致。
+                        .glassShadow(buttonShape, GlassShadows.Float)
                         // 下沉动画作用在背景 + 内容上（graphicsLayer 缩放整层）
                         .glassPress(pressSource)
                         .clickable(
