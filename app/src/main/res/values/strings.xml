@@ -195,19 +195,18 @@
     <!-- 检查更新 -->
     <string name="settings_update_sheet_title">Check for updates</string>
     <string name="settings_update_auto_title">Auto check for updates</string>
-    <string name="update_status_idle">No check yet. Tap the button below to check manually.</string>
     <string name="update_status_checking">Checking for updates…</string>
-    <string name="update_status_up_to_date">You are on the latest version.</string>
-    <string name="update_status_no_release">No release has been published yet.</string>
-    <string name="update_status_failed">Check failed. Check your network connection and try again.</string>
+    <string name="update_status_up_to_date">You are on the latest version</string>
+    <string name="update_status_no_release">No release has been published yet</string>
+    <string name="update_status_failed">Check failed. Check your network connection and try again</string>
     <string name="update_status_available">New version v%s is available</string>
-    <string name="update_status_view_release">View on GitHub</string>
     <string name="update_check_now">Check now</string>
     <string name="update_dialog_title">Update available</string>
     <string name="update_dialog_summary">exTile v%s has been released.</string>
     <string name="update_dialog_confirm">View release</string>
     <string name="update_dialog_cancel">Later</string>
     <string name="update_dialog_no_changelog">No release notes for this version.</string>
+    <string name="update_changelog_title">What\'s new</string>
     <string name="oobe_update_switch_title">Auto check for updates</string>
     <string name="oobe_update_switch_summary">Optional. Check GitHub for new versions.</string>
     <!-- Sheet / Dialog -->
@@ -330,6 +329,9 @@
     <string name="debug_show_no_icon_tiles">Show no-icon tiles</string>
     <string name="debug_show_no_icon_tiles_summary">In the edit page add-tiles sheet, also show preset tiles whose icon cannot be resolved (unsupported system or app uninstalled, dimmed)</string>
     <string name="debug_app_locale">Change app language</string>
+    <string name="debug_section_update">Update check</string>
+    <string name="debug_force_update_title">Force update check</string>
+    <string name="debug_force_update_summary">Ignore the installed version and always report the latest release as an update (this run only)</string>
     <string name="debug_capability_note">Only applies to this run; restart the app to reset</string>
     <string name="debug_demo_activate">Activate icon</string>
     <string name="debug_demo_deactivate">Deactivate icon</string>

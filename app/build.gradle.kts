@@ -9,12 +9,15 @@ plugins {
     alias(libs.plugins.aboutlibraries.plugin)
 }
 
-// 将仓库中的 Markdown 法律文档复制到构建产物，保证 GitHub 与 App 使用同一份来源文件。
-val copyLegalDocuments by tasks.registering(Copy::class) {
+// 将仓库 docs/ 下的 Markdown 复制到构建产物，保证 GitHub 与 App 使用同一份来源文件：
+// - PRIVACY_POLICY.md / TERMS_OF_SERVICE.md：法律文档页离线渲染
+// - CHANGELOG.md（中文）/ CHANGELOG.en.md（英文）：「检查更新」页展示当前版本的更新日志
+//   （不联网即可显示；按当前应用语言选择文件，缺一个时回退到另一个）
+val copyDocsAssets by tasks.registering(Copy::class) {
     from(rootProject.file("docs")) {
-        include("PRIVACY_POLICY.md", "TERMS_OF_SERVICE.md")
+        include("PRIVACY_POLICY.md", "TERMS_OF_SERVICE.md", "CHANGELOG*.md")
     }
-    into(layout.buildDirectory.dir("generated/legalAssets"))
+    into(layout.buildDirectory.dir("generated/docsAssets"))
 }
 
 // 读取项目根目录下的 keystore.properties（含签名密码等敏感信息，已被 .gitignore 忽略）
@@ -91,12 +94,12 @@ android {
     }
 
     // 使用确定的生成目录，避免 Android SourceSet API 拒绝 Provider 类型目录。
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/legalAssets").get().asFile)
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/docsAssets").get().asFile)
 }
 
 // Android 资源任务不会自动依赖自定义 Copy 任务，因此显式建立构建顺序。
 tasks.named("preBuild") {
-    dependsOn(copyLegalDocuments)
+    dependsOn(copyDocsAssets)
 }
 
 dependencies {

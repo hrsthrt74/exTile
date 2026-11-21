@@ -60,6 +60,7 @@ import com.hrsthrt74.qstile.data.TileCapabilityFlags
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.data.TileConfig
 import com.hrsthrt74.qstile.data.TileRequirement
+import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
@@ -326,6 +327,28 @@ fun DebugToolsScreen() {
 //                            Text("复制调试信息")
 //                        }
                     }
+                }
+            }
+
+            // ===== 更新检查 =====
+            item {
+                SmallTitle(text = stringResource(R.string.debug_section_update))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    // 调试开关：无视版本号，只要请求成功就一律按「发现新版本」处理，
+                    // 便于验证更新弹窗 / Toast。状态由 UpdateChecker 持有（Compose 状态），
+                    // 在设置页检查更新时立即生效；仅本次运行有效。
+                    SwitchPreference(
+                        title = stringResource(R.string.debug_force_update_title),
+                        summary = stringResource(R.string.debug_force_update_summary),
+                        checked = UpdateChecker.forceUpdateAvailable,
+                        onCheckedChange = { enabled ->
+                            UpdateChecker.forceUpdateAvailable = enabled
+                        }
+                    )
                 }
             }
 

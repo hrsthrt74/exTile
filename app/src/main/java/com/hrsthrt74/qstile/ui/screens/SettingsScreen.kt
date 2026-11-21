@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -83,6 +84,8 @@ import com.hrsthrt74.qstile.DocsActivity
 import com.hrsthrt74.qstile.ExTileApplication
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.BackupRepository
+import com.hrsthrt74.qstile.data.ChangelogEntry
+import com.hrsthrt74.qstile.data.ChangelogProvider
 import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.data.DeviceProfile
 import com.hrsthrt74.qstile.data.ThemeRepository
@@ -125,7 +128,6 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -805,7 +807,7 @@ fun SettingsScreen() {
         }
     }
 
-    /** 检查更新 Sheet：自动检查开关 / 检查状态 / 手动检查（点击「版本」条目弹出） */
+    /** 检查更新 Sheet：自动检查开关 / 检查状态 / 手动检查 / 当前版本更新日志（点击「版本」条目弹出） */
     @Composable
     fun UpdateSheet() {
         // 自动检查更新开关：直连 DataStore，与 OOBE 隐私页的开关共享同一状态
@@ -815,14 +817,36 @@ fun SettingsScreen() {
         val checkState by UpdateChecker.state.collectAsState()
         // 是否正在检查：检查中要禁用手动按钮，避免并发重复请求
         val checking = checkState is UpdateCheckState.Checking
-        // 更新日志兜底文案（Release 未写说明时显示），提前在 Composable 上下文解析
-        val noChangelogText = stringResource(R.string.update_dialog_no_changelog)
+        // 当前安装版本号：用于在内置更新日志里匹配对应版本小节；
+        // PackageManager 读取放 remember 里，避免每次重组都查一遍
+        val currentVersionName = remember(context) {
+            UpdateChecker.getCurrentVersionName(context).orEmpty()
+        }
+        // 内置更新日志：从随应用打包的 assets/CHANGELOG（按应用语言选中文/英文）里切出当前安装版本那一节。
+        // 与检查更新完全解耦——打开 Sheet 就能看到，无需联网；文件很小，仍在 IO 线程读取
+        val builtinChangelog by produceState<ChangelogEntry?>(initialValue = null, context, currentVersionName) {
+            value = withContext(Dispatchers.IO) {
+                ChangelogProvider.loadForVersion(context, currentVersionName)
+            }
+        }
+        // 内置日志卡片的标题：「版本号 · 发布日期」（如 1.0.2 · 2026-10-10）。
+        // 日期取自 CHANGELOG 节标题的括号，没写日期就只显示版本号；
+        // 整节都读不到时退化为通用标题「更新日志」，避免标题空着
+        val fallbackChangelogTitle = stringResource(R.string.update_changelog_title)
+        val builtinChangelogTitle = builtinChangelog
+            ?.let { entry -> entry.date?.let { date -> "${entry.version} · $date" } ?: entry.version }
+            ?: fallbackChangelogTitle
 
         AppBottomSheet(
             state = updateSheetState,
             title = stringResource(R.string.settings_update_sheet_title)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // 整页滚动：日志不再单独限高内滚，长日志跟随整个 Sheet 内容一起滑动
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
                 // 自动检查更新开关：开启后应用每次冷启动时会静默检查一次
                 Card(modifier = Modifier.fillMaxWidth()) {
                     SwitchPreference(
@@ -838,117 +862,63 @@ fun SettingsScreen() {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 检查状态卡片：按状态机渲染最近一次（自动/手动）检查结果
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        when (val state = checkState) {
-                            // 尚未检查过：给一句引导文案
-                            is UpdateCheckState.Idle -> {
-                                Text(
-                                    text = stringResource(R.string.update_status_idle),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            // 检查中：转圈 + 提示
-                            is UpdateCheckState.Checking -> {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    InfiniteProgressIndicator()
-                                    Text(
-                                        text = stringResource(R.string.update_status_checking),
-                                        style = MiuixTheme.textStyles.body2,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                    )
-                                }
-                            }
-                            // 已是最新（远端版本不高于当前版本）
-                            is UpdateCheckState.UpToDate -> {
-                                Text(
-                                    text = stringResource(R.string.update_status_up_to_date),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            // 仓库还没有发布任何 Release（不算失败）
-                            is UpdateCheckState.NoRelease -> {
-                                Text(
-                                    text = stringResource(R.string.update_status_no_release),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            // 检查失败（断网 / 限流 / 响应异常等）
-                            is UpdateCheckState.Failed -> {
-                                Text(
-                                    text = stringResource(R.string.update_status_failed),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                )
-                            }
-                            // 发现新版本：版本号 + 更新日志 + 跳转 Release 页面
-                            is UpdateCheckState.Available -> {
-                                Text(
-                                    text = stringResource(R.string.update_status_available, state.latestVersion),
-                                    style = MiuixTheme.textStyles.body1,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                // 更新日志：Markdown 源文本经 Markwon 解析渲染（标题/列表/加粗/链接等），
-                                // 限高 200dp，超出部分在本区域内部滚动
-                                if (state.changelog.isBlank()) {
-                                    // Release 未写更新说明时的兜底文案（纯文本即可）
-                                    Text(
-                                        text = noChangelogText,
-                                        style = MiuixTheme.textStyles.footnote1,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                    )
-                                } else {
-                                    ChangelogMarkdownText(
-                                        changelog = state.changelog,
-                                        modifier = Modifier
-                                            .heightIn(max = 200.dp)
-                                            .verticalScroll(rememberScrollState())
-                                    )
-                                }
-                                // 前往 GitHub 查看该 Release
-                                TextButton(
-                                    text = stringResource(R.string.update_status_view_release),
-                                    onClick = {
-                                        runCatching {
-                                            context.startActivity(
-                                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(state.releaseUrl))
-                                            )
-                                        }
-                                    },
-                                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 手动检查按钮：检查中禁用，防止并发重复请求
+                // 手动检查按钮：检查中禁用并用文案提示，防止并发重复请求。
+                // 检查结果不再占用卡片，直接用 Toast 反馈（已是最新 / 发现新版本 / 暂无发布 / 失败）
                 Button(
                     onClick = {
                         scope.launch {
-                            UpdateChecker.checkForUpdate(context)
+                            val result = UpdateChecker.checkForUpdate(context)
+                            // Idle / Checking 是过程态，没有可提示的结论；其余终态各给一句
+                            val message = when (result) {
+                                is UpdateCheckState.UpToDate ->
+                                    context.getString(R.string.update_status_up_to_date)
+                                is UpdateCheckState.Available ->
+                                    context.getString(R.string.update_status_available, result.latestVersion)
+                                is UpdateCheckState.NoRelease ->
+                                    context.getString(R.string.update_status_no_release)
+                                is UpdateCheckState.Failed ->
+                                    context.getString(R.string.update_status_failed)
+                                else -> null
+                            }
+                            message?.let {
+                                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
                     enabled = !checking,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(stringResource(R.string.update_check_now))
+                    // 检查中把按钮文案换成「正在检查更新…」，让按钮变灰有明确原因
+                    Text(
+                        stringResource(
+                            if (checking) R.string.update_status_checking else R.string.update_check_now
+                        )
+                    )
+                }
+
+                // 当前版本更新日志：来自打包进 assets 的 CHANGELOG（按应用语言选择），
+                // 离线渲染、与检查结果无关，始终显示
+                val changelogEntry = builtinChangelog
+                if (changelogEntry != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                text = builtinChangelogTitle,
+                                style = MiuixTheme.textStyles.body1,
+                                fontWeight = FontWeight.Bold
+                            )
+                            // Markdown 渲染（标题/列表/加粗/链接等）：不设限高，跟随 Sheet 整体滚动
+                            ChangelogMarkdownText(changelog = changelogEntry.body)
+                        }
+                    }
                 }
 
                 // 底部避让导航栏（与其他 Sheet 保持一致）

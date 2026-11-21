@@ -2,6 +2,9 @@ package com.hrsthrt74.qstile.data
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,8 +52,12 @@ sealed interface UpdateCheckState {
  * 只做一件事：请求本仓库最新的 Release（`releases/latest`），与当前安装版本比较。
  * 不引入任何第三方网络/JSON 库，直接用内置的 HttpURLConnection + org.json。
  *
+ * 注意：**当前安装版本的更新日志不走这里**，而是由 [ChangelogProvider] 从打包进 assets 的
+ * `CHANGELOG.md` 离线读取——打开「检查更新」Sheet 即可看到日志，不必先联网检查。
+ * 本类只在「发现新版本」时把远端的新版本日志交给界面展示。
+ *
  * 状态通过 [state]（StateFlow）暴露：
- * - 版本 Sheet（设置页）读取它渲染「上次检查结果」；
+ * - 检查更新 Sheet（设置页）读取它渲染「上次检查结果」；
  * - 壳层（MainApp）观察它，仅当变为 [UpdateCheckState.Available] 时弹「发现新版本」对话框；
  *   无更新 / 暂无发布 / 失败均静默，不打扰用户。
  *
@@ -83,6 +90,15 @@ object UpdateChecker {
     private var autoCheckDone = false
 
     /**
+     * 调试开关「强制拉取更新」（默认关闭）。
+     *
+     * 开启后检查更新不再比较版本号，只要请求成功就一律视为 [UpdateCheckState.Available]，
+     * 方便验证「发现新版本」的弹窗、Toast 与日志展示。用 Compose 状态承载，
+     * 调试工具页的开关切换后界面能立即反映；仅本次运行生效（内存态），重启应用复位。
+     */
+    var forceUpdateAvailable by mutableStateOf(false)
+
+    /**
      * 自动检查入口：进程冷启动时由 MainActivity 调用。
      * 满足以下全部条件才真正发起检查，否则直接返回：
      * - 本进程尚未自动检查过（旋转屏幕等 Activity 重建不会重复请求）；
@@ -111,7 +127,7 @@ object UpdateChecker {
     }
 
     /**
-     * 手动检查入口：版本 Sheet 的「手动检查」按钮调用。
+     * 手动检查入口：检查更新 Sheet 的「手动检查」按钮调用。
      * 无论如何都会真正发起请求，并把过程与结果写入 [state] 供界面渲染。
      *
      * @return 本次检查结果（与 [state] 当前值一致）
@@ -169,19 +185,19 @@ object UpdateChecker {
             val releaseUrl = json.optString("html_url").ifBlank { RELEASES_PAGE_URL }
 
             val currentVersion = getCurrentVersionName(context)
+            // 是否提示更新：调试开关开启时无视版本比较（一律视为有新版本）；
+            // 否则远端版本号更大才算有更新，相等或更小都视为已是最新。
             // 当前版本号读取失败（几乎不会发生）时保守起见视为「已是最新」，避免误报更新
-            if (currentVersion == null) return UpdateCheckState.UpToDate
+            val hasUpdate = forceUpdateAvailable ||
+                (currentVersion != null && compareVersions(currentVersion, tagName) < 0)
 
-            // 远端版本号更大才提示更新；相等或更小都视为已是最新
-            return if (compareVersions(currentVersion, tagName) < 0) {
-                UpdateCheckState.Available(
-                    latestVersion = tagName.removePrefix("v").removePrefix("V"),
-                    changelog = changelog,
-                    releaseUrl = releaseUrl
-                )
-            } else {
-                UpdateCheckState.UpToDate
-            }
+            if (!hasUpdate) return UpdateCheckState.UpToDate
+
+            return UpdateCheckState.Available(
+                latestVersion = tagName.removePrefix("v").removePrefix("V"),
+                changelog = changelog,
+                releaseUrl = releaseUrl
+            )
         } finally {
             connection.disconnect()
         }

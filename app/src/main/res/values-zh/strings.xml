@@ -195,19 +195,18 @@
     <!-- 检查更新 -->
     <string name="settings_update_sheet_title">检查更新</string>
     <string name="settings_update_auto_title">自动检查更新</string>
-    <string name="update_status_idle">尚未检查更新，可点击下方按钮手动检查。</string>
     <string name="update_status_checking">正在检查更新…</string>
-    <string name="update_status_up_to_date">当前已是最新版本。</string>
-    <string name="update_status_no_release">仓库暂无发布版本。</string>
-    <string name="update_status_failed">检查失败，请检查网络连接后重试。</string>
+    <string name="update_status_up_to_date">当前已是最新版本</string>
+    <string name="update_status_no_release">仓库暂无发布版本</string>
+    <string name="update_status_failed">检查失败，请检查网络连接后重试</string>
     <string name="update_status_available">发现新版本 v%s</string>
-    <string name="update_status_view_release">前往 GitHub 查看</string>
     <string name="update_check_now">手动检查</string>
     <string name="update_dialog_title">发现新版本</string>
     <string name="update_dialog_summary">exTile v%s 已发布。</string>
     <string name="update_dialog_confirm">前往查看</string>
     <string name="update_dialog_cancel">以后再说</string>
     <string name="update_dialog_no_changelog">本次发布暂无更新说明。</string>
+    <string name="update_changelog_title">更新日志</string>
     <string name="oobe_update_switch_title">自动检查更新</string>
     <string name="oobe_update_switch_summary">可选，启动时联网检查新版本。</string>
     <!-- Sheet / Dialog -->
@@ -330,6 +329,9 @@
     <string name="debug_show_no_icon_tiles">显示无图标磁贴</string>
     <string name="debug_show_no_icon_tiles_summary">编辑页「添加磁贴」Sheet 额外显示因拿不到图标而隐藏的磁贴（系统不支持或应用已卸载，降透明度展示）</string>
     <string name="debug_app_locale">更改应用语言</string>
+    <string name="debug_section_update">更新检查</string>
+    <string name="debug_force_update_title">强制拉取更新</string>
+    <string name="debug_force_update_summary">无视当前版本，只要请求成功就一律视为发现新版本（仅本次运行生效）</string>
     <string name="debug_capability_note">仅本次运行生效，重启应用恢复默认</string>
     <string name="debug_demo_activate">激活 icon</string>
     <string name="debug_demo_deactivate">禁用 icon</string>
