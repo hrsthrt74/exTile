@@ -180,7 +180,11 @@
     <string name="settings_qq_group_copied">群号已复制</string>
     <string name="settings_donate_summary">给作者加个鸡腿</string>
     <string name="settings_donate_thanks">感谢有你，我才能走得更远～</string>
-    <string name="settings_donate_qr_desc">微信收款码</string>
+    <!-- 打赏渠道 Tab 文案（微信 / 支付宝），两张收款码用 AnimatedContent 切换 -->
+    <string name="settings_donate_tab_wx">微信</string>
+    <string name="settings_donate_tab_alipay">支付宝</string>
+    <string name="settings_donate_qr_desc_wx">微信收款码</string>
+    <string name="settings_donate_qr_desc_alipay">支付宝收款码</string>
     <!-- 打赏 Sheet 底部声明：前缀 + 可点击的「用户协议」链接 + 章节/退款说明，分段拼接保证英文语序下链接定位正确 -->
     <string name="settings_donate_agree_prefix">打赏目标为 hrsthrt74。继续打赏即代表已阅读并同意 </string>
     <string name="settings_donate_agree_link_terms">用户协议</string>
