@@ -73,7 +73,7 @@ fun HomeScreen(
     val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
 
     // ---- 状态声明 ----
-    /** 使用统计（累计展开/收起次数），实时订阅 DataStore */
+    /** 使用统计（累计使用次数 + 最近 7 天分桶），实时订阅 DataStore */
     val stats by StatsRepository.getStatsFlow(context)
         .collectAsState(initial = TileStats())
     /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖），含初始加载与前台自动衔接 */
@@ -159,12 +159,9 @@ fun HomeScreen(
 
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
-                // 使用统计卡片：展示累计展开/收起次数（由磁贴切换成功时记录）
+                // 使用统计卡片：展示累计使用次数 + 最近 7 天趋势（由磁贴切换成功时记录）
                 item {
-                    StatsCard(
-                        totalExpandCount = stats.totalExpandCount,
-                        totalCollapseCount = stats.totalCollapseCount
-                    )
+                    StatsCard(stats = stats)
                 }
 
                 item { Spacer(modifier = Modifier.height(12.dp)) }

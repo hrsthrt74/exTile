@@ -316,8 +316,9 @@
     <!-- ===== 主页 home_ ===== -->
     <string name="home_no_shizuku_toast">Shizuku app not found</string>
     <string name="home_stats_title">Usage stats</string>
-    <string name="home_stats_expand_total">Total expands</string>
-    <string name="home_stats_collapse_total">Total collapses</string>
+    <string name="home_stats_unit_times">times</string>
+    <string name="home_stats_recent_days">Last %1$d days</string>
+    <string name="home_stats_empty">No usage yet — tap the exTile tile in Control Center to start counting</string>
     <string name="home_first_version_title">First version</string>
     <string name="home_first_version_summary">exTile is still in its early stages — thanks for your support! Found a problem? Tap this card to report it on GitHub Issues. Thanks for your usage!</string>
 

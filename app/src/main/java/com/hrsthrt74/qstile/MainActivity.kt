@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
     /**
      * 上传统计数据到 Clarity。
      * 只在前台启动时调用一次，后台不调用。
-     * 读取当前的展开/收起计数，发送到 Clarity 作为自定义标签。
+     * 读取本地的累计使用次数，发送到 Clarity 作为自定义标签。
      */
     private fun uploadStatsToClarity() {
         val application = applicationContext as? ExTileApplication ?: return
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
         activityScope.launch {
             try {
                 val stats = StatsRepository.getStats(this@MainActivity)
-                application.sendStatsToClarity(stats.totalExpandCount, stats.totalCollapseCount)
+                application.sendStatsToClarity(stats.totalUsageCount)
             } catch (e: Exception) {
                 // 静默失败，不影响用户体验
             }

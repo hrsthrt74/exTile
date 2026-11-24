@@ -134,13 +134,15 @@ class ExTileService : TileService() {
                     // 写层 + 同步该层的两个联动开关（与「恢复备份」共用同一实现）
                     if (ConfigRepository.applyCreativeLayer(this@ExTileService, creative.layer(target))) {
                         ConfigRepository.saveCreativeActiveLayer(this@ExTileService, target)
+                        // 统计：切层同样是一次「使用磁贴」，写入成功后才计数（失败不算）
+                        StatsRepository.recordUsage(this@ExTileService)
                     }
-                    // TODO(统计): 创造模式暂不记录展开/收起统计，待统计模块重构后补「层切换」指标
                 } else {
                     // 普通模式：当前展开则收起，当前收起则展开
                     val config = ConfigRepository.getConfig(this@ExTileService)
                     val newIsExpanded = !config.isExpanded
-                    applyLayout(this@ExTileService, newIsExpanded, config)
+                    // 用户主动点击 -> 计入使用次数
+                    applyLayout(this@ExTileService, newIsExpanded, config, countAsUsage = true)
                 }
                 updateTileState()
             } catch (e: Exception) {
@@ -213,7 +215,8 @@ class ExTileService : TileService() {
                 if (!config.isExpanded) return@launch
 
                 Log.d(TAG, "Auto-collapsing after confirmed QS panel close")
-                applyLayout(context, newIsExpanded = false, config = config)
+                // 自动收起是系统行为、不是用户操作，不计入「使用次数」
+                applyLayout(context, newIsExpanded = false, config = config, countAsUsage = false)
                 // 这里不再调用 updateTileState()：面板已经关闭，qsTile 通常也已失效，
                 // 再刷一次只会让 SystemUI 多重绘一遍；磁贴文案会在下次 onStartListening 时刷新。
             } catch (e: Exception) {
@@ -244,17 +247,21 @@ class ExTileService : TileService() {
      * 避免重复代码。执行顺序：
      * 1. 写 sysui_qs_tiles（目标布局）
      * 2. 保存 isExpanded 标志
-     * 3. 记录统计（展开/收起）
+     * 3. 记录统计（仅用户点击，见 [countAsUsage]）
      * 4. 按开关同步无字模式 / 融合设备中心
      *
      * @param context Context（自动收起路径传 applicationContext：服务实例可能已销毁）
      * @param newIsExpanded 目标展开状态：true = 展开，false = 收起
      * @param config 当前配置（用于获取展开/收起磁贴列表，避免重复读取）
+     * @param countAsUsage 是否计入「使用次数」。
+     *   统计口径已合并为「用户点了磁贴几次」，自动收起是系统行为而非用户操作，
+     *   若也计数则「点一次 = 展开 + 自动收起两次」，数字会翻倍、趋势图也失真，故自动收起传 false。
      */
     private suspend fun applyLayout(
         context: Context,
         newIsExpanded: Boolean,
-        config: com.hrsthrt74.qstile.data.TileConfig
+        config: com.hrsthrt74.qstile.data.TileConfig,
+        countAsUsage: Boolean
     ) {
         val tilesToSet = if (newIsExpanded) {
             config.expandedTiles
@@ -269,10 +276,8 @@ class ExTileService : TileService() {
             Log.d(TAG, "Layout applied: ${if (newIsExpanded) "expanded" else "collapsed"}")
 
             // 记录统计：仅统计布局切换成功的情况（失败不算）
-            if (newIsExpanded) {
-                StatsRepository.recordExpand(context)
-            } else {
-                StatsRepository.recordCollapse(context)
+            if (countAsUsage) {
+                StatsRepository.recordUsage(context)
             }
 
             // 「展开收起同时控制无字模式」：开启后，磁贴切换布局时同步 wordless_mode

@@ -79,14 +79,18 @@ class ExTileApplication : Application() {
     /**
      * 上传自定义统计数据到 Clarity。
      * 只在前台时调用，后台不调用。
+     *
+     * 统计口径已从「展开 / 收起两个计数器」合并为单一的「使用次数」，
+     * 因此这里只上传一个标签 `total_usage`（旧的 `total_expand` / `total_collapse` 不再写入）。
+     *
+     * @param usageCount 本地累计使用次数
      */
-    fun sendStatsToClarity(expandCount: Long, collapseCount: Long) {
+    fun sendStatsToClarity(usageCount: Long) {
         if (!clarityInitialized) return
 
         try {
-            Clarity.setCustomTag("total_expand", expandCount.toString())
-            Clarity.setCustomTag("total_collapse", collapseCount.toString())
-            Log.d(TAG, "统计数据已上传到 Clarity: expand=$expandCount, collapse=$collapseCount")
+            Clarity.setCustomTag("total_usage", usageCount.toString())
+            Log.d(TAG, "统计数据已上传到 Clarity: usage=$usageCount")
         } catch (e: Exception) {
             Log.e(TAG, "上传统计数据到 Clarity 失败", e)
         }
