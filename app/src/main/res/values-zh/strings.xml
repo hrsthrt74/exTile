@@ -130,6 +130,13 @@
     <string name="settings_device_center_summary">展开显示设备中心，收起隐藏</string>
     <string name="settings_auto_collapse_title">自动收起</string>
     <string name="settings_auto_collapse_summary">收起控制中心时，自动折叠</string>
+    <!-- 高级功能：创造模式（两套独立布局） -->
+    <string name="settings_section_advanced">高级</string>
+    <string name="settings_creative_title">「创造模式」</string>
+    <string name="settings_creative_summary">保存两层独立的布局，点击磁贴切换</string>
+    <string name="settings_creative_read_failed">读取系统磁贴配置失败</string>
+    <string name="settings_creative_write_failed">写入系统布局失败，请检查权限</string>
+    <string name="settings_creative_exit_failed">恢复普通布局失败，请检查权限</string>
     <string name="settings_section_custom">自定义</string>
     <string name="settings_tile_icon_title">磁贴图标</string>
     <string name="settings_tile_icon_default">默认</string>
@@ -168,7 +175,11 @@
     <string name="settings_view_sysui_summary">sysui_qs_tiles 值</string>
     <string name="settings_import_system_title">从系统导入磁贴</string>
     <string name="settings_import_system_summary">将当前系统磁贴配置保存为展开状态</string>
+    <!-- 创造模式下该入口禁用，引导用户去编辑页按层导入 -->
+    <string name="settings_import_system_summary_creative">创造模式已开启，请在磁贴编辑页导入到当前层</string>
     <string name="settings_import_system_dialog_summary">将当前系统磁贴配置保存为展开状态，现有的展开配置将被覆盖。</string>
+    <!-- 创造模式下「从系统导入」只写当前编辑层 -->
+    <string name="settings_import_system_dialog_summary_creative">将当前系统磁贴配置导入到「层 %1$d」，本层现有配置将被覆盖。</string>
     <!-- 关于分类 -->
     <string name="settings_cat_about">关于</string>
     <string name="settings_author_role">主开发 / 设计</string>
@@ -233,6 +244,12 @@
     <string name="settings_no_backups">暂无备份</string>
     <string name="settings_load_failed_toast">加载失败</string>
     <string name="settings_backup_counts">展开 %1$d 个 / 收起 %2$d 个</string>
+    <!-- 备份列表中标注含创造模式数据（第三参数为层数） -->
+    <string name="settings_backup_counts_creative">展开 %1$d 个 / 收起 %2$d 个 · 创造模式 %3$d 层</string>
+    <!-- 恢复时配置已写入、但创造模式布局写不进系统（通常是权限问题） -->
+    <string name="settings_restore_creative_failed">配置已恢复，但创造模式布局未能写入系统，请检查权限</string>
+    <!-- 旧备份导入成功，但当前开着创造模式，所以普通布局暂时看不到 -->
+    <string name="settings_restore_creative_active">配置已恢复；创造模式开启中，普通布局会在退出后生效</string>
     <string name="settings_delete_backup_title">删除备份</string>
     <string name="settings_delete_backup_summary">确定要删除备份「%1$s」吗？此操作不可撤销。</string>
     <string name="settings_deleted_toast">已删除</string>
@@ -253,6 +270,8 @@
     <string name="config_menu_add_tile_summary">到控制中心</string>
     <string name="config_menu_clear">清除当前配置的磁贴</string>
     <string name="config_clear_summary">将清空全部磁贴配置，此操作不可撤销。</string>
+    <!-- 创造模式下「清除配置」只清当前层；exTile 必须保留（唯一的切层入口） -->
+    <string name="config_clear_summary_creative">将清空「层 %1$d」的磁贴（exTile 磁贴会保留），此操作不可撤销。</string>
     <string name="config_clear_confirm">确认清除</string>
     <string name="config_menu_reset">恢复默认设置</string>
     <string name="config_reset_summary">将展开和收起磁贴配置恢复为默认值，当前配置将丢失。</string>
@@ -281,6 +300,18 @@
     <string name="config_permission_needed">需要读取应用列表权限才能获取其他应用的磁贴</string>
     <string name="config_go_grant">前往授权</string>
     <string name="config_no_custom_tiles">没有可用的自定义磁贴</string>
+
+    <!-- 创造模式：编辑页的层 Tab 与「当切换到此层时……」卡片 -->
+    <string name="config_creative_tab_layer">层 %1$d</string>
+    <string name="config_creative_layer_options_title">当切换到此层时……</string>
+    <string name="config_creative_show_label_title">显示磁贴名</string>
+    <string name="config_creative_show_label_summary">切换到本层时显示磁贴名字（关闭则进入无字模式）</string>
+    <string name="config_creative_device_center_title">显示融合设备中心</string>
+    <string name="config_creative_device_center_summary">切换到本层时显示融合设备中心</string>
+    <!-- 编辑页网格最底部的一行小字，提示当前处于切层（创造）模式 -->
+    <string name="config_creative_mode_footer">创造模式</string>
+    <!-- 创造模式下 exTile 磁贴的标签（替代「展开 / 收起」预设） -->
+    <string name="tile_creative_layer_label">层 %1$d</string>
 
     <!-- ===== 主页 home_ ===== -->
     <string name="home_no_shizuku_toast">未找到 Shizuku 应用</string>

@@ -55,6 +55,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * @param switchLabel 变体切换项文案；为 null 时不显示该项（非 exTile 磁贴、或相对版本未安装）
  * @param switchEnabled 变体切换项可用性；读取系统配置失败时置灰但仍显示
  * @param moveTopEnabled / moveBottomEnabled 移动项可用性
+ * @param deleteEnabled 删除项可用性：创造模式下 exTile 是唯一的切层入口，删除项置灰
  * @param onMoveTop / onMoveBottom / onSwitchVariant / onDelete 操作回调（由调用方负责关闭菜单）
  * @param onDismissRequest 点击外部 / 返回键请求关闭
  */
@@ -72,6 +73,7 @@ fun GlassTileOperationMenu(
     switchEnabled: Boolean,
     moveTopEnabled: Boolean,
     moveBottomEnabled: Boolean,
+    deleteEnabled: Boolean = true,
     onMoveTop: () -> Unit,
     onMoveBottom: () -> Unit,
     onSwitchVariant: () -> Unit,
@@ -144,6 +146,8 @@ fun GlassTileOperationMenu(
                 // 删除不可逆，文案用错误色（与经典风格的 DropdownImpl 一致）
                 contentColor = MiuixTheme.colorScheme.error,
                 selectedContentColor = MiuixTheme.colorScheme.error,
+                // 创造模式下 exTile 不允许删除（删了就再也切不回来），置灰但不隐藏
+                enabled = deleteEnabled,
                 onClick = onDelete,
             )
         }

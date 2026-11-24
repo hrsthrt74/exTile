@@ -207,6 +207,8 @@ fun TileConfigTileActionMenu(
             },
             switchLabel = if (showVariantSwitch) switchLabel else null,
             switchEnabled = switchEnabled,
+            // 创造模式下 exTile 不允许删除（它是唯一的切层入口）
+            canDelete = viewModel.canDeleteTile(selectedTile),
             onSwitchVariant = {
                 // 只替换系统配置里的磁贴，应用内的 expanded/collapsed 列表保持原样
                 switchScope.launch {
@@ -281,6 +283,8 @@ fun TileActionMenu(
     canMoveBottom: Boolean,
     switchLabel: String?,
     switchEnabled: Boolean,
+    /** 是否允许删除：创造模式下 exTile 是唯一的切层入口，传 false 置灰删除项 */
+    canDelete: Boolean = true,
     onMoveTop: () -> Unit,
     onMoveBottom: () -> Unit,
     onSwitchVariant: () -> Unit,
@@ -318,6 +322,7 @@ fun TileActionMenu(
             switchEnabled = switchEnabled,
             moveTopEnabled = canMoveTop,
             moveBottomEnabled = canMoveBottom,
+            deleteEnabled = canDelete,
             onMoveTop = onMoveTop,
             onMoveBottom = onMoveBottom,
             onSwitchVariant = onSwitchVariant,
@@ -386,8 +391,11 @@ fun TileActionMenu(
                     optionSize = optionCount,
                     isSelected = false,
                     index = deleteIndex,
+                    // 创造模式下 exTile 不允许删除：置灰且不派发回调（置灰本身已拦点击，
+                    // 这里再加一道判断，避免不同 ROM 的 DropdownImpl 忽略 enabled）
+                    enabled = canDelete,
                     dropdownColors = errorColors,
-                    onSelectedIndexChange = { onDelete() }
+                    onSelectedIndexChange = { if (canDelete) onDelete() }
                 )
             }
         }

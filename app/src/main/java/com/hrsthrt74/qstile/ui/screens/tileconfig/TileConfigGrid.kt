@@ -1,6 +1,12 @@
 package com.hrsthrt74.qstile.ui.screens.tileconfig
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -54,6 +60,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
+import com.hrsthrt74.qstile.data.CreativeLayer
 import com.hrsthrt74.qstile.data.CustomTileUtils
 import com.hrsthrt74.qstile.data.TileCatalog
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
@@ -86,6 +93,7 @@ import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.AddCircle
 import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.icon.glass.AiWriting
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.SinkFeedback
 import top.yukonga.miuix.kmp.utils.pressable
@@ -101,13 +109,15 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 private val TileMenuAnchorCornerRadius = 34.dp
 
 /**
- * 磁贴编辑页的网格主体（一页式布局，含虚线框 overlay）。
+ * 本组件是**壳**：普通模式直接渲染一份 [CreativeGridLayer]；创造模式用 `AnimatedContent`
+ * 按层包成「每层一份网格」，切层时交叉淡入淡出（旧层以镜像模式渲染自己的快照）。
+ * 真正的网格内容都在 [CreativeGridLayer] 里。
  *
- * 由原 `TileConfigScreen` 的页内局部函数 `TileGridPane` 拆分而来，行为保持不变：
- * 按住任意磁贴直接拖动，4 列布局；exTile 磁贴是「分界锚点」——它及其之前的磁贴 = 收起时可见（框外），
- * 之后的磁贴 = 仅展开时可见（框内，画在虚线框内）。拖动磁贴跨过 exTile 即自动进出框。
+ * 网格行为：按住任意磁贴直接拖动，4 列布局；exTile 磁贴是「分界锚点」——它及其之前的磁贴
+ * = 收起时可见（框外），之后的磁贴 = 仅展开时可见（框内，画在虚线框内）。
+ * 拖动磁贴跨过 exTile 即自动进出框。
  *
- * 内部还包含三个只在本网格内使用的子块：
+ * [CreativeGridLayer] 内部还包含三个只在本网格内使用的子块：
  * - `FixedTilesRow`：小米设备特化，固定在顶部、不参与拖拽的两张卡片；
  * - `AddTilesSection`：网格末尾的「添加磁贴」按钮（窄屏玻璃风格时会隐藏，避免与底栏跟随按钮重复）；
  * - 磁贴格子与标题行，以及锚定在格子上的 [TileActionMenu]。
@@ -132,6 +142,82 @@ fun TileConfigGridPane(
     scrollBehavior: ScrollBehavior,
     tileMenuAnchors: MutableMap<String, GlassPopupAnchor>,
 ) {
+    // 普通模式没有「层」，只有一份网格，也不需要任何过渡
+    if (!viewModel.isCreativeMode) {
+        CreativeGridLayer(
+            viewModel = viewModel,
+            contentPadding = contentPadding,
+            isDynamicColor = isDynamicColor,
+            onAddTileClick = onAddTileClick,
+            scrollBehavior = scrollBehavior,
+            tileMenuAnchors = tileMenuAnchors,
+        )
+        return
+    }
+
+    // 创造模式：**每层一份独立网格实例**，切层时真·交叉淡入淡出。
+    //
+    // 参数与「添加磁贴」Sheet 的 Tab 切换逐项对齐：入场 220ms 淡入 + 从一侧滑入 1/8 页宽，
+    // 出场 150ms 淡出 + 向反侧滑出（旧内容先让位，新内容随后就位）。
+    //
+    // 之所以能「画两份」：每份网格的 rememberLazyGridState / rememberReorderableLazyGridState
+    // 都在分支内部，天然各一套；正在淡出的那份以 [CreativeGridLayer] 的 mirror 模式渲染
+    // **旧层的数据快照**（只读：不挂拖拽句柄、不注册菜单锚点、不响应点击），
+    // 因此淡出的是真正的旧层，而不是新内容的重复淡入。
+    AnimatedContent(
+        targetState = viewModel.editingLayer,
+        transitionSpec = {
+            val forward = targetState > initialState
+            (
+                fadeIn(animationSpec = tween(220)) +
+                    slideInHorizontally(animationSpec = tween(220)) {
+                        if (forward) it / 8 else -it / 8
+                    }
+                ) togetherWith (
+                fadeOut(animationSpec = tween(150)) +
+                    slideOutHorizontally(animationSpec = tween(150)) {
+                        if (forward) -it / 8 else it / 8
+                    }
+                )
+        },
+        label = "creativeLayerGrid",
+        modifier = Modifier.fillMaxSize(),
+    ) { layer ->
+        CreativeGridLayer(
+            viewModel = viewModel,
+            contentPadding = contentPadding,
+            isDynamicColor = isDynamicColor,
+            onAddTileClick = onAddTileClick,
+            scrollBehavior = scrollBehavior,
+            tileMenuAnchors = tileMenuAnchors,
+            // 正在退场的那一层（层号 != 当前编辑层）走镜像；当前层拿实时数据
+            mirror = if (layer == viewModel.editingLayer) null else viewModel.creativeConfig.layer(layer),
+        )
+    }
+}
+
+/**
+ * 单层网格（一份 LazyVerticalGrid 实例）。
+ *
+ * 除了创造模式切层时的「旧层镜像」，其余情况都用 [mirror] = null 正常渲染。
+ *
+ * @param mirror 非 null 表示本实例是切层动画中**正在淡出的旧层**：只按这份快照把格子画出来，
+ *        一切会写状态或写外部表的副作用全部关闭（拖拽句柄、菜单锚点、点击打开菜单、
+ *        拖拽起止回调、添加按钮）。150ms 后随分支一起销毁。
+ */
+@Composable
+private fun CreativeGridLayer(
+    viewModel: TileConfigViewModel,
+    contentPadding: PaddingValues,
+    isDynamicColor: Boolean,
+    onAddTileClick: () -> Unit,
+    scrollBehavior: ScrollBehavior,
+    tileMenuAnchors: MutableMap<String, GlassPopupAnchor>,
+    mirror: CreativeLayer? = null,
+) {
+    // 镜像层：只读渲染，所有交互与副作用关闭
+    val isMirror = mirror != null
+
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -234,6 +320,8 @@ fun TileConfigGridPane(
     fun AddTilesSection() {
         Button(
             onClick = {
+                // 镜像层只是淡出的旧画面，点它不该打开「添加磁贴」
+                if (isMirror) return@Button
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onAddTileClick()
             },
@@ -254,12 +342,19 @@ fun TileConfigGridPane(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 从 ViewModel 获取派生状态
-        val gridTiles = viewModel.gridTiles
-        val innerTiles = viewModel.innerTiles
-        val hasInner = viewModel.hasInner
-        val innerKeys = viewModel.innerKeys
-        val renderList = viewModel.renderList
+        // 从 ViewModel 获取派生状态。
+        // 镜像层（切层动画中正在淡出的旧层）改用该层自己的快照重算，逻辑与 ViewModel 的
+        // gridTiles 完全一致（过滤固定磁贴与 edit）；创造模式恒无「框内」区域，
+        // 所以 inner 系列直接为空，不需要再走一遍 ViewModel 的派生。
+        val gridTiles = if (mirror != null) {
+            mirror.tiles.filter { it !in viewModel.fixedTileValues && it != "edit" }
+        } else {
+            viewModel.gridTiles
+        }
+        val innerTiles = if (isMirror) emptyList() else viewModel.innerTiles
+        val hasInner = !isMirror && viewModel.hasInner
+        val innerKeys = if (isMirror) emptySet() else viewModel.innerKeys
+        val renderList: List<Any> = if (isMirror) gridTiles else viewModel.renderList
         val headerKey = viewModel.headerKey
         // 底栏「添加磁贴」跟随按钮是否可见：必须与 App.kt 里的判断保持一致
         // （只能挂在本页面提供的动作桥存在时，且窄屏 + 玻璃风格）
@@ -271,6 +366,8 @@ fun TileConfigGridPane(
 
         val lazyGridState = rememberLazyGridState()
         val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
+            // 镜像层不参与排序（没有拖拽句柄，理论上也到不了这里），兜底直接忽略
+            if (isMirror) return@rememberReorderableLazyGridState
             // 使用 ViewModel 的 gridToData 方法进行索引映射
             val fromData = viewModel.gridToData(from.index)
             val toData = viewModel.gridToData(to.index)
@@ -281,15 +378,23 @@ fun TileConfigGridPane(
         }
 
         // 监听拖拽状态变化，把一次完整拖拽（长按→移动跨多格→松手）合并为「一步」可撤销操作。
-        LaunchedEffect(reorderableState.isAnyItemDragging) {
-            if (reorderableState.isAnyItemDragging) {
-                // 拖拽开始：记录起点
-                viewModel.onDragStart()
-            } else {
-                // 拖拽结束：合并为一步
-                viewModel.onDragEnd()
+        // 同时把状态同步给 ViewModel，供顶栏的层 Tab 在拖拽期间禁用点击。
+        // 镜像层必须跳过：它一组合就会以 false 触发一次 else 分支，凭空调用 onDragEnd()。
+        if (!isMirror) {
+            LaunchedEffect(reorderableState.isAnyItemDragging) {
+                viewModel.isDragging = reorderableState.isAnyItemDragging
+                if (reorderableState.isAnyItemDragging) {
+                    // 拖拽开始：记录起点
+                    viewModel.onDragStart()
+                } else {
+                    // 拖拽结束：合并为一步
+                    viewModel.onDragEnd()
+                }
             }
         }
+
+        // 切层后不需要再手工 scrollToItem(0)：每层的网格实例是新建的
+        // （rememberLazyGridState 在 AnimatedContent 分支内），滚动位置天然从顶部开始。
 
         // 虚线框颜色（@Composable 属性，需在 Composable 上下文取值后供 drawBehind 捕获）
         val frameColor = MiuixTheme.colorScheme.primary
@@ -307,13 +412,23 @@ fun TileConfigGridPane(
                 // 经典风格的 WindowListPopup 不消费 anchor，contentHidden 永远是 false，磁贴保持可见。
                 val menuAnchor = rememberGlassPopupAnchor()
                 // 注册给页面级菜单层取用（见函数末尾）。map 非快照状态，写入不触发重组。
-                SideEffect { tileMenuAnchors[tile] = menuAnchor }
-                // 磁贴被删除（或滚出屏幕被回收）时把锚点一并撤掉：
-                // 锚点一旦失去宿主节点，containerBounds 会**冻结**在最后一帧的坐标上，
-                // 菜单退场动画就会缩回那个已经不存在的位置。清掉它，
-                // 页面级菜单层会按 `anchors[selectedTile] ?: return` 直接停止渲染。
-                DisposableEffect(tile) {
-                    onDispose { tileMenuAnchors.remove(tile) }
+                // 镜像层**绝不能**注册：它与当前层的网格里是同一批 spec，写进去会覆盖当前层的锚点，
+                // 而它 150ms 后销毁时 onDispose 又会把当前层的锚点一起删掉（菜单定位随即失效）。
+                if (!isMirror) {
+                    SideEffect { tileMenuAnchors[tile] = menuAnchor }
+                    // 磁贴被删除（或滚出屏幕被回收）时把锚点一并撤掉：
+                    // 锚点一旦失去宿主节点，containerBounds 会**冻结**在最后一帧的坐标上，
+                    // 菜单退场动画就会缩回那个已经不存在的位置。清掉它，
+                    // 页面级菜单层会按 `anchors[selectedTile] ?: return` 直接停止渲染。
+                    //
+                    // 只删「自己写进去的那一个」：切层瞬间这一份会从当前层变成退场镜像，
+                    // 若直接 remove(tile)，会把刚接管同名 spec 的新层锚点一起删掉
+                    // （新层不再重组就不会写回，玻璃菜单从此定位失败）。
+                    DisposableEffect(tile) {
+                        onDispose {
+                            if (tileMenuAnchors[tile] === menuAnchor) tileMenuAnchors.remove(tile)
+                        }
+                    }
                 }
                 // 标题的淡出 / 淡入只服务于玻璃形态：
                 // 形变副本里没有文字，标题留在原地会与副本重影，所以打开时先淡出、收起后后淡入。
@@ -352,8 +467,12 @@ fun TileConfigGridPane(
                         title = displayName,
                         subtitle = customNames?.second ?: tile,
                         onClick = {
-                            viewModel.selectedTileForMenu = tile
-                            viewModel.showTileMenu = true
+                            // 镜像层不响应点击：它和当前层往往有同名 spec 的磁贴，
+                            // 点中会写 selectedTileForMenu，让页面级菜单对着正在淡出的副本展开
+                            if (!isMirror) {
+                                viewModel.selectedTileForMenu = tile
+                                viewModel.showTileMenu = true
+                            }
                         },
                         // 「移动网络」图标用绿色（关闭动态取色时才覆盖，保留品牌色）
                         iconTint = if (tile == "cell" && !isDynamicColor) Color(0xFF1FCD39)
@@ -362,12 +481,17 @@ fun TileConfigGridPane(
                         elevation = elevation,
                         // 标题自己走淡出/淡入（见上面 titleAlpha 的说明）
                         titleAlpha = titleAlpha,
-                        // 长按拖拽把手 + 拖起缩放挂在最外层；间距与尺寸由组件统一
+                        // 长按拖拽把手 + 拖起缩放挂在最外层；间距与尺寸由组件统一。
+                        // 镜像层不挂拖拽句柄：它是即将销毁的旧层画面，拖动毫无意义，
+                        // 而且真拖起来会往那个只剩 150ms 寿命的 reorderable 状态里灌回调。
                         modifier = Modifier
-                            .longPressDraggableHandle(
-                                onDragStarted = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
+                            .then(
+                                if (isMirror) Modifier
+                                else Modifier.longPressDraggableHandle(
+                                    onDragStarted = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                )
                             )
                             .scale(scale),
                         // 锚点只挂在**圆形底**上，而不是整格：
@@ -389,7 +513,7 @@ fun TileConfigGridPane(
                         val showVariantSwitch = CustomTileUtils.isAnyExTileSpec(tile) &&
                             CustomTileUtils.isPackageInstalled(context, CustomTileUtils.oppositePackage)
                         LaunchedEffect(tile, viewModel.showTileMenu, showVariantSwitch, viewModel.selectedTileForMenu) {
-                            if (viewModel.showTileMenu && !isGlassStyle && showVariantSwitch &&
+                            if (!isMirror && viewModel.showTileMenu && !isGlassStyle && showVariantSwitch &&
                                 viewModel.selectedTileForMenu == tile
                             ) {
                                 viewModel.refreshVariantSwitch(context)
@@ -411,7 +535,9 @@ fun TileConfigGridPane(
                         // 菜单会按整屏去算位置——表现就是贴到屏幕角上。
                         // 玻璃形态反过来，必须有页面级全屏宿主（全屏 dismiss 层 + 窗口坐标定位），
                         // 所以两者分别在这两处渲染。
-                        if (!isGlassStyle && viewModel.selectedTileForMenu == tile) {
+                        // 镜像层不渲染菜单：它与当前层常有同名 spec 的磁贴，
+                        // 条件一旦成立会同时冒出两个 WindowListPopup
+                        if (!isMirror && !isGlassStyle && viewModel.selectedTileForMenu == tile) {
                             TileActionMenu(
                                 show = viewModel.showTileMenu,
                                 anchor = menuAnchor,
@@ -435,6 +561,8 @@ fun TileConfigGridPane(
                                 // 只对 exTile 磁贴显示，且相对版本已安装；读取失败时置灰但仍显示
                                 switchLabel = if (showVariantSwitch) switchLabel else null,
                                 switchEnabled = viewModel.variantSwitchEnabled,
+                                // 创造模式下 exTile 不允许删除（它是唯一的切层入口）
+                                canDelete = viewModel.canDeleteTile(tile),
                                 onSwitchVariant = {
                                     // 只替换系统配置，应用内列表不动
                                     scope.launch {
@@ -651,6 +779,53 @@ fun TileConfigGridPane(
                 // 添加按钮区域，占满整行
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     AddTilesSection()
+                }
+            }
+
+            // 创造模式：每层底部的「当切换到此层时……」卡片。
+            // 是普通 item（不是 ReorderableItem），不会被当成拖拽落点；
+            // gridToData 里已加越界保护，拖到这里不会被误判成「追加到末尾」。
+            if (viewModel.isCreativeMode) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    CreativeLayerOptionsCard(
+                        // 镜像层画的是旧层，开关状态也必须取旧层的快照，
+                        // 否则淡出过程中会看到开关先跳到新层的状态
+                        layer = mirror ?: viewModel.editingLayerConfig,
+                        isXiaomi = viewModel.profile.isXiaomi,
+                        onShowLabelsChange = {
+                            if (!isMirror) viewModel.saveCreativeShowLabels(context, it)
+                        },
+                        onShowDeviceCenterChange = {
+                            if (!isMirror) viewModel.saveCreativeShowDeviceCenter(context, it)
+                        },
+                    )
+                }
+
+                // 列表最底部的一行小字：再次强调当前是「切层」而不是普通展开 / 收起。
+                // 图标与设置页「创造模式」开关同款（Glass.AiWriting），两处能对上号。
+                // 镜像层同样渲染（它也是创造模式），淡出时画面才不会缺一块。
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            MiuixIcons.Glass.Demibold.AiWriting,
+                            contentDescription = null,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            // 与小字同高，避免图标比文字大一圈显得突兀
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.config_creative_mode_footer),
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    }
                 }
             }
         }

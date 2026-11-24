@@ -126,10 +126,22 @@ class ExTileService : TileService() {
                     return@launch
                 }
 
-                val config = ConfigRepository.getConfig(this@ExTileService)
-                // onClick = 切换：当前展开则收起，当前收起则展开
-                val newIsExpanded = !config.isExpanded
-                applyLayout(this@ExTileService, newIsExpanded, config)
+                // 创造模式：点击 = 在层 1 / 层 2 之间切换（不再有展开/收起的概念）。
+                // 先读创造模式配置，未开启时才去读普通配置——磁贴点击路径上少一次 DataStore 读取。
+                val creative = ConfigRepository.getCreativeConfig(this@ExTileService)
+                if (creative.enabled) {
+                    val target = if (creative.activeLayer == 1) 2 else 1
+                    // 写层 + 同步该层的两个联动开关（与「恢复备份」共用同一实现）
+                    if (ConfigRepository.applyCreativeLayer(this@ExTileService, creative.layer(target))) {
+                        ConfigRepository.saveCreativeActiveLayer(this@ExTileService, target)
+                    }
+                    // TODO(统计): 创造模式暂不记录展开/收起统计，待统计模块重构后补「层切换」指标
+                } else {
+                    // 普通模式：当前展开则收起，当前收起则展开
+                    val config = ConfigRepository.getConfig(this@ExTileService)
+                    val newIsExpanded = !config.isExpanded
+                    applyLayout(this@ExTileService, newIsExpanded, config)
+                }
                 updateTileState()
             } catch (e: Exception) {
                 Log.e(TAG, "onClick failed", e)
@@ -182,6 +194,19 @@ class ExTileService : TileService() {
 
                 val autoCollapse = ConfigRepository.getAutoCollapseOnClose(context)
                 if (!autoCollapse) return@launch
+
+                // 创造模式：没有「收起布局」，「自动收起」等价于回到层 1（与普通模式共用同一个开关）。
+                // 已经在层 1 时直接跳过：避免无谓写 sysui_qs_tiles 让 SystemUI 重建整个磁贴列表。
+                val creative = ConfigRepository.getCreativeConfig(context)
+                if (creative.enabled) {
+                    if (creative.activeLayer == 1) return@launch
+                    Log.d(TAG, "Auto-returning to creative layer 1 after confirmed QS panel close")
+                    if (ConfigRepository.applyCreativeLayer(context, creative.layer(1))) {
+                        ConfigRepository.saveCreativeActiveLayer(context, 1)
+                    }
+                    // 面板已关闭，不调 updateTileState()（理由同下面的普通分支）
+                    return@launch
+                }
 
                 val config = ConfigRepository.getConfig(context)
                 // 仅在展开状态下触发收起；已是收起状态则跳过（幂等，避免重复写 sysui_qs_tiles）
@@ -278,17 +303,34 @@ class ExTileService : TileService() {
         scope.launch {
             try {
                 val config = ConfigRepository.getConfig(this@ExTileService)
+                val creative = ConfigRepository.getCreativeConfig(this@ExTileService)
                 val tile = qsTile ?: return@launch
 
-                tile.state = if (config.isExpanded) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-                // 磁贴名字：读取预设选项与自定义名字，结合当前展开状态计算显示文案
+                // 创造模式：层 2 视为「激活」（给用户一个「现在不在默认层」的视觉锚点）；
+                // 普通模式保持原来的展开/收起语义
+                tile.state = when {
+                    creative.enabled -> if (creative.activeLayer == 2) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+                    config.isExpanded -> Tile.STATE_ACTIVE
+                    else -> Tile.STATE_INACTIVE
+                }
+                // 磁贴名字：读取预设选项与自定义名字，结合当前状态计算显示文案
                 val labelPreset = ConfigRepository.getTileLabelPreset(this@ExTileService)
                 val customLabel = ConfigRepository.getTileLabelCustom(this@ExTileService)
-                tile.label = ConfigRepository.TileLabelPreset.resolveLabel(
-                    preset = labelPreset,
-                    isExpanded = config.isExpanded,
-                    customName = customLabel
-                )
+                tile.label = if (creative.enabled) {
+                    // 创造模式下「展开 / 收起」预设失效（点击不再展开），改为显示当前层号
+                    ConfigRepository.TileLabelPreset.resolveCreativeLabel(
+                        preset = labelPreset,
+                        layer = creative.activeLayer,
+                        customName = customLabel,
+                        layerText = getString(R.string.tile_creative_layer_label, creative.activeLayer)
+                    )
+                } else {
+                    ConfigRepository.TileLabelPreset.resolveLabel(
+                        preset = labelPreset,
+                        isExpanded = config.isExpanded,
+                        customName = customLabel
+                    )
+                }
 
                 // 磁贴图标：读取预设选项，映射为对应 drawable 资源；默认时用 ic_tile 显式设置。
                 // TileService 在整个生命周期内复用同一个 Tile 对象：若默认分支不设置 icon，

@@ -130,6 +130,13 @@
     <string name="settings_device_center_summary">Show device center when expanded, hide when collapsed</string>
     <string name="settings_auto_collapse_title">Auto-collapse</string>
     <string name="settings_auto_collapse_summary">Collapse automatically when the control center closes</string>
+    <!-- Advanced: creative mode (two independent layouts) -->
+    <string name="settings_section_advanced">Advanced</string>
+    <string name="settings_creative_title">Creative mode</string>
+    <string name="settings_creative_summary">Keep two independent layouts, switch them by tapping the tile</string>
+    <string name="settings_creative_read_failed">Failed to read the current tile layout</string>
+    <string name="settings_creative_write_failed">Failed to write the system layout. Check permissions.</string>
+    <string name="settings_creative_exit_failed">Failed to restore the normal layout. Check permissions.</string>
     <string name="settings_section_custom">Tile Customization</string>
     <string name="settings_tile_icon_title">Icon</string>
     <string name="settings_tile_icon_default">Default</string>
@@ -168,7 +175,11 @@
     <string name="settings_view_sysui_summary">sysui_qs_tiles value</string>
     <string name="settings_import_system_title">Import tiles from system</string>
     <string name="settings_import_system_summary">Save current system tile config as expanded state</string>
+    <!-- Disabled in creative mode; import into a layer from the tile editor instead -->
+    <string name="settings_import_system_summary_creative">Creative mode is on — import into the current layer from the tile editor</string>
     <string name="settings_import_system_dialog_summary">Save current system tile config as expanded state. The existing expanded config will be overwritten.</string>
+    <!-- In creative mode "Import from system" only writes the layer being edited -->
+    <string name="settings_import_system_dialog_summary_creative">Import the current system tile config into Layer %1$d. The existing config of this layer will be overwritten.</string>
     <!-- 关于分类 -->
     <string name="settings_cat_about">About</string>
     <string name="settings_author_role">Main developer &amp; Designer</string>
@@ -233,6 +244,12 @@
     <string name="settings_no_backups">No backups yet</string>
     <string name="settings_load_failed_toast">Failed to load</string>
     <string name="settings_backup_counts">Expand %1$d / Collapse %2$d</string>
+    <!-- Marks a backup that contains creative-mode data (third arg = layer count) -->
+    <string name="settings_backup_counts_creative">Expand %1$d / Collapse %2$d · Creative %3$d layers</string>
+    <!-- Config restored, but the creative-mode layout could not be written to the system (usually permissions) -->
+    <string name="settings_restore_creative_failed">Config restored, but the creative-mode layout could not be applied. Check permissions.</string>
+    <!-- Old backup imported fine, but creative mode is on, so the normal layout is not visible yet -->
+    <string name="settings_restore_creative_active">Config restored. Creative mode is on — the normal layout applies after you turn it off.</string>
     <string name="settings_delete_backup_title">Delete backup</string>
     <string name="settings_delete_backup_summary">Delete backup from %1$s? This action cannot be undone.</string>
     <string name="settings_deleted_toast">Deleted</string>
@@ -253,6 +270,8 @@
     <string name="config_menu_add_tile_summary">To the control center</string>
     <string name="config_menu_clear">Clear current tiles</string>
     <string name="config_clear_summary">This will clear all tile config. This action cannot be undone.</string>
+    <!-- In creative mode "Clear" only affects the current layer; the exTile tile is kept -->
+    <string name="config_clear_summary_creative">This will clear the tiles in Layer %1$d (the exTile tile is kept). This action cannot be undone.</string>
     <string name="config_clear_confirm">Clear</string>
     <string name="config_menu_reset">Restore defaults</string>
     <string name="config_reset_summary">Expanded and collapsed tile config will be reset to defaults. The current config will be lost.</string>
@@ -281,6 +300,18 @@
     <string name="config_permission_needed">The app list permission is required to fetch tiles from other apps</string>
     <string name="config_go_grant">Grant permission</string>
     <string name="config_no_custom_tiles">No available custom tiles</string>
+
+    <!-- Creative mode: layer tabs on the config page + "when switching to this layer" card -->
+    <string name="config_creative_tab_layer">Layer %1$d</string>
+    <string name="config_creative_layer_options_title">When switching to this layer…</string>
+    <string name="config_creative_show_label_title">Show tile labels</string>
+    <string name="config_creative_show_label_summary">Show tile labels on this layer (turn off for wordless mode)</string>
+    <string name="config_creative_device_center_title">Show Xiaomi Smart Hub</string>
+    <string name="config_creative_device_center_summary">Show the device center on this layer</string>
+    <!-- Small footer line at the bottom of the editor grid, marking creative (layered) mode -->
+    <string name="config_creative_mode_footer">Creative mode</string>
+    <!-- exTile tile label in creative mode (replaces the expand/collapse preset) -->
+    <string name="tile_creative_layer_label">Layer %1$d</string>
 
     <!-- ===== 主页 home_ ===== -->
     <string name="home_no_shizuku_toast">Shizuku app not found</string>

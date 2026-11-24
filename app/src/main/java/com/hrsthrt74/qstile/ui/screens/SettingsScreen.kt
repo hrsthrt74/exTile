@@ -158,6 +158,7 @@ import top.yukonga.miuix.kmp.icon.glass.AiScan
 import top.yukonga.miuix.kmp.icon.glass.AiWriting
 import top.yukonga.miuix.kmp.icon.glass.AllSdCardData
 import top.yukonga.miuix.kmp.icon.glass.DecorationMaintenance
+import top.yukonga.miuix.kmp.icon.glass.HighlighterPen
 import top.yukonga.miuix.kmp.icon.glass.Maintenance
 import top.yukonga.miuix.kmp.icon.glass.MiHome
 import top.yukonga.miuix.kmp.icon.glass.MotionPhoto
@@ -168,8 +169,8 @@ import top.yukonga.miuix.kmp.icon.glass.PptNotes
 import top.yukonga.miuix.kmp.icon.glass.RepairFill
 import top.yukonga.miuix.kmp.icon.glass.SoundWave
 import top.yukonga.miuix.kmp.icon.glass.Start
-import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -270,6 +271,32 @@ fun SettingsScreen() {
     val readFailedToast = stringResource(R.string.settings_read_failed_toast)
     val noneSelectedText = stringResource(R.string.settings_none_selected)
     val unknownText = stringResource(R.string.common_unknown)
+    // 创造模式开关的结果提示（开启 / 关闭都有系统写入，失败必须让用户知道）
+    val creativeReadFailedToast = stringResource(R.string.settings_creative_read_failed)
+    val creativeWriteFailedToast = stringResource(R.string.settings_creative_write_failed)
+    val creativeExitFailedToast = stringResource(R.string.settings_creative_exit_failed)
+    // 恢复备份时「配置已写入、但创造模式布局没进系统」的提示
+    val creativeRestoreFailedToast = stringResource(R.string.settings_restore_creative_failed)
+    // 旧备份导入成功、但当前开着创造模式（面板上看不到变化）的提示
+    val creativeRestoreActiveToast = stringResource(R.string.settings_restore_creative_active)
+
+    /**
+     * 统一的恢复结果提示。
+     *
+     * 三条恢复入口（本地备份 / 文件导入 / 粘贴 JSON）共用，避免各写一套 if-else 后文案走岔。
+     * 特别是 [SettingsViewModel.RestoreResult.CreativeApplyFailed]：层数据其实已经恢复，
+     * 只是没能切系统布局，必须给出与「格式错误」不同的提示。
+     */
+    fun showRestoreResult(result: SettingsViewModel.RestoreResult) {
+        val message = when (result) {
+            SettingsViewModel.RestoreResult.Success -> restoredToast
+            SettingsViewModel.RestoreResult.InvalidFormat -> invalidFormatToast
+            SettingsViewModel.RestoreResult.LoadFailed -> loadFailedToast
+            SettingsViewModel.RestoreResult.RestoredCreativeActive -> creativeRestoreActiveToast
+            SettingsViewModel.RestoreResult.CreativeApplyFailed -> creativeRestoreFailedToast
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
 
     // 「另存为」系统文件保存的 launcher：用户选择保存位置后将 JSON 写入
     val saveAsLauncher = rememberLauncherForActivityResult(
@@ -297,15 +324,9 @@ fun SettingsScreen() {
                     stream.bufferedReader().readText()
                 } ?: return@let
                 scope.launch {
-                    if (viewModel.restoreFromJson(context, json)) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, restoredToast, Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, invalidFormatToast, Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    // 文件导入与粘贴 JSON 走同一套解析 / 恢复逻辑（含创造模式）
+                    val result = viewModel.restoreFromJson(context, json)
+                    withContext(Dispatchers.Main) { showRestoreResult(result) }
                 }
             } catch (_: Exception) {
                 Toast.makeText(context, readErrorToast, Toast.LENGTH_SHORT).show()
@@ -381,44 +402,57 @@ fun SettingsScreen() {
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.GENERAL,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.GENERAL) }
         ) {
-            SmallTitle(
-                text = stringResource(R.string.settings_section_tile_sync),
-                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
-            )
-            // 无字模式写入的 wordless_mode 是 HyperOS 专属 Secure Setting，仅小米设备显示
-            if (profile.isXiaomi) {
-                SwitchPreference(
-                    title = stringResource(R.string.settings_wordless_title),
-                    summary = stringResource(R.string.settings_wordless_summary),
-                    checked = viewModel.wordlessModeSync,
-                    onCheckedChange = { enabled ->
-                        viewModel.saveWordlessModeSync(context, enabled)
-                    },
-                    startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PptNotes) }
-                )
+            // 创造模式下整块「磁贴联动」都没有意义：
+            // - 无字模式 / 融合设备中心改由**每一层**自己接管（编辑页每层底部的卡片）；
+            // - 「面板关闭后自动收起」的语义也变成了「回到层 1」。
+            // 所以直接折叠整块（含分节标题与下方的分隔线），而不是把开关置灰——
+            // 三个都点不动的开关留在原地只会让人以为「这里还能调，只是暂时锁住」。
+            AnimatedVisibility(
+                visible = !viewModel.creativeModeEnabled,
+            ) {
+                // AnimatedVisibility 的内容只有一个子节点槽（内部按单子节点测量），
+                // 多个条目必须自己包 Column，否则会叠在一起
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SmallTitle(
+                        text = stringResource(R.string.settings_section_tile_sync),
+                        insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+                    )
+                    // 无字模式写入的 wordless_mode 是 HyperOS 专属 Secure Setting，仅小米设备显示
+                    if (profile.isXiaomi) {
+                        SwitchPreference(
+                            title = stringResource(R.string.settings_wordless_title),
+                            summary = stringResource(R.string.settings_wordless_summary),
+                            checked = viewModel.wordlessModeSync,
+                            onCheckedChange = { enabled ->
+                                viewModel.saveWordlessModeSync(context, enabled)
+                            },
+                            startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PptNotes) }
+                        )
+                    }
+
+                    SwitchPreference(
+                        title = stringResource(R.string.settings_device_center_title),
+                        summary = stringResource(R.string.settings_device_center_summary),
+                        checked = viewModel.smartDeviceControlSync,
+                        onCheckedChange = { enabled ->
+                            viewModel.saveSmartDeviceControlSync(context, enabled)
+                        },
+                        startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.MiHome) }
+                    )
+
+                    SwitchPreference(
+                        title = stringResource(R.string.settings_auto_collapse_title),
+                        summary = stringResource(R.string.settings_auto_collapse_summary),
+                        checked = viewModel.autoCollapseOnClose,
+                        onCheckedChange = { enabled ->
+                            viewModel.saveAutoCollapseOnClose(context, enabled)
+                        },
+                        startAction = { PreferenceLeadingIcon(MiuixIcons.Unpin) }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
             }
-
-            SwitchPreference(
-                title = stringResource(R.string.settings_device_center_title),
-                summary = stringResource(R.string.settings_device_center_summary),
-                checked = viewModel.smartDeviceControlSync,
-                onCheckedChange = { enabled ->
-                    viewModel.saveSmartDeviceControlSync(context, enabled)
-                },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.MiHome) }
-            )
-
-            SwitchPreference(
-                title = stringResource(R.string.settings_auto_collapse_title),
-                summary = stringResource(R.string.settings_auto_collapse_summary),
-                checked = viewModel.autoCollapseOnClose,
-                onCheckedChange = { enabled ->
-                    viewModel.saveAutoCollapseOnClose(context, enabled)
-                },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Unpin) }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             SmallTitle(
                 text = stringResource(R.string.settings_section_custom),
@@ -520,6 +554,36 @@ fun SettingsScreen() {
                     }
                 )
             }
+
+            // ===== 高级功能：创造模式（两套互相独立的层布局）=====
+            // 放在「通用」分类最后。开启后 exTile 磁贴不再是「展开 / 收起」，而是切换层 1 / 层 2，
+            // 因此上面的「磁贴联动」两个开关会被接管（置灰），改由每层的「当切换到此层时…」决定。
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SmallTitle(
+                text = stringResource(R.string.settings_section_advanced),
+                insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
+            )
+
+            SwitchPreference(
+                title = stringResource(R.string.settings_creative_title),
+                summary = stringResource(R.string.settings_creative_summary),
+                checked = viewModel.creativeModeEnabled,
+                // 开关状态由「写系统成功」驱动，写入期间禁用避免连续点击并发写 sysui_qs_tiles
+                enabled = !viewModel.creativeModeBusy,
+                onCheckedChange = { enabled ->
+                    viewModel.setCreativeMode(context, enabled) { result ->
+                        val message = when (result) {
+                            ConfigRepository.CreativeModeResult.Success -> null
+                            ConfigRepository.CreativeModeResult.ReadFailed -> creativeReadFailedToast
+                            ConfigRepository.CreativeModeResult.WriteFailed ->
+                                if (enabled) creativeWriteFailedToast else creativeExitFailedToast
+                        }
+                        message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                    }
+                },
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.AiWriting) }
+            )
         }
     }
 
@@ -557,7 +621,7 @@ fun SettingsScreen() {
                         ThemeRepository.saveIsDynamicColorMode(context, enabled)
                     }
                 },
-                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.AiWriting) }
+                startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.HighlighterPen) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -628,8 +692,14 @@ fun SettingsScreen() {
                 title = stringResource(R.string.settings_backup_title),
 //                summary = "将当前配置导出为 JSON 格式",
                 onClick = {
-                    viewModel.backupText = viewModel.generateBackupJson()
-                    backupSheetState.show()
+                    // 先刷新一次配置快照再生成 JSON：设置页是 Pager 里的常驻页，
+                    // loadSettings 只在首次组合时跑过，编辑页之后的改动不会自动同步过来。
+                    // 备份必须反映「此刻」的配置（含创造模式的两层）。
+                    scope.launch {
+                        viewModel.refreshBackupSource(context)
+                        viewModel.backupText = viewModel.generateBackupJson()
+                        backupSheetState.show()
+                    }
                 },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Remove) }
             )
@@ -660,7 +730,14 @@ fun SettingsScreen() {
 
             ArrowPreference(
                 title = stringResource(R.string.settings_import_system_title),
-                summary = stringResource(R.string.settings_import_system_summary),
+                // 创造模式下系统里显示的是某一层的布局，导进来只会把普通配置污染成该层内容；
+                // 层内导入请走磁贴编辑页的「从系统导入」（只写当前编辑层）
+                summary = if (viewModel.creativeModeEnabled) {
+                    stringResource(R.string.settings_import_system_summary_creative)
+                } else {
+                    stringResource(R.string.settings_import_system_summary)
+                },
+                enabled = !viewModel.creativeModeEnabled,
                 onClick = { importDialogState.show() },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.PasteEditPoint) }
             )
@@ -1320,12 +1397,13 @@ fun SettingsScreen() {
                 Button(
                     onClick = {
                         scope.launch {
-                            if (viewModel.restoreFromJson(context, viewModel.importBackupJson)) {
-                                Toast.makeText(context, restoredToast, Toast.LENGTH_SHORT).show()
+                            val result = viewModel.restoreFromJson(context, viewModel.importBackupJson)
+                            showRestoreResult(result)
+                            // 恢复成功（含「层数据已恢复、系统布局没写进去」）都关闭 Sheet；
+                            // 只有格式错误保持打开，方便用户就地修正粘贴内容
+                            if (result != SettingsViewModel.RestoreResult.InvalidFormat) {
                                 importBackupSheetState.dismiss()
                                 viewModel.clearImportBackupJson()
-                            } else {
-                                Toast.makeText(context, invalidFormatToast, Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -1425,15 +1503,12 @@ fun SettingsScreen() {
                                             .weight(1f)
                                             .clickable {
                                                 scope.launch {
-                                                    val restored = viewModel.restoreFromBackup(context, backup)
-                                                    if (restored) {
-                                                        withContext(Dispatchers.Main) {
-                                                            Toast.makeText(context, restoredToast, Toast.LENGTH_SHORT).show()
+                                                    val result = viewModel.restoreFromBackup(context, backup)
+                                                    withContext(Dispatchers.Main) {
+                                                        showRestoreResult(result)
+                                                        // 读文件失败时保持列表打开，方便换一个备份再试
+                                                        if (result != SettingsViewModel.RestoreResult.LoadFailed) {
                                                             backupListSheetState.dismiss()
-                                                        }
-                                                    } else {
-                                                        withContext(Dispatchers.Main) {
-                                                            Toast.makeText(context, loadFailedToast, Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
                                                 }
@@ -1445,7 +1520,22 @@ fun SettingsScreen() {
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = stringResource(R.string.settings_backup_counts, backup.expandedCount, backup.collapsedCount),
+                                            // 含创造模式数据时多标一层：用户能一眼分辨
+                                            // 「老备份只恢复普通布局」和「新备份连两层一起恢复」
+                                            text = if (backup.creativeLayerCount > 0) {
+                                                stringResource(
+                                                    R.string.settings_backup_counts_creative,
+                                                    backup.expandedCount,
+                                                    backup.collapsedCount,
+                                                    backup.creativeLayerCount
+                                                )
+                                            } else {
+                                                stringResource(
+                                                    R.string.settings_backup_counts,
+                                                    backup.expandedCount,
+                                                    backup.collapsedCount
+                                                )
+                                            },
                                             style = MiuixTheme.textStyles.footnote2,
                                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                                         )

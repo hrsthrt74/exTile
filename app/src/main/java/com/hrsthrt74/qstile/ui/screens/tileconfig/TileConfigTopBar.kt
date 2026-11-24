@@ -72,6 +72,7 @@ import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
  * @param scrollBehavior 顶栏滚动行为（大标题折叠等），由页面与网格共享同一个实例
  * @param backdrop 顶栏模糊采样源（只覆盖滚动内容区）
  * @param overlayBackdrop 玻璃「更多」菜单的模糊采样源（覆盖整页、含顶栏）
+ * @param layerTabs 顶栏底部插槽（创造模式的层切换 Tab）；默认空内容，普通模式不占高度
  */
 @Composable
 fun TileConfigTopBar(
@@ -83,6 +84,7 @@ fun TileConfigTopBar(
     scrollBehavior: ScrollBehavior,
     backdrop: LayerBackdrop?,
     overlayBackdrop: LayerBackdrop?,
+    layerTabs: @Composable () -> Unit = {},
 ) {
     val themeSettings = LocalThemeSettings.current
     // 应用风格：开 = Glass 全套组件，关 = 经典组件（与模糊总开关解耦）
@@ -225,7 +227,11 @@ fun TileConfigTopBar(
         scrollBehavior = scrollBehavior,
         backdrop = backdrop,
         progressive = themeSettings.progressiveBlur,
-        actions = topBarActions
+        actions = topBarActions,
+        // 创造模式的「层」切换 Tab（普通模式传空，不占高度）。
+        // 走顶栏的 bottomContent 槽：钉在标题下方、不随大标题折叠消失，
+        // 且 Scaffold 的 contentPadding 会自动把网格推下去，网格侧无需任何高度补偿。
+        bottomContent = layerTabs,
     )
 
     // 玻璃形态的「更多」菜单：提升到 TopLayer，避免被顶栏 / 玻璃侧栏遮挡或被 Pager 页面裁剪。

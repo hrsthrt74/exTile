@@ -3,6 +3,7 @@ package com.hrsthrt74.qstile.ui.screens
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.tile.TileAddHelper
@@ -20,6 +22,7 @@ import com.hrsthrt74.qstile.ui.components.rememberDialogState
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.tileconfig.AddTileSheet
+import com.hrsthrt74.qstile.ui.screens.tileconfig.CreativeLayerTabBar
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigDialogs
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigGridPane
 import com.hrsthrt74.qstile.ui.screens.tileconfig.TileConfigTileActionMenu
@@ -151,6 +154,23 @@ fun TileConfigScreen() {
                 scrollBehavior = scrollBehavior,
                 backdrop = backdrop,
                 overlayBackdrop = pageBackdrop,
+                // 创造模式：顶栏底部挂「层 1 / 层 2」切换 Tab。
+                // 这里必须传**内容区**的 backdrop（录在下面那个 Box 上、不含顶栏），
+                // 不能传 pageBackdrop（它录在 Scaffold 上、把顶栏也包进去了）——
+                // 在顶栏内部采样自己的祖先 backdrop 会让 RenderNode 成环，绘制期 native 栈溢出。
+                layerTabs = {
+                    if (viewModel.isCreativeMode) {
+                        CreativeLayerTabBar(
+                            selectedLayer = viewModel.editingLayer,
+                            onSelect = { viewModel.selectEditingLayer(it) },
+                            backdrop = backdrop,
+                            isGlassStyle = themeSettings.progressiveBlur,
+                            // 拖拽排序期间禁止切层：整体替换列表会打断 Reorderable 的拖拽状态
+                            enabled = !viewModel.isDragging,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        )
+                    }
+                },
             )
         }
     ) { paddingValues ->
@@ -191,6 +211,9 @@ fun TileConfigScreen() {
     TileConfigDialogs(
         clearState = clearConfirmDialogState,
         importState = importConfirmDialogState,
+        // 创造模式下这两个动作只作用于「当前编辑的层」，文案必须说清楚，
+        // 否则「清除配置」看起来像会把两层一起清空
+        creativeLayer = viewModel.editingLayer.takeIf { viewModel.isCreativeMode },
         onClearConfirm = { viewModel.updateGridTiles(emptyList(), context) },
         onImportConfirm = {
             scope.launch {

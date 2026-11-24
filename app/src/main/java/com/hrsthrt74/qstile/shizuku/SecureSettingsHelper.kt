@@ -182,6 +182,54 @@ object SecureSettingsHelper {
     }
 
     /**
+     * 读取任意 Secure Settings 项（目前仅用于创造模式开启时反推 `wordless_mode` /
+     * `smart_device_control` 的当前值，给两层的「当切换到此层时…」开关做种子化）。
+     *
+     * 与 [getSysuiQsTiles] 同构：直接 API → Shizuku 命令 → Root 命令。
+     * Root 分支同样用 `probe = false`，不主动触发 su 探测（避免在设置页开关上意外弹授权框）。
+     *
+     * @param key Secure Settings 项名
+     * @return 值字符串；不存在或读取失败返回 null（调用方按默认值处理）
+     */
+    suspend fun getSecureSetting(context: Context, key: String): String? = withContext(Dispatchers.IO) {
+        try {
+            // 1. 直接读取（大部分 secure 项对普通应用可读，无需任何权限）
+            try {
+                val direct = Settings.Secure.getString(context.contentResolver, key)
+                if (direct != null) {
+                    Log.d(TAG, "getSecureSetting($key) via API: $direct")
+                    return@withContext direct
+                }
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Direct read failed for $key, fallback to Shizuku", e)
+            }
+
+            // 2. Shizuku 命令兜底（Android 14+ 对部分 secure 项限制了直接读取）
+            if (ShizukuHelper.isShizukuRunning()) {
+                val result = executeCommand("settings get secure $key")
+                Log.d(TAG, "getSecureSetting($key) via Shizuku command: $result")
+                if (result != null && !result.startsWith("ERROR") && result != "null") {
+                    return@withContext result
+                }
+            }
+
+            // 3. Root 兜底
+            if (RootHelper.isRootAvailable(probe = false)) {
+                val rootResult = RootHelper.executeCommand("settings get secure $key")
+                Log.d(TAG, "getSecureSetting($key) via Root command: $rootResult")
+                if (rootResult != null && !rootResult.startsWith("ERROR") && rootResult != "null") {
+                    return@withContext rootResult
+                }
+            }
+
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "getSecureSetting($key) failed", e)
+            null
+        }
+    }
+
+    /**
      * 写入 sysui_qs_tiles。
      * 优先使用直接 API（应用持有 WRITE_SECURE_SETTINGS 时可用，Shizuku 完全可选），
      * 权限不足抛 SecurityException 时兜底到 Shizuku UserService。

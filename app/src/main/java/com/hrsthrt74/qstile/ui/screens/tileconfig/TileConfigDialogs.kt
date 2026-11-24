@@ -17,6 +17,9 @@ import com.hrsthrt74.qstile.ui.components.DialogState
  *
  * @param clearState 「清除配置」对话框状态
  * @param importState 「从系统导入磁贴」对话框状态
+ * @param creativeLayer 创造模式下当前编辑的层号（1 基）；普通模式传 null。
+ *        两个动作在创造模式下都只影响**当前层**，文案要显式写出来，
+ *        否则「清除配置」看起来像会把两套布局一起清掉。
  * @param onClearConfirm 确认清除配置（调用方负责清空并持久化）
  * @param onImportConfirm 确认从系统导入（调用方负责读取系统列表并给出 Toast 提示）
  */
@@ -24,13 +27,18 @@ import com.hrsthrt74.qstile.ui.components.DialogState
 fun TileConfigDialogs(
     clearState: DialogState,
     importState: DialogState,
+    creativeLayer: Int? = null,
     onClearConfirm: () -> Unit,
     onImportConfirm: () -> Unit,
 ) {
     AppDialog(
         state = clearState,
         title = stringResource(R.string.config_menu_clear),
-        summary = stringResource(R.string.config_clear_summary),
+        summary = if (creativeLayer != null) {
+            stringResource(R.string.config_clear_summary_creative, creativeLayer)
+        } else {
+            stringResource(R.string.config_clear_summary)
+        },
         confirmText = stringResource(R.string.config_clear_confirm),
         destructive = true,
         onConfirm = onClearConfirm
@@ -40,7 +48,11 @@ fun TileConfigDialogs(
     AppDialog(
         state = importState,
         title = stringResource(R.string.settings_import_system_title),
-        summary = stringResource(R.string.settings_import_system_dialog_summary),
+        summary = if (creativeLayer != null) {
+            stringResource(R.string.settings_import_system_dialog_summary_creative, creativeLayer)
+        } else {
+            stringResource(R.string.settings_import_system_dialog_summary)
+        },
         confirmText = stringResource(R.string.common_confirm),
         onConfirm = onImportConfirm
     )

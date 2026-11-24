@@ -88,8 +88,10 @@ internal fun SystemTilePicker(
     onDismissSheet: () -> Unit,
 ) {
     val context = LocalContext.current
-    // 当前已添加的磁贴（含固定卡片、edit、exTile，用于过滤重复项）
-    val currentTiles = viewModel.config.expandedTiles
+    // 当前已添加的磁贴（含固定卡片、edit、exTile，用于过滤重复项）。
+    // 必须用 currentTileSet 而不是 config.expandedTiles：创造模式下编辑的是某一层，
+    // 用普通配置去重会把固定磁贴当成「可添加」，也会错判另一层的磁贴。
+    val currentTiles = viewModel.currentTileSet
 
     // 读取调试 flag（订阅变化），切换后刷新可用磁贴列表
     // showUnavailableTiles：调试开关，开启后额外显示预设内因设备能力不满足而不可用的磁贴
@@ -248,8 +250,8 @@ internal fun ThirdPartyTilePicker(
     // 获取所有 QS Tile 服务（后台线程已加载，由 AddTileSheet 在首次切到本 Tab 时触发）
     val services = viewModel.allTileServices
 
-    // 获取当前已添加的磁贴
-    val currentTiles = viewModel.config.expandedTiles
+    // 获取当前已添加的磁贴（与系统磁贴 Tab 同一口径：普通模式=展开布局，创造模式=当前编辑层）
+    val currentTiles = viewModel.currentTileSet
 
     // 获取系统预定义的磁贴 ComponentName 集合（用于过滤：这些已在「系统磁贴」Tab 里出现）
     val systemTileComponents = remember {
