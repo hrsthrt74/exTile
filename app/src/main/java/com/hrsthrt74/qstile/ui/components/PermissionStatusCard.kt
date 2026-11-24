@@ -12,11 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,7 +24,6 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -83,29 +82,33 @@ fun PermissionStatusCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // 统一卡片布局：左「有底图标」（竖直居中）+ 右内容（标题 + 引导文案）
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 权限状态图标：已授权/加载中=对勾，其他状态=叉号。
-                // 加载中对勾置灰表示「检查中」，避免未授权瞬间闪红色叉号。
-                Icon(
-                    imageVector = if (isLoading || status == ShizukuHelper.PermissionStatus.GRANTED) {
+                // 底色随状态：已授权=品牌绿，加载中=中性灰，未授权=品牌红；
+                // Monet 动态取色开启时由组件统一压平为主题 primary。
+                ContainedIcon(
+                    icon = if (isLoading || status == ShizukuHelper.PermissionStatus.GRANTED) {
                         MiuixIcons.Demibold.Ok
                     } else {
                         MiuixIcons.Demibold.Close
                     },
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = when {
-                        isLoading -> MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f)
-                        status == ShizukuHelper.PermissionStatus.GRANTED -> MiuixTheme.colorScheme.primary
-                        else -> MiuixTheme.colorScheme.error
-                    }
+                    containerColor = when {
+                        isLoading -> Color(0xFF8C9DAF)
+                        status == ShizukuHelper.PermissionStatus.GRANTED -> Color(0xFF1DCD3C)
+                        else -> Color(0xFFFA382E)
+                    },
+                    iconSize = 22.dp
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     // 标题：随加载态 / 授权结果变化
                     Text(
                         text = when {
@@ -113,7 +116,8 @@ fun PermissionStatusCard(
                             status == ShizukuHelper.PermissionStatus.GRANTED -> stringResource(R.string.perm_granted_title)
                             else -> stringResource(R.string.perm_denied_title)
                         },
-                        style = MiuixTheme.textStyles.title4,
+                        // 卡片标题统一 headline1（与设置页 Preference 标题同级）
+                        style = MiuixTheme.textStyles.headline1,
                         color = MiuixTheme.colorScheme.onSurface
                     )
                     // 引导文案：按状态机给出下一步提示，加载态固定为「请稍候」

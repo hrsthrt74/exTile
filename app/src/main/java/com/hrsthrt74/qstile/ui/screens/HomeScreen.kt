@@ -1,36 +1,26 @@
 package com.hrsthrt74.qstile.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -40,31 +30,29 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.ui.AppTopBar
-import com.hrsthrt74.qstile.ui.components.GITHUB_ISSUES_URL
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
-import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
-import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberPermissionState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
+import com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard
+import com.hrsthrt74.qstile.ui.screens.home.StatsCard
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
-import com.microsoft.clarity.modifiers.clarityUnmask
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Community
-import top.yukonga.miuix.kmp.icon.extended.SearchDevice
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 主页屏幕。
- * 展示 Shizuku 权限状态卡片 + 使用统计卡片。
+ * 主页屏幕（只负责页面骨架：顶栏 + 滚动列表 + 卡片编排）。
+ *
+ * 展示 Shizuku 权限状态卡片 + 使用统计卡片 + 「第一个版本」提示卡片，
  * 是用户首次打开应用时看到的第一屏，引导完成 Shizuku 授权流程。
+ *
+ * 各卡片已拆分为独立文件，便于单独维护：
+ * - 权限状态卡片：[PermissionStatusCard]（OOBE 也复用，故位于 ui/components）
+ * - 使用统计卡片：[com.hrsthrt74.qstile.ui.screens.home.StatsCard]
+ * - 首个版本提示卡片：[com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard]
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口，接收结果回调
  */
@@ -187,149 +175,5 @@ fun HomeScreen(
                 }
             }
         }
-    }
-}
-
-/**
- * 「第一个版本」提示卡片组件。
- * 常驻显示在主页顶部，说明当前是第一个版本、恳请多多关照，并引导用户反馈问题。
- * 反馈渠道随语言分流：简体中文环境走 QQ 群（群聊仅面向简中用户），
- * 其他语言走 GitHub Issues。点击卡片即跳转对应渠道。
- */
-@Composable
-private fun FirstVersionCard() {
-    val context = LocalContext.current
-    // 简体中文判断：语言为 zh 且文字为 Hans（或地区为 CN/SG），可覆盖 zh-CN/zh-Hans 等变体，
-    // 排除繁体环境（zh-TW/zh-HK 的 script 为 Hant）。
-    // 使用 LocalConfiguration 而非 context.resources.configuration：前者是配置感知的，
-    // 语言变化时会触发重组，避免读到过期的旧配置（与设置页交流群条目的判断保持一致）
-    val locale = LocalConfiguration.current.locales[0]
-    val isSimplifiedChinese = locale?.language == "zh" &&
-        (locale.script == "Hans" || locale.country == "CN" || locale.country == "SG")
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = {
-            if (isSimplifiedChinese) {
-                // 简中环境：群号复制到剪贴板，方便直接在 QQ 里搜索加群（与设置页行为一致）
-                val clipboard = context.getSystemService(ClipboardManager::class.java)
-                clipboard.setPrimaryClip(
-                    ClipData.newPlainText("QQ群号", QQ_GROUP_NUMBER)
-                )
-                // 提示已复制；用 applicationContext 避免 Android 12+ 的 Toast 限制问题
-                Toast.makeText(
-                    context.applicationContext,
-                    context.getString(R.string.settings_qq_group_copied),
-                    Toast.LENGTH_SHORT
-                ).show()
-                // runCatching 兜底：设备无浏览器/无 QQ 处理应用时避免崩溃
-                runCatching {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(QQ_GROUP_URL)))
-                }
-            } else {
-                // 其他语言：打开 GitHub Issues 反馈问题
-                runCatching {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_ISSUES_URL)))
-                }
-            }
-        }
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 提示图标（对话/社区语义，与设置页交流群条目一致）
-                Icon(
-                    imageVector = MiuixIcons.Community,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                // 右侧文字：标题在上、说明在下
-                Column {
-//                    Text(
-//                        text = stringResource(R.string.home_first_version_title),
-//                        style = MiuixTheme.textStyles.title3
-//                    )
-//                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.home_first_version_summary),
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * 使用统计卡片组件。
- * 展示累计展开/收起次数（磁贴布局切换成功时由 StatsRepository 记录）。
- *
- * @param totalExpandCount 累计展开次数
- * @param totalCollapseCount 累计收起次数
- */
-@Composable
-private fun StatsCard(
-    totalExpandCount: Long,
-    totalCollapseCount: Long
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 使用统计图标（记录/历史语义）
-                Icon(
-                    imageVector = MiuixIcons.Demibold.SearchDevice,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MiuixTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = stringResource(R.string.home_stats_title),
-                    style = MiuixTheme.textStyles.title3
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 两行键值对：累计展开/收起次数
-            StatusRow(stringResource(R.string.home_stats_expand_total), totalExpandCount.toString())
-            StatusRow(stringResource(R.string.home_stats_collapse_total), totalCollapseCount.toString())
-        }
-    }
-}
-
-/**
- * 单行「标签-值」展示组件。
- * 左对齐显示标签文字，右对齐显示对应的数值。
- */
-@Composable
-private fun StatusRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            // 统计数据 -> Clarity
-            .clarityUnmask(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-        )
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface
-        )
     }
 }

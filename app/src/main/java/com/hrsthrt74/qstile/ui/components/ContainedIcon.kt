@@ -23,9 +23,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 常用在分类标题行、列表项左侧等需要「一眼区分颜色」的位置。
  *
  * 配色策略（关键，决定组件是否跟随主题）：
- * - **动态取色（Monet）开启时**：底与图标强制使用主题的 `primary` / `onPrimary`。
+ * - **动态取色（Monet）开启时**：底与图标强制使用主题的 `primary` / `onPrimary`，
+ *   调用方传入的 [containerColor] 一律被忽略（无例外，包括语义色）。
  *   Monet 的主题色本来就跟壁纸走，此时再叠一层写死的品牌色会与整体界面打架，
- *   所以一律压平为主题色，保证全 App 配色由壁纸统一驱动。
+ *   所以全部压平为主题色，保证全 App 配色由壁纸统一驱动。
  * - **动态取色关闭时**：使用调用方传入的 [containerColor]；
  *   图标前景色按底色**亮度自动取**（亮的底配深色图标，暗的底配白色图标），
  *   这样调用方只需要关心「底是什么颜色」。
@@ -38,7 +39,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  *
  * @param icon 图标（ImageVector）
  * @param modifier 外部修饰符（尺寸/间距等由调用方覆盖时用）
- * @param containerColor 底色；为 null 表示跟随主题 primary。Monet 下该参数会被忽略
+ * @param containerColor 底色；为 null 表示跟随主题 primary（Monet 下该参数不生效）
  * @param contentDescription 无障碍描述；装饰性图标传 null
  * @param containerSize 底块边长，默认 32dp
  * @param iconSize 图标绘制尺寸，默认 26dp（不同图标源的视觉大小不一致，可按需微调）
@@ -55,14 +56,16 @@ fun ContainedIcon(
     cornerRadius: Dp = 8.dp
 ) {
     val colorScheme = MiuixTheme.colorScheme
-    // Monet 状态：动态取色开启时忽略调用方传入的自定义色，统一压到主题色
+    // Monet 状态：动态取色开启时无条件忽略调用方传入的自定义色，统一压到主题色
     val isMonet = LocalThemeSettings.current.isDynamicColorMode
+    // 是否走「主题色」分支：Monet 开启，或调用方压根没给颜色
+    val useThemeColor = isMonet || containerColor == null
 
-    // 底色：Monet 或未指定颜色 → primary；否则用调用方给的颜色
-    val background = if (isMonet || containerColor == null) colorScheme.primary else containerColor
+    // 底色：主题色分支 → primary；否则用调用方给的颜色
+    val background = if (useThemeColor) colorScheme.primary else containerColor!!
     // 前景色：跟随主题时用 onPrimary（保证对比度）；
     // 自定义色时按底色亮度决定——浅底用主题的 onBackground（近黑，比纯黑柔和），深底用纯白
-    val foreground = if (isMonet || containerColor == null) {
+    val foreground = if (useThemeColor) {
         colorScheme.onPrimary
     } else {
         if (background.luminance() > 0.5f) colorScheme.onBackground else Color.White
