@@ -90,6 +90,7 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
@@ -250,6 +251,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = stringResource(R.string.debug_section_actions))
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -334,6 +336,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = stringResource(R.string.debug_section_update))
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -356,6 +359,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = "sysui_qs_tiles")
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -381,6 +385,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = stringResource(R.string.debug_section_status))
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -456,6 +461,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = stringResource(R.string.debug_section_config))
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -514,6 +520,7 @@ fun DebugToolsScreen() {
                 // 震动反馈实例：通过 LocalHapticFeedback 获取，点击按钮时仅触发对应类型的震动
                 val haptic = LocalHapticFeedback.current
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -559,6 +566,7 @@ fun DebugToolsScreen() {
             item {
                 SmallTitle(text = stringResource(R.string.debug_section_blur_demo))
                 Card(
+                    pressFeedbackType = PressFeedbackType.Sink,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)

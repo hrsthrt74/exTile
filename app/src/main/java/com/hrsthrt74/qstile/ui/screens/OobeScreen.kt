@@ -96,6 +96,7 @@ import top.yukonga.miuix.kmp.icon.extended.Lock
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * OOBE（首次使用引导）页面。
@@ -341,7 +342,10 @@ fun OobeScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-             Card(modifier = Modifier.fillMaxWidth()) {
+             Card(
+                 modifier = Modifier.fillMaxWidth(),
+                 pressFeedbackType = PressFeedbackType.Sink,
+             ) {
                  Image(
                      painter = painterResource(R.drawable.illus_privacy),
                      contentDescription = null,
@@ -446,7 +450,10 @@ fun OobeScreen(
 
             // 自动检查更新开关：可选项，默认关闭；开启后应用冷启动时会联网访问
             // GitHub 检查新版本，发现新版本时弹窗提示（无更新 / 失败均静默）
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                pressFeedbackType = PressFeedbackType.Sink,
+            ) {
                 SwitchPreference(
                     title = stringResource(R.string.oobe_update_switch_title),
                     summary = stringResource(R.string.oobe_update_switch_summary),
@@ -462,7 +469,10 @@ fun OobeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 同意开关
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                pressFeedbackType = PressFeedbackType.Sink,
+            ) {
                 SwitchPreference(
                     title = stringResource(R.string.oobe_clarity_switch_title),
                     summary = stringResource(R.string.oobe_clarity_switch_summary),
@@ -478,7 +488,10 @@ fun OobeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 说明卡片
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                pressFeedbackType = PressFeedbackType.Sink,
+            ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.padding(16.dp)
@@ -536,7 +549,10 @@ fun OobeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 插图
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    pressFeedbackType = PressFeedbackType.Sink,
+                ) {
                     Image(
                         painter = painterResource(R.drawable.illus_permission),
                         contentDescription = null,
@@ -621,7 +637,10 @@ fun OobeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 插图
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    pressFeedbackType = PressFeedbackType.Sink,
+                ) {
                     Image(
                         painter = painterResource(R.drawable.illus_sort),
                         contentDescription = null,
@@ -647,7 +666,10 @@ fun OobeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // 锚点规则说明（两条要点）
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    pressFeedbackType = PressFeedbackType.Sink,
+                ) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(16.dp),
@@ -1027,6 +1049,7 @@ private fun FeatureCard(
     summary: String
 ) {
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
@@ -1074,6 +1097,7 @@ private fun FeatureCard(
 @Composable
 private fun UnsupportedDeviceCard(onLongPress: () -> Unit) {
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier
             .fillMaxWidth()
             // combinedClickable 同时接管普通点击与长按：普通点击不做事（保持原「不可点」外观，
@@ -1129,6 +1153,7 @@ private fun UnsupportedDeviceCard(onLongPress: () -> Unit) {
 @Composable
 private fun ThirdPartyRomCard() {
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
@@ -1219,6 +1244,7 @@ private fun ImportPreviewCard(
         .filter { it !in result.collapsedTiles }
         .filter { it != "edit" }
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 64.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer

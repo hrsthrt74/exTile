@@ -30,6 +30,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.SoundWave
 import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import java.text.NumberFormat
 import java.time.LocalDate
 
@@ -66,6 +67,7 @@ internal fun StatsCard(stats: TileStats) {
     }
 
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth()
     ) {
         // 统计数据 -> Clarity（数字本身不是敏感信息，允许在录屏回放中展示）

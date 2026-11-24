@@ -23,6 +23,7 @@ import com.mikepenz.aboutlibraries.Libs
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /** 单个开源库的许可条目。 */
@@ -96,6 +97,7 @@ fun LicensesContent(scrollBehavior: ScrollBehavior) {
     ) {
         items(licenses) { license ->
             Card(
+                pressFeedbackType = PressFeedbackType.Sink,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 ArrowPreference(

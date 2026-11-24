@@ -30,10 +30,13 @@ import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
 import com.hrsthrt74.qstile.ui.AppTopBar
+import com.hrsthrt74.qstile.ui.components.DonateSheet
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
 import com.hrsthrt74.qstile.ui.components.rememberPermissionState
+import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
+import com.hrsthrt74.qstile.ui.screens.home.DonateCard
 import com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard
 import com.hrsthrt74.qstile.ui.screens.home.StatsCard
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
@@ -78,6 +81,8 @@ fun HomeScreen(
         .collectAsState(initial = TileStats())
     /** WRITE_SECURE_SETTINGS 权限状态机（Shizuku 可选，授权后不再依赖），含初始加载与前台自动衔接 */
     val permState = rememberPermissionState(onRequestShizukuPermission)
+    /** 打赏 Sheet 的显示状态（微信 / 支付宝收款码） */
+    val donateSheetState = rememberSheetState()
 
     Scaffold(
         topBar = {
@@ -170,7 +175,17 @@ fun HomeScreen(
                 item {
                     FirstVersionCard()
                 }
+
+                item { Spacer(modifier = Modifier.height(12.dp)) }
+
+                // 打赏卡片：点击弹出支持作者 Sheet（微信 / 支付宝收款码，与设置页共用同一实现）
+                item {
+                    DonateCard(onClick = { donateSheetState.show() })
+                }
             }
         }
     }
+
+    // 打赏 Sheet：放在 Scaffold 之外，内容与设置页「支持作者」完全一致
+    DonateSheet(state = donateSheetState)
 }

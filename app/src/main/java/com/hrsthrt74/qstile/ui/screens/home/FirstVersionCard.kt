@@ -29,6 +29,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.FeedbackFill
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * 「第一个版本」提示卡片组件。
@@ -49,6 +50,10 @@ internal fun FirstVersionCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        // 点击反馈：miuix 的 Card 默认 pressFeedbackType = None 且 showIndication = false（按下毫无变化），
+        // 这里两套都打开——MiuixIndication 叠一层主题色蒙版 + Sink 按下内凹回弹
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
         onClick = {
             if (isSimplifiedChinese) {
                 // 简中环境：群号复制到剪贴板，方便直接在 QQ 里搜索加群（与设置页行为一致）

@@ -9,7 +9,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -62,23 +61,16 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnitType
@@ -108,6 +100,7 @@ import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
 import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.ContainedIcon
+import com.hrsthrt74.qstile.ui.components.DonateSheet
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -116,7 +109,6 @@ import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import com.hrsthrt74.qstile.viewmodel.SettingsViewModel
-import com.kyant.shapes.Capsule
 import com.microsoft.clarity.modifiers.clarityMask
 import com.microsoft.clarity.modifiers.clarityUnmask
 import io.noties.markwon.Markwon
@@ -137,13 +129,9 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
-import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRowDefaults
-import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Community
@@ -171,13 +159,12 @@ import top.yukonga.miuix.kmp.icon.glass.PptNotes
 import top.yukonga.miuix.kmp.icon.glass.RepairFill
 import top.yukonga.miuix.kmp.icon.glass.SoundWave
 import top.yukonga.miuix.kmp.icon.glass.Start
-import top.yukonga.miuix.kmp.material.GlassShadows
-import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import android.graphics.Color as AndroidColor
 
@@ -195,9 +182,7 @@ private val PreferenceIconEndPadding = 8.dp
 private val PreferenceIconStartPadding = 4.dp
 // 无图标设置项的行首空白占位宽度，与图标宽度（24dp）保持一致以对齐
 private val PreferenceIconSize = 24.dp
-// 打赏收款码的最大宽度：Sheet 在平板 / 横屏下很宽，直接 fillMaxWidth 会把二维码撑成
-// 一整行宽的大图。封顶后窄屏仍按可用宽度铺满，宽屏则保持这个上限（见 DonateSheet 里的修饰符顺序）
-private val DonateQrMaxWidth = 300.dp
+// 打赏 Sheet（收款码 + 渠道 Tab）已抽取到 ui/components/DonateSheet.kt，与主页打赏卡片共用
 // 调色板风格/颜色规范开关暂未启用，相关标签定义一并注释
 // private val paletteStyleLabels = listOf("TonalSpot", "Neutral", "Vibrant", "Expressive")
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
@@ -1122,198 +1107,6 @@ fun SettingsScreen() {
         }
     }
 
-    /**
-     * 支持作者 Sheet：微信 / 支付宝收款码。
-     *
-     * 头部用分段 TabRow 切换打赏渠道（0 = 微信 / 1 = 支付宝），两张收款码用 [AnimatedContent] 的
-     * 默认动画（淡入淡出 + 轻微缩放）切换。TabRow 的写法照搬「添加磁贴」Sheet
-     * （`ui/screens/tileconfig/AddTileSheet.kt`）：
-     * - 玻璃风格：`GlassSegmentedTabRow`（胶囊轨道 + 滑块指示器），阴影画在胶囊裁剪之前
-     *   （阴影会溢出节点边界，塞进 clip 之内只会被裁成一圈硬边）；
-     * - 经典风格：`TabRowWithContour`；
-     * - 玻璃控件的采样源必须在 Sheet 内部单独录制，**不能**传页面级 backdrop——那样采样到的是
-     *   Sheet 后面的设置页，看起来像「穿透了 Sheet」。
-     *
-     * 采样层还必须覆盖到 TabRow 所在的区域，玻璃控件才能取到背景，故沿用添加磁贴的
-     * 「头部浮层 + 内容层」结构：头部（感谢文案 + TabRow）作为浮层叠在采样层之上，采样层用
-     * 顶部内边距让出头部高度——既是采样源，又不会被自身采样（本层不含 TabRow）。
-     *
-     * 收款码宽度由 [DonateQrMaxWidth] 封顶，避免在平板 / 横屏下撑满整个 Sheet。
-     */
-    @Composable
-    fun DonateSheet() {
-        val haptic = LocalHapticFeedback.current
-        // 当前展示的打赏渠道：0 = 微信，1 = 支付宝
-        var donateTab by remember { mutableIntStateOf(0) }
-
-        // 两个渠道的 Tab 文案
-        val donateTabLabels = listOf(
-            stringResource(R.string.settings_donate_tab_wx),
-            stringResource(R.string.settings_donate_tab_alipay),
-        )
-
-        AppBottomSheet(
-            state = donateSheetState,
-            title = stringResource(R.string.settings_donate_title),
-            // 关闭动画完成后复位，下次打开总是从微信开始
-            onDismissed = { donateTab = 0 },
-        ) {
-            // 头部（感谢文案 + TabRow）的实测高度（px）：测量后回填成内容层的顶部内边距，
-            // 让采样层从 Sheet 内容区顶部开始，从而把 TabRow 所在的区域也包含进去
-            var headerHeightPx by remember { mutableIntStateOf(0) }
-            val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
-
-            // 采样源：在 Sheet 内单独录制（模糊关闭 / 不支持时返回 null，TabRow 回退经典样式）
-            val headerBackdrop = rememberBlurBackdrop(enabled = glassStyle && themeSettings.enableBlur)
-
-            Box(modifier = Modifier.fillMaxWidth()) {
-                // 内容层 = 采样层：收款码 + 打赏声明，顶部让出头部高度（头部浮层在其之外，不被自身采样）
-                Box(
-                    modifier = if (headerBackdrop != null) {
-                        Modifier.fillMaxWidth().layerBackdrop(headerBackdrop)
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = headerHeight, bottom = navBarBottomPadding),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // 两张收款码之间切换：直接用 AnimatedContent 的默认动画
-                        AnimatedContent(
-                            targetState = donateTab,
-                            contentAlignment = Alignment.Center,
-                            label = "donateTabContent",
-                            modifier = Modifier.padding(top = 16.dp)
-                        ) { tab ->
-                            Image(
-                                painter = painterResource(
-                                    if (tab == 0) R.drawable.pic_donate_wx
-                                    else R.drawable.pic_donate_alipay
-                                ),
-                                contentDescription = stringResource(
-                                    if (tab == 0) R.string.settings_donate_qr_desc_wx
-                                    else R.string.settings_donate_qr_desc_alipay
-                                ),
-                                // 宽度 = min(可用宽度, DonateQrMaxWidth)。
-                                // **必须先 widthIn 再 fillMaxWidth**：顺序反过来的话，fillMaxWidth
-                                // 会先把约束钉成父级宽度，widthIn 的 max 会被强制拉回去（限宽失效）；
-                                // 这样写窄屏仍是「铺满可用宽度」，宽屏则停在 DonateQrMaxWidth 上。
-                                modifier = Modifier
-                                    .widthIn(max = DonateQrMaxWidth)
-                                    .fillMaxWidth()
-                                    .squircleClip(16.dp)
-                            )
-                        }
-                        // 打赏声明：说明继续打赏即视为同意《用户协议》第 3 节（费用与打赏），且不支持退款。
-                        // 「用户协议」为可点击链接，点击后打开 Docs 页并定位到「用户协议」Tab。
-                        Text(
-                            text = buildAnnotatedString {
-                                append(stringResource(R.string.settings_donate_agree_prefix))
-                                // 链接样式：主题色 + 下划线，与 OOBE 页的法律文档链接保持一致
-                                withLink(
-                                    LinkAnnotation.Clickable(
-                                        tag = DocsTab.TERMS_OF_SERVICE.name,
-                                        styles = TextLinkStyles(
-                                            style = SpanStyle(
-                                                color = MiuixTheme.colorScheme.primary,
-                                                textDecoration = TextDecoration.Underline
-                                            )
-                                        ),
-                                        linkInteractionListener = { link ->
-                                            if (link is LinkAnnotation.Clickable) {
-                                                context.startActivity(
-                                                    Intent(context, DocsActivity::class.java).putExtra(
-                                                        // EXTRA 以 String 形式传递（枚举序列化后 getStringExtra 取不到），
-                                                        // 与 OOBE 页的写法保持一致，避免点击被兜底为隐私政策。
-                                                        DocsActivity.EXTRA_TAB,
-                                                        DocsTab.TERMS_OF_SERVICE.name
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    )
-                                ) {
-                                    append(stringResource(R.string.settings_donate_agree_link_terms))
-                                }
-                                append(stringResource(R.string.settings_donate_agree_suffix))
-                            },
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(), start = 12.dp, end = 12.dp)
-                        )
-                    }
-                }
-
-                // 头部浮层：感谢文案 + 渠道 TabRow（高度回填给上面内容层的顶部内边距）
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .onSizeChanged { headerHeightPx = it.height },
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_donate_thanks),
-                        style = MiuixTheme.textStyles.body2,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    if (glassStyle && headerBackdrop != null) {
-                        // 玻璃风格：官方 GlassSegmentedTabRow（胶囊轨道 + 滑动指示器），
-                        // 采样的是 Sheet 内录制的 headerBackdrop，不会被自身内容污染。
-                        // 阴影（关键）：玻璃阴影是画在节点边界之外的，塞进 clip 之内只会被裁成一圈硬边，
-                        // 故把 glassShadow 挂在外层 Box、clip 在其之后，组件自身传 shadow = null。
-                        // 颜色用库自带的 GlassShadows.Float（纯黑低透明），不要贴主题色 / onSurface，
-                        // 浅色模式下那会变成一圈亮色、看着像「反色的阴影」。
-                        val tabTrackShape = remember {
-                            GlassShape(GlassSegmentedTabRowDefaults.Height / 2, smoothing = 0f)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .glassShadow(tabTrackShape, GlassShadows.Float)
-                                .clip(Capsule())
-                        ) {
-                            GlassSegmentedTabRow(
-                                tabs = donateTabLabels,
-                                selectedIndex = donateTab,
-                                onSelect = { index ->
-                                    // 只在真正切换时给触感反馈
-                                    if (index != donateTab) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        donateTab = index
-                                    }
-                                },
-                                backdrop = headerBackdrop,
-                                // 阴影已在外层画好（见上）
-                                shadow = null,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    } else {
-                        // 经典风格：Miuix 描边分段控件
-                        TabRowWithContour(
-                            tabs = donateTabLabels,
-                            selectedTabIndex = donateTab,
-                            onTabSelected = { index ->
-                                if (index != donateTab) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    donateTab = index
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     /** 作者信息 Sheet：展示作者各社交平台入口，点击对应平台打开其主页链接 */
     @Composable
     fun AuthorSheet() {
@@ -1867,8 +1660,8 @@ fun SettingsScreen() {
     // ---- 备份结果 Sheet ----
     BackupSheet()
 
-    // ---- 支持作者 Sheet ----
-    DonateSheet()
+    // ---- 支持作者 Sheet（收款码界面与主页打赏卡片共用 ui/components/DonateSheet） ----
+    DonateSheet(state = donateSheetState)
 
     // ---- 作者信息 Sheet ----
     AuthorSheet()
@@ -1913,9 +1706,12 @@ private fun AuthorPlatformItem(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
-    Card(colors = CardDefaults.defaultColors(
-        color = MiuixTheme.colorScheme.secondaryContainerVariant
-    )) {
+    Card(
+        pressFeedbackType = PressFeedbackType.Sink,
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.secondaryContainerVariant
+        )
+    ) {
         Column(
             // 点击触发触觉反馈并打开平台主页链接（与设置页其他可点击项一致）
             modifier = Modifier
@@ -2037,6 +1833,7 @@ private fun ExpandableSettingsCard(
         label = "expandCardAlpha"
     )
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = cardAlpha)

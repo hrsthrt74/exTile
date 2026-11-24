@@ -30,6 +30,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * 权限状态卡片组件（主页与 OOBE 共用）。
@@ -77,6 +78,7 @@ fun PermissionStatusCard(
     val commandCopiedToast = stringResource(R.string.perm_command_copied)
 
     Card(
+        pressFeedbackType = PressFeedbackType.Sink,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
