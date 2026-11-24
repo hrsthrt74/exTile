@@ -106,6 +106,7 @@ import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
 import com.hrsthrt74.qstile.ui.components.AppTextField
+import com.hrsthrt74.qstile.ui.components.ContainedIcon
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -595,6 +596,8 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_appearance),
             icon = MiuixIcons.Glass.DecorationMaintenance,
+            // 外观分类品牌色：紫色；Monet 动态取色下会被自动压平为主题 primary
+            containerColor = Color(0xFF7667F8),
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.APPEARANCE,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.APPEARANCE) }
         ) {
@@ -685,6 +688,8 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_data),
             icon = MiuixIcons.Glass.AllSdCardData,
+            // 数据分类品牌色：红色；Monet 动态取色下会被自动压平为主题 primary
+            containerColor = Color(0xFFFA382E),
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.DATA,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.DATA) }
         ) {
@@ -754,11 +759,13 @@ fun SettingsScreen() {
         ExpandableSettingsCard(
             title = stringResource(R.string.settings_cat_about),
             // 关于分类使用应用自身的 ExTile 图标（vector drawable），
-            // 通过 vectorResource 转成 ImageVector，复用 CategoryIcon 的 onPrimary 染色
+            // 通过 vectorResource 转成 ImageVector，交由通用组件「有底图标」统一染色
             icon = ImageVector.vectorResource(R.drawable.ic_settings_extile),
             // 该图标内容（4~44 / 48 视口）比 miuix 图标更「满」，同尺寸渲染反而显大，
             // 因此比其它分类图标小一档（24dp vs 26dp）做视觉对齐
             iconSize = 24.dp,
+            // 关于分类品牌色：灰色；Monet 动态取色下会被自动压平为主题 primary
+            containerColor = Color(0xFF8C9DAF),
             expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.ABOUT,
             onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.ABOUT) }
         ) {
@@ -1995,40 +2002,14 @@ private fun PreferenceLeadingPlaceholder() {
 }
 
 /**
- * 分类图标：圆角矩形背景（primary）+ 图标（onPrimary），用于分类标题行左侧。
- *
- * 关于 [iconSize]：不同图标源的「视觉大小」并不一致——miuix 内置图标内容相对画布偏内收，
- * 而本应用自绘的 vector drawable（如 ic_settings_extile）内容更满，同样尺寸渲染出来会显得更大。
- * 因此开放该参数，让调用方按视觉观感微调，保持各分类图标大小一致。
- * @param icon 图标
- * @param iconSize 图标绘制尺寸，默认 26dp（通用分类图标统一使用）
- */
-@Composable
-private fun CategoryIcon(icon: ImageVector, iconSize: Dp = 26.dp) {
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .squircleClip(cornerRadius = 8.dp)
-            .background(MiuixTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MiuixTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(iconSize)
-        )
-    }
-}
-
-/**
  * 可展开的设置分类卡片。
  * 点击标题行在展开/收起之间切换，内容使用 AnimatedVisibility 平滑展开/收起。
- * 标题行左侧为分类图标（[CategoryIcon]），右侧箭头图标随展开状态旋转
+ * 标题行左侧为分类图标（通用组件 [ContainedIcon]「有底图标」），右侧箭头图标随展开状态旋转
  * （收起时指向右，展开时指向下）。
  * @param title 分类标题
  * @param icon 分类图标
  * @param iconSize 分类图标绘制尺寸（默认 26dp，可按图标观感单独微调）
+ * @param containerColor 分类图标底色；null 表示跟随主题 primary（Monet 下始终为 primary）
  * @param expanded 是否处于展开状态
  * @param onToggle 点击标题行时的回调（切换展开状态）
  * @param content 展开后展示的设置项内容
@@ -2038,6 +2019,7 @@ private fun ExpandableSettingsCard(
     title: String,
     icon: ImageVector,
     iconSize: Dp = 26.dp,
+    containerColor: Color? = null,
     expanded: Boolean,
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
@@ -2074,8 +2056,8 @@ private fun ExpandableSettingsCard(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 分类图标
-            CategoryIcon(icon = icon, iconSize = iconSize)
+            // 分类图标（通用组件「有底图标」）
+            ContainedIcon(icon = icon, containerColor = containerColor, iconSize = iconSize)
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = title,
