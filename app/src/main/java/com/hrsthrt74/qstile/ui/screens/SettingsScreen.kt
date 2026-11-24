@@ -103,6 +103,7 @@ import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.awaitStartupFrames
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppCard
 import com.hrsthrt74.qstile.ui.components.AppDialog
 import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
 import com.hrsthrt74.qstile.ui.components.AppTextField
@@ -949,7 +950,8 @@ fun SettingsScreen() {
                     .verticalScroll(rememberScrollState())
             ) {
                 // 自动检查更新开关：开启后应用每次冷启动时会静默检查一次
-                Card(modifier = Modifier.fillMaxWidth()) {
+                // 浮层内的卡片走 AppCard：玻璃风格自动换成 GlassCard（半透明，露出 Sheet 材质）
+                AppCard(modifier = Modifier.fillMaxWidth()) {
                     SwitchPreference(
                         title = stringResource(R.string.settings_update_auto_title),
                         checked = autoCheckUpdate,
@@ -1004,7 +1006,7 @@ fun SettingsScreen() {
                 if (changelogEntry != null) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier
@@ -1491,14 +1493,13 @@ fun SettingsScreen() {
                         contentPadding = PaddingValues(bottom = navBarBottomPadding)
                     ) {
                         items(viewModel.backupList, key = { it.fileName }) { backup ->
-                            Card(
+                            // 浮层内卡片：玻璃风格用 GlassCard，经典风格沿用 secondaryContainer 实色
+                            AppCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
                                 insideMargin = PaddingValues(16.dp),
-                                colors = CardDefaults.defaultColors(
-                                    color = MiuixTheme.colorScheme.secondaryContainer
-                                )
+                                color = MiuixTheme.colorScheme.secondaryContainer,
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -1723,8 +1724,9 @@ fun SettingsScreen() {
                                     contentPadding = PaddingValues(bottom = navBarBottomPadding)
                                 ) {
                                     items(filteredApps, key = { it.packageName }) { app ->
-                                // 每个应用项使用 Miuix Card 包裹，提供卡片背景（无阴影）+ 圆角
-                                Card(
+                                // 每个应用项用卡片包裹，提供背景（无阴影）+ 圆角；
+                                // 浮层内走 AppCard：玻璃风格换成 GlassCard（半透明），经典风格保持 secondaryContainer
+                                AppCard(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
@@ -1734,9 +1736,7 @@ fun SettingsScreen() {
                                             appPickerSheetState.dismiss()
                                         },
                                     insideMargin = PaddingValues(16.dp),
-                                    colors = CardDefaults.defaultColors(
-                                        color = MiuixTheme.colorScheme.secondaryContainer
-                                    )
+                                    color = MiuixTheme.colorScheme.secondaryContainer,
                                 ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),

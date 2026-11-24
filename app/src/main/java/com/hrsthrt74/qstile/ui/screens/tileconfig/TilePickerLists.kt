@@ -77,6 +77,11 @@ private fun hasTileIcon(context: Context, tile: String): Boolean {
  *
  * @param viewModel 磁贴配置 ViewModel（提供候选清单、搜索词与添加动作）
  * @param topPadding 列表顶部预留高度（= 头部浮层高度），让列表铺满 Sheet、滚动时滑到头部下方
+ * @param sidePadding 列表内容左右留白。
+ *   本列表是「铺满 Sheet」的（Sheet 侧不给容器级外边距，见 `AppBottomSheet(fullBleedContent)`），
+ *   左右留白因此由列表自己的 contentPadding 提供：玻璃风格要补回 miuix beta04 收窄的 12dp，
+ *   经典风格为 0（Sheet 自带 24dp）。**不要**改成给外层加 padding——那会把列表视口一起缩小，
+ *   Tab 切换时内容会在面板内侧被硬切出一条边，顶部淡出遮罩与玻璃头部的 backdrop 也会变窄。
  * @param continuousAdd 「连续放置」是否开启：开启时不收起 Sheet，可连续点多个
  * @param onDismissSheet 需要收起 Sheet 时调用（仅在未开启「连续放置」时被调用）
  */
@@ -84,6 +89,7 @@ private fun hasTileIcon(context: Context, tile: String): Boolean {
 internal fun SystemTilePicker(
     viewModel: TileConfigViewModel,
     topPadding: Dp,
+    sidePadding: Dp,
     continuousAdd: Boolean,
     onDismissSheet: () -> Unit,
 ) {
@@ -150,7 +156,12 @@ internal fun SystemTilePicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     // 顶部让出头部浮层高度，避免提示文字被 TabRow / 搜索框挡住
-                    .padding(top = topPadding, bottom = 24.dp)
+                    .padding(
+                        start = sidePadding,
+                        end = sidePadding,
+                        top = topPadding,
+                        bottom = 24.dp,
+                    )
             )
         } else {
             LazyVerticalGrid(
@@ -158,7 +169,13 @@ internal fun SystemTilePicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                contentPadding = PaddingValues(top = topPadding + 8.dp, bottom = 64.dp)
+                // 列表本身铺满面板，左右留白走 contentPadding（含义见 sidePadding 注释）
+                contentPadding = PaddingValues(
+                    start = sidePadding,
+                    end = sidePadding,
+                    top = topPadding + 8.dp,
+                    bottom = 64.dp,
+                )
             ) {
                 tilesByCategory.forEach { (category, tiles) ->
                     // 分类标题
@@ -227,6 +244,7 @@ internal fun SystemTilePicker(
  *
  * @param viewModel 磁贴配置 ViewModel（提供 Service 列表、搜索词与添加动作）
  * @param topPadding 列表顶部预留高度（= 头部浮层高度）
+ * @param sidePadding 列表内容左右留白（含义同 [SystemTilePicker]，玻璃风格补 12dp、经典风格 0）
  * @param continuousAdd 「连续放置」是否开启
  * @param onDismissSheet 需要收起 Sheet 时调用（仅在未开启「连续放置」时被调用）
  */
@@ -234,6 +252,7 @@ internal fun SystemTilePicker(
 internal fun ThirdPartyTilePicker(
     viewModel: TileConfigViewModel,
     topPadding: Dp,
+    sidePadding: Dp,
     continuousAdd: Boolean,
     onDismissSheet: () -> Unit,
 ) {
@@ -295,7 +314,13 @@ internal fun ThirdPartyTilePicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     // 顶部让出头部浮层（TabRow / 搜索框）的高度
-                    .padding(start = 24.dp, end = 24.dp, top = topPadding + 24.dp, bottom = 24.dp),
+                    // 左右各自再留 24dp：这两种「提示/引导」块比列表更窄，观感更稳
+                    .padding(
+                        start = sidePadding + 24.dp,
+                        end = sidePadding + 24.dp,
+                        top = topPadding + 24.dp,
+                        bottom = 24.dp,
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -344,7 +369,12 @@ internal fun ThirdPartyTilePicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     // 顶部让出头部浮层（TabRow / 搜索框）的高度
-                    .padding(start = 24.dp, end = 24.dp, top = topPadding + 24.dp, bottom = 24.dp),
+                    .padding(
+                        start = sidePadding + 24.dp,
+                        end = sidePadding + 24.dp,
+                        top = topPadding + 24.dp,
+                        bottom = 24.dp,
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -381,7 +411,12 @@ internal fun ThirdPartyTilePicker(
                         modifier = Modifier
                             .fillMaxWidth()
                             // 顶部让出头部浮层高度
-                            .padding(top = topPadding, bottom = 24.dp)
+                            .padding(
+                                start = sidePadding,
+                                end = sidePadding,
+                                top = topPadding,
+                                bottom = 24.dp,
+                            )
                     )
                 } else {
                     LazyVerticalGrid(
@@ -390,7 +425,13 @@ internal fun ThirdPartyTilePicker(
                             .fillMaxWidth()
                             .scrollEndHaptic(HapticFeedbackType.TextHandleMove)
                             .clarityMask(),
-                        contentPadding = PaddingValues(top = topPadding + 8.dp, bottom = 64.dp)
+                        // 列表本身铺满面板，左右留白走 contentPadding（含义见 sidePadding 注释）
+                        contentPadding = PaddingValues(
+                            start = sidePadding,
+                            end = sidePadding,
+                            top = topPadding + 8.dp,
+                            bottom = 64.dp,
+                        )
                     ) {
                         gridItems(filteredServices, key = { it.packageName + "/" + it.className }) { service ->
                             val tileValue = "custom(${service.packageName}/${service.className})"

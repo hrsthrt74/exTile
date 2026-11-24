@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppChip
+import com.hrsthrt74.qstile.ui.components.FullBleedSheetSideInset
 import com.hrsthrt74.qstile.ui.components.SheetState
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
@@ -89,6 +90,15 @@ fun AddTileSheet(
     val themeSettings = LocalThemeSettings.current
     // 应用风格：开 = Glass（TabRow / 阴影走玻璃实现），关 = 经典（TabRowWithContour）
     val isGlassStyle = themeSettings.progressiveBlur
+
+    // 本 Sheet 是「列表铺满面板」的（AppBottomSheet 传 fullBleedContent = true）：
+    // 列表要一直铺到面板边缘，顶部淡出遮罩、玻璃头部采样的 backdrop、Tab 切换的横向滑动
+    // 都以整幅宽度为前提。此时 Sheet 自身的 insideMargin 被置 0，只要还有内边距，
+    // 列表视口就被缩在里面，滑动时内容会在面板内侧被硬切出一条边。
+    //
+    // 于是左右留白全部由内容自己给：列表 contentPadding、头部浮层 padding、
+    // 以及标题行动作区（由 AppBottomSheet 自动补）统一用 24dp，两种风格一致。
+    val sheetSideInset = FullBleedSheetSideInset
 
     // 当前选中的来源 Tab：0 = 系统磁贴，1 = 第三方磁贴（关闭 Sheet 后复位为 0）
     var addTileTab by remember { mutableIntStateOf(0) }
@@ -154,6 +164,8 @@ fun AddTileSheet(
             searchActive = false
             continuousAdd = false
         },
+        // 列表铺满面板，左右留白由列表 contentPadding 与头部 padding 负责（见 sheetSideInset）
+        fullBleedContent = true,
     ) {
         // 头部高度（px）：由头部浮层测量后回填，作为列表顶部的内边距，
         // 使列表内容铺满整个 Sheet 并在滚动时滑到头部下方（而不是被头部挤下去、留出空白）。
@@ -246,12 +258,14 @@ fun AddTileSheet(
                             0 -> SystemTilePicker(
                                 viewModel = viewModel,
                                 topPadding = headerHeight,
+                                sidePadding = sheetSideInset,
                                 continuousAdd = continuousAdd,
                                 onDismissSheet = { state.dismiss() },
                             )
                             else -> ThirdPartyTilePicker(
                                 viewModel = viewModel,
                                 topPadding = headerHeight,
+                                sidePadding = sheetSideInset,
                                 continuousAdd = continuousAdd,
                                 onDismissSheet = { state.dismiss() },
                             )
@@ -266,6 +280,9 @@ fun AddTileSheet(
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .onSizeChanged { headerHeightPx = it.height }
+                    // 头部自己留出左右边距（外层容器是铺满的，见 sheetSideInset）。
+                    // 胶囊外侧的玻璃阴影由 glassShadow 画在 clip 之前，往外溢出到留白里不会被裁掉。
+                    .padding(horizontal = sheetSideInset)
             ) {
                 // 注意：这里**不要**再叠一层「Sheet 底色渐变」遮罩来做内容淡出。
                 // 叠色的颜色没法与玻璃态 Sheet 的真实底色对齐（见列表层顶部的说明），

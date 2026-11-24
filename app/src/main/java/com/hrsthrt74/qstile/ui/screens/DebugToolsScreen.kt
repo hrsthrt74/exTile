@@ -65,6 +65,7 @@ import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
+import com.hrsthrt74.qstile.ui.components.AppCard
 import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.TileGridCell
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
@@ -74,7 +75,6 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -649,13 +649,13 @@ fun DebugToolsScreen() {
                 )
             }
 
-            // 一组开关用一个 Card 作为背景容器（圆角/内边距由 Card 自动处理，背景色统一 secondaryVariant）
+            // 一组开关用一个卡片作为背景容器（圆角/内边距由卡片自动处理）
+            // 浮层内走 AppCard：玻璃风格换成 GlassCard（半透明、露出 Sheet 材质，组间靠间距区分），
+            // 经典风格仍是 secondaryVariant 实色分组底色
             item {
-                Card(
+                AppCard(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.secondaryVariant
-                    )
+                    color = MiuixTheme.colorScheme.secondaryVariant,
                 ) {
                     Column {
                         // 调试开关：编辑页「添加磁贴」Sheet 额外显示预设内因设备能力不满足而不可用的磁贴
@@ -709,11 +709,10 @@ fun DebugToolsScreen() {
             }
 
             item {
-                Card(
+                // 浮层内卡片：玻璃风格 = GlassCard，经典风格 = secondaryVariant 实色分组
+                AppCard(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.secondaryVariant
-                    )
+                    color = MiuixTheme.colorScheme.secondaryVariant,
                 ) {
                     Column {
                         // 遍历注册表自动生成开关：新增 prop 后无需改 UI
@@ -744,11 +743,10 @@ fun DebugToolsScreen() {
             }
 
             item {
-                Card(
+                // 浮层内卡片：玻璃风格 = GlassCard，经典风格 = secondaryVariant 实色分组
+                AppCard(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.secondaryVariant
-                    )
+                    color = MiuixTheme.colorScheme.secondaryVariant,
                 ) {
                     Column {
                         // 遍历注册表自动生成开关：新增 feature 后无需改 UI
