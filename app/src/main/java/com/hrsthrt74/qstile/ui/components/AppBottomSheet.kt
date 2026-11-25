@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
+import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassBottomSheet
 import top.yukonga.miuix.kmp.glass.GlassBottomSheetDefaults
 import top.yukonga.miuix.kmp.layout.BottomSheetDefaults
@@ -151,6 +152,10 @@ fun rememberSheetState(initialShow: Boolean = false): SheetState =
  * @param content Sheet 内容。拿到的是「Sheet 头部占用的顶部高度」：
  *   普通 Sheet（未开 [contentExtendsUnderHeader]）恒为 0（已由容器消费）；
  *   开启后（含铺满型）为头部实测高度（含 [headerBottomContent]），应作为滚动容器的 `contentPadding.top`
+ * @param backdrop 玻璃风格下 Sheet 采样页面背景用的 backdrop；默认取 [LocalOverlayBackdrop]。
+ *   主界面由 App.kt 统一下发，独立 Activity（调试页等）没有这层 provider，
+ *   不显式传入时为 null —— 玻璃面板会退化成**不透明纯色**（很显眼的「样式不对」），
+ *   此时把页面自己录制的 backdrop 传进来即可
  */
 @Composable
 fun AppBottomSheet(
@@ -166,6 +171,7 @@ fun AppBottomSheet(
     maxHeightFraction: Float = 0.85f,
     fullBleedContent: Boolean = false,
     contentExtendsUnderHeader: Boolean = false,
+    backdrop: Backdrop? = LocalOverlayBackdrop.current,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     // 读取当前窗口高度（与 miuix 内部一致），按比例计算内容区的最大高度
@@ -174,7 +180,6 @@ fun AppBottomSheet(
 
     // 随应用风格开关切换：true=玻璃风格 GlassBottomSheet，false=经典 WindowBottomSheet
     val glassStyle = LocalThemeSettings.current.progressiveBlur
-    val backdrop = LocalOverlayBackdrop.current
 
     // 玻璃风格的左右留白比经典风格窄 12dp（见 [GlassSheetContentExtraInset]），在内容侧补回；
     // 经典风格的 Sheet 自带 24dp，无需补偿，保持 0。

@@ -686,16 +686,25 @@ fun DebugToolsScreen() {
     }
 
     // 能力开关（调试）Sheet：集中管理 flag / prop / 硬件特性的调试开关
+    // backdrop：本页是独立 Activity，不像主界面那样有 App.kt 下发的 LocalOverlayBackdrop，
+    // 必须把自己录制的那份显式交给 Sheet，否则玻璃面板会退化成不透明纯色（和别处样式不一致）
     AppBottomSheet(
         state = capabilitySheetState,
         title = stringResource(R.string.debug_capability),
-    ) {
+        // 列表可滚动：视口铺满到面板顶端，条目滑到标题栏下方（与设置页各列表 Sheet 同款）
+        contentExtendsUnderHeader = true,
+        backdrop = backdrop,
+    ) { innerPadding ->
+        // 头部让出的高度交给内容自己消费（见 AppBottomSheet 的 contentExtendsUnderHeader）：
+        // 作为列表 contentPadding.top，首屏内容从标题栏下方开始，滚动时从标题栏下方滑过
+        val headerHeight = innerPadding.calculateTopPadding()
         // 内容可滚动，避免开关过多时超出窗口高度
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
             contentPadding = PaddingValues(
+                top = headerHeight,
                 bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
             )
         ) {
@@ -843,14 +852,19 @@ fun DebugToolsScreen() {
     AppBottomSheet(
         state = addTileSheetState,
         title = stringResource(R.string.debug_add_tile),
-    ) {
+        // 与磁贴编辑页的「添加磁贴」Sheet 一致：网格铺到面板顶端，图标滚动时从标题栏下方滑过
+        contentExtendsUnderHeader = true,
+        backdrop = backdrop,
+    ) { innerPadding ->
         val navBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
+        // 头部让出的高度由内容自己消费：网格 contentPadding.top、空状态文案的 padding.top 都用它
+        val headerHeight = innerPadding.calculateTopPadding()
 
         if (availableTiles.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = headerHeight + 24.dp, bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -871,7 +885,8 @@ fun DebugToolsScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                contentPadding = PaddingValues(top = 8.dp, bottom = navBarBottomPadding + 16.dp)
+                // 顶部让位交给 contentPadding：视口铺满到面板顶端
+                contentPadding = PaddingValues(top = headerHeight + 8.dp, bottom = navBarBottomPadding + 16.dp)
             ) {
                 tilesByCategory.forEach { (category, tiles) ->
                     // 分类标题
@@ -935,6 +950,7 @@ fun DebugToolsScreen() {
     AppBottomSheet(
         state = addCustomTileSheetState,
         title = stringResource(R.string.debug_add_custom),
+        backdrop = backdrop,
         // 关闭动画完成后清空上次输入的磁贴值，避免下次打开残留
         onDismissed = { customTileInput = "" },
     ) {
