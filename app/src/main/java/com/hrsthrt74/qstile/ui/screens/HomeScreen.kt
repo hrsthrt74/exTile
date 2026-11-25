@@ -136,6 +136,8 @@ fun HomeScreen(
                     PermissionStatusCard(
                         status = permState.status,
                         isLoading = permState.isLoading,
+                        // 主页卡片保留按压 Sink 反馈（其它页面复用本组件时不开启）
+                        pressFeedback = true,
                         onRootGrant = { permState.rootGrant() },
                         onInstallShizuku = {
                             // 未安装 Shizuku：引导到 GitHub Releases 下载

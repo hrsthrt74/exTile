@@ -12,7 +12,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.glass.GlassCard
 import top.yukonga.miuix.kmp.glass.GlassCardDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * Sheet / Dialog 内容里的卡片：**跟随应用风格开关**自动切换实现。
@@ -62,7 +61,6 @@ fun AppCard(
 
     if (glassStyle) {
         GlassCard(
-            pressFeedbackType = PressFeedbackType.Sink,
             modifier = modifier,
             cornerRadius = cornerRadius ?: GlassCardDefaults.CornerRadius,
             insideMargin = insideMargin,
@@ -71,7 +69,6 @@ fun AppCard(
         )
     } else {
         Card(
-            pressFeedbackType = PressFeedbackType.Sink,
             modifier = modifier,
             cornerRadius = cornerRadius ?: CardDefaults.CornerRadius,
             insideMargin = insideMargin,

@@ -58,6 +58,8 @@ import top.yukonga.miuix.kmp.utils.PressFeedbackType
  *   [ShizukuHelper.PermissionStatus.GRANT_FAILED] 时主按钮点击回调（直接执行 pm grant）
  * @param showAdbGuide 是否显示 adb 手动授权入口（「使用 adb 手动授权」按钮 + 指引对话框）；
  *   默认 false（隐藏）
+ * @param pressFeedback 是否启用「按压内凹（Sink）」反馈，默认 false（OOBE 等页面按下无变化）；
+ *   仅主页传入 true——按压反馈只保留主页展示的卡片，其它页面统一不响应按压
  */
 @Composable
 fun PermissionStatusCard(
@@ -70,6 +72,7 @@ fun PermissionStatusCard(
     onRequestShizukuPermission: () -> Unit,
     onAutoGrant: () -> Unit,
     showAdbGuide: Boolean = false,
+    pressFeedback: Boolean = false,
 ) {
     val context = LocalContext.current
     // adb 手动授权指引对话框的显示状态（统一由 AppDialog 管理）
@@ -78,7 +81,8 @@ fun PermissionStatusCard(
     val commandCopiedToast = stringResource(R.string.perm_command_copied)
 
     Card(
-        pressFeedbackType = PressFeedbackType.Sink,
+        // 按压反馈（Sink = 按下内凹 + 回弹）只在主页开启，OOBE 复用本组件时保持 miuix 默认的「无反馈」
+        pressFeedbackType = if (pressFeedback) PressFeedbackType.Sink else PressFeedbackType.None,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(

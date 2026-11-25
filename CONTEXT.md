@@ -102,4 +102,4 @@
 - **OOBE 流程**：五步 HorizontalPager——P0 欢迎 → P1 数据与隐私（Clarity 开关 + 勾选同意法律文档）→ P2 权限 → P3 配置 → P4 完成；隐私页用 Card 包裹 SwitchPreference，说明收集/不收集的数据类型；法律文档勾选后才可进入下一步，链接点击跳转 `LegalDocumentsActivity`
 - **隐私 Masking**：`clarityMask()` 修饰符遮挡敏感信息——应用选择器整个 Sheet、自定义磁贴名文本、跳转目标文本
 - **打赏入口**：收款码界面抽取为 `ui/components/DonateSheet.kt`（`DonateSheet(state)`，自带微信/支付宝分段 Tab + 玻璃采样层 + 用户协议链接），设置页「支持作者」条目与主页 `home/DonateCard` 卡片共用这一个实现；改打赏界面只改这一处，不要在页面里另写一套
-- **卡片按压反馈**：全项目的 `Card` / `GlassCard`（含 `AppCard` 两个分支）统一传 `pressFeedbackType = PressFeedbackType.Sink`（miuix 默认是 `None`，按下毫无变化）；**可点击**的卡片再叠加 `showIndication = true`（走主题里的 `MiuixIndication` 蒙版）。新增卡片时别漏这两个参数
+- **卡片按压反馈（仅主页）**：按压 Sink（`pressFeedbackType = PressFeedbackType.Sink`）**只保留主页展示的卡片**——`home/DonateCard`、`home/FirstVersionCard`、`home/StatsCard`、以及主页的 `PermissionStatusCard`（该组件与 OOBE 复用，故加了 `pressFeedback: Boolean = false` 开关，只有 HomeScreen 传 `true`）。**其它页面一律不给卡片加按压反馈**：设置页、调试工具页、许可页、OOBE、创造模式层设置卡、Sheet/Dialog 内的 `AppCard`（`Card` / `GlassCard` 两个分支）都保持 miuix 默认的 `None`，不要按「统一手感」再把 Sink 铺回全项目。可点击的主页卡片（DonateCard / FirstVersionCard）另外叠加 `showIndication = true`（走主题里的 `MiuixIndication` 蒙版）

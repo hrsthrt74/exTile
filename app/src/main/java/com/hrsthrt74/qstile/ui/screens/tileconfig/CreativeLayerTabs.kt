@@ -26,7 +26,6 @@ import top.yukonga.miuix.kmp.glass.glassShadow
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * 创造模式的「层」切换 Tab（层 1 / 层 2）。
@@ -145,7 +144,6 @@ fun CreativeLayerOptionsCard(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            pressFeedbackType = PressFeedbackType.Sink,
         ) {
             Column {
                 // 无字模式是 HyperOS 专属 Secure Setting，仅小米设备显示（与设置页保持一致）

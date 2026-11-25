@@ -164,7 +164,6 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import android.graphics.Color as AndroidColor
 
@@ -1707,7 +1706,6 @@ private fun AuthorPlatformItem(
     val haptic = LocalHapticFeedback.current
 
     Card(
-        pressFeedbackType = PressFeedbackType.Sink,
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.secondaryContainerVariant
         )
@@ -1833,7 +1831,6 @@ private fun ExpandableSettingsCard(
         label = "expandCardAlpha"
     )
     Card(
-        pressFeedbackType = PressFeedbackType.Sink,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = cardAlpha)
