@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalScrollBarApi::class)
+
 package com.hrsthrt74.qstile.ui.screens
 
 import android.content.Intent
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -64,30 +68,38 @@ import com.hrsthrt74.qstile.data.UpdateChecker
 import com.hrsthrt74.qstile.root.RootHelper
 import com.hrsthrt74.qstile.shizuku.SecureSettingsHelper
 import com.hrsthrt74.qstile.shizuku.ShizukuHelper
+import com.hrsthrt74.qstile.ui.AppTopBar
+import com.hrsthrt74.qstile.ui.LocalAppTopBarGlass
+import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.components.AppBottomSheet
 import com.hrsthrt74.qstile.ui.components.AppCard
 import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.TileGridCell
 import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.components.rememberTileIcon
+import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.VerticalScrollBar
+import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Undo
+import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import top.yukonga.miuix.kmp.icon.glass.Refresh as GlassRefresh
+import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -100,6 +112,12 @@ fun DebugToolsScreen() {
     val scrollBehavior = MiuixScrollBehavior(state = topAppBarState)
 
     // 主题设置：由 ExTileTheme 通过 LocalThemeSettings 同步提供（数据就绪后才组合到这里，不会闪烁）
+    val themeSettings = LocalThemeSettings.current
+    // 应用风格开关（复用「渐进模糊」开关）：true=Glass 全套组件，false=经典组件
+    val glassStyle = themeSettings.progressiveBlur
+    // 顶栏模糊采样源：模糊关闭或 RuntimeShader 不支持时返回 null，组件回退纯色
+    val backdrop = rememberBlurBackdrop(enabled = themeSettings.enableBlur)
+
     val haptic = LocalHapticFeedback.current
     // 模糊浮现动画演示状态：初始激活（图标常驻显示），「禁用 icon」播放退出动画（模糊缩小消失），「激活 icon」播放进入动画（模糊缩小浮现）
     var demoActive by remember { mutableStateOf(true) }
@@ -215,36 +233,72 @@ fun DebugToolsScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            // 统一自适应顶栏：跟随 Glass / 经典风格开关，滚动折叠大标题（与设置页 / 文档页一致）
+            AppTopBar(
                 title = stringResource(R.string.debug_title),
                 largeTitle = stringResource(R.string.debug_title),
+                useLargeTitle = true,
                 scrollBehavior = scrollBehavior,
+                backdrop = backdrop,
+                progressive = glassStyle,
                 navigationIcon = {
-                    IconButton(onClick = { (context as? DebugToolsActivity)?.finish() }) {
-                        Icon(MiuixIcons.Back, contentDescription = stringResource(R.string.common_back))
+                    // 返回按钮跟随顶栏形态切换图标，照搬官方 demo 的 BackNavigationIcon
+                    TopBarIconButton(onClick = { (context as? DebugToolsActivity)?.finish() }) {
+                        if (LocalAppTopBarGlass.current) {
+                            Icon(
+                                imageVector = MiuixIcons.Glass.ChevronBackward,
+                                contentDescription = stringResource(R.string.common_back),
+                                modifier = Modifier.padding(2.dp),
+                            )
+                        } else {
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                            )
+                        }
                     }
                 },
                 actions = {
                     // 刷新入口：右上角刷新图标按钮，点击重新加载调试信息
-                    IconButton(onClick = { refreshDebugInfo() }) {
-                        Icon(MiuixIcons.Refresh, contentDescription = stringResource(R.string.debug_refresh_desc))
+                    TopBarIconButton(onClick = { refreshDebugInfo() }) {
+                        Icon(
+                            imageVector = if (LocalAppTopBarGlass.current) {
+                                MiuixIcons.Glass.GlassRefresh
+                            } else {
+                                MiuixIcons.Refresh
+                            },
+                            contentDescription = stringResource(R.string.debug_refresh_desc),
+                        )
                     }
                 }
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        val listState = rememberLazyListState()
+        // 顶栏避让放进 LazyColumn 的 contentPadding.top：内容从 (0,0) 铺满整屏，
+        // 滚动时能进入顶栏背后供模糊采样，而不是被推到顶栏下方
+        val topContentPadding = paddingValues.calculateTopPadding() + 12.dp
+        val bottomContentPadding = NavigationBarDefaults.ItemHeight +
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
+
+        // 内容区挂 backdrop，供顶栏模糊捕获下方滚动内容
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-            contentPadding = PaddingValues(
-                top = paddingValues.calculateTopPadding() + 12.dp,
-                bottom = NavigationBarDefaults.ItemHeight +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
         ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                contentPadding = PaddingValues(
+                    top = topContentPadding,
+                    bottom = bottomContentPadding
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
 
             // ===== 操作 =====
             item {
@@ -613,6 +667,21 @@ fun DebugToolsScreen() {
                 }
             }
 
+        }
+
+            // 右侧滚动条：与列表滚动状态联动，拖动时同步驱动顶栏折叠
+            VerticalScrollBar(
+                adapter = rememberScrollBarAdapter(listState),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
+                // 轨道顶部避让顶栏，滑块从顶栏下方开始
+                trackPadding = PaddingValues(
+                    top = topContentPadding,
+                    bottom = bottomContentPadding
+                ),
+                topAppBarScrollBehavior = scrollBehavior,
+            )
         }
     }
 

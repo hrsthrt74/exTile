@@ -1,18 +1,25 @@
+@file:OptIn(ExperimentalScrollBarApi::class)
+
 package com.hrsthrt74.qstile.ui.screens
 
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -22,6 +29,9 @@ import com.hrsthrt74.qstile.R
 import com.mikepenz.aboutlibraries.Libs
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.VerticalScrollBar
+import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
+import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -48,10 +58,10 @@ private fun loadLicenseItems(context: android.content.Context): List<LicenseItem
         val libs: Libs = Libs.Builder().withJson(json).build()
 
         libs.libraries
-            .filter { it.name != null } // 过滤掉没有名称的条目，无法展示
+            // name 在新版 aboutlibraries 中已是非空 String，无需再做空值过滤
             .map { library ->
                 LicenseItem(
-                    name = library.name!!,
+                    name = library.name,
                     // aboutlibraries 没有「作者」字段，用 maven groupId 代替
                     // （uniqueId 格式为 "groupId:artifactId"，去掉 artifactId 即得 groupId）
                     author = library.uniqueId.removeSuffix(":${library.artifactId}"),
@@ -72,40 +82,66 @@ private fun loadLicenseItems(context: android.content.Context): List<LicenseItem
  * 开源许可列表内容区（不含 Scaffold / TopAppBar）。
  *
  * 供 DocsScreen 的「开源许可」Tab 复用：点击条目跳转浏览器查看对应许可证。
- * 数据由 AboutLibraries 构建期自动收集，无需手动维护列表。
+ * 数据由 AboutLibraries 构建期自动收集，无需手动维护列表。样式对齐 miuix 官方 demo 的
+ * LicensePage：每张许可条目一张 Card + ArrowPreference，配合右侧滚动条与滚动触感反馈。
  * 滚动通过 [scrollBehavior] 与页面的可收起 TopAppBar 联动。
  *
  * @param scrollBehavior 页面的 TopAppBar 滚动行为，用于嵌套滚动联动收起。
+ * @param topContentPadding 顶栏（含 Tab 行）的高度，放进 LazyColumn 的 contentPadding.top，
+ *   让列表从屏幕顶部铺满、滚动时能进入顶栏背后供模糊采样，而不是被推到顶栏下方。
  */
 @Composable
-fun LicensesContent(scrollBehavior: ScrollBehavior) {
+fun LicensesContent(
+    scrollBehavior: ScrollBehavior,
+    topContentPadding: androidx.compose.ui.unit.Dp,
+) {
     val context = LocalContext.current
 
     // 数据在构建期已生成，运行时只需解析一次
     val licenses = remember { loadLicenseItems(context) }
+    val listState = rememberLazyListState()
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection)
-            .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-        contentPadding = PaddingValues(
-            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(licenses) { license ->
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ArrowPreference(
-                    title = license.name,
-                    summary = "${license.author} • ${license.license}",
-                    onClick = {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(license.url)))
-                    }
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                // 顶部避让顶栏（与设置页一致）：滚动时条目进入顶栏采样区供模糊捕获
+                top = topContentPadding + 12.dp,
+                bottom = bottomInset
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(licenses) { license ->
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ArrowPreference(
+                        title = license.name,
+                        summary = "${license.author} • ${license.license}",
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(license.url)))
+                        }
+                    )
+                }
             }
         }
+
+        // 右侧滚动条：与列表滚动状态联动，拖动时同步驱动顶栏折叠
+        VerticalScrollBar(
+            adapter = rememberScrollBarAdapter(listState),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(),
+            // 轨道顶部同样避让顶栏，滑块从顶栏下方开始
+            trackPadding = PaddingValues(top = topContentPadding + 12.dp, bottom = bottomInset),
+            topAppBarScrollBehavior = scrollBehavior,
+        )
     }
 }
