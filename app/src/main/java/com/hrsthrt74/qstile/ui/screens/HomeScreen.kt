@@ -17,10 +17,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.data.StatsRepository
 import com.hrsthrt74.qstile.data.TileStats
+import com.hrsthrt74.qstile.data.TipsRepository
 import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.components.DonateSheet
 import com.hrsthrt74.qstile.ui.components.PermissionStatusCard
@@ -39,6 +42,7 @@ import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.home.DonateCard
 import com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard
 import com.hrsthrt74.qstile.ui.screens.home.StatsCard
+import com.hrsthrt74.qstile.ui.screens.home.TipsCard
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -49,13 +53,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /**
  * 主页屏幕（只负责页面骨架：顶栏 + 滚动列表 + 卡片编排）。
  *
- * 展示 Shizuku 权限状态卡片 + 使用统计卡片 + 「第一个版本」提示卡片，
+ * 展示 Shizuku 权限状态卡片 + 使用统计卡片 + 「你知道吗？」卡片 + 「第一个版本」反馈卡片，
  * 是用户首次打开应用时看到的第一屏，引导完成 Shizuku 授权流程。
  *
  * 各卡片已拆分为独立文件，便于单独维护：
  * - 权限状态卡片：[PermissionStatusCard]（OOBE 也复用，故位于 ui/components）
  * - 使用统计卡片：[com.hrsthrt74.qstile.ui.screens.home.StatsCard]
  * - 首个版本提示卡片：[com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard]
+ * - 「你知道吗？」卡片：[com.hrsthrt74.qstile.ui.screens.home.TipsCard]
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口，接收结果回调
  */
@@ -83,6 +88,17 @@ fun HomeScreen(
     val permState = rememberPermissionState(onRequestShizukuPermission)
     /** 打赏 Sheet 的显示状态（微信 / 支付宝收款码） */
     val donateSheetState = rememberSheetState()
+
+    /**
+     * 「你知道吗？」卡片的全部文案。
+     *
+     * 以当前语言为 key：`res/raw` 与 `res/raw-zh` 下同名文件由资源系统按语言挑选，
+     * 切换应用语言后必须重新读一次，否则会继续显示旧语言的文案。
+     * 文案文件只有几 KB，这里同步读取（而不是异步）：避免卡片晚一帧才插入、下方卡片位置闪一下。
+     */
+    val tips = remember(LocalConfiguration.current.locales[0]) {
+        TipsRepository.load(context)
+    }
 
     Scaffold(
         topBar = {
@@ -172,6 +188,17 @@ fun HomeScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(12.dp)) }
+
+                // 「你知道吗？」卡片：展示一条使用小知识，点击卡片切换到下一条（循环）。
+                // 文案文件为空（例如某个语言还没写文案）时只跳过卡片本身，上下间距仍保留给统计卡与反馈卡。
+                if (tips.isNotEmpty()) {
+                    item {
+                        TipsCard(tips = tips)
+                    }
+
+                    // 卡片与下方「第一个版本」反馈卡片之间的间距：跟着卡片一起出现 / 消失
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+                }
 
                 // 「第一个版本」提示卡片：简中环境点击跳 QQ 加群（复制群号），其他语言点击打开 GitHub Issues
                 item {

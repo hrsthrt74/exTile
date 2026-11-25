@@ -1,0 +1,19 @@
+# Tips shown on the Home screen ("Did you know?") — English
+# Format: UTF-8, one tip per line; blank lines and lines starting with # are ignored;
+# a tip cannot span multiple lines. Keep the same number of lines as res/raw-zh/tips.txt.
+
+The Usage stats card shows a heatmap of your last 10 days of use.
+exTile started out as an idea for an automation app, and only later became a standalone app.
+This is the developer's first app.
+The Settings page uses a unique accordion-style menu — expanding one category collapses the others.
+Tile linking is something automation apps find hard to do. exTile achieves it with system APIs.
+The name Creative Mode was inspired by Minecraft.
+If you have a GitHub account, a star would really make my day~
+If exTile is useful to you, consider supporting the developer — thanks for using it!
+You can change what long-pressing the exTile tile does in Settings. The developer recommends System settings~
+The ± in the app icon isn't perfectly centered — the − sits a little lower. That's for visual balance.
+ex, for EXample: it means EXpand, EXtra and EXcellent~
+The app ships with a few tiles you normally never see.
+Creative mode's layering was inspired by QMK / VIA.
+You can switch the app language on the Debug Tools page.
+The default preset is Expand / Collapse — the right fit for most people. If you need more, try Creative mode.

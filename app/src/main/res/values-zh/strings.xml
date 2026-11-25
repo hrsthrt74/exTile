@@ -323,6 +323,8 @@
     <string name="home_stats_empty">还没有使用记录，点一下控制中心里的 exTile 磁贴就会开始计数</string>
     <string name="home_first_version_title">第一个版本</string>
     <string name="home_first_version_summary">exTile 处于早期版本，功能可能还不够完善，请多关照 🙏 如有疑问，请点击进入 QQ 群反馈~ 感谢你的使用~</string>
+    <!-- 「你知道吗？」卡片的固定标题；正文来自 res/raw(-zh)/tips.txt，不放在字符串表里 -->
+    <string name="home_tips_title">你知道吗？</string>
 
     <!-- ===== 文档页 docs_ ===== -->
     <!-- 页面内标题（Manifest 的 Activity label 单独用 docs_title） -->
