@@ -186,10 +186,9 @@
     <string name="settings_author_avatar">Author avatar</string>
     <string name="settings_version_title">Version</string>
     <string name="settings_donate_title">Support the developer</string>
-    <string name="settings_qq_group_title">Community</string>
-    <string name="settings_qq_group_summary">QQ group</string>
+    <!-- QQ group row title now carries the platform name; this row no longer shows a summary -->
+    <string name="settings_qq_group_title">QQ community</string>
     <string name="settings_qq_group_copied">Group number copied</string>
-    <string name="settings_donate_summary">Buy the author a coffee</string>
     <string name="settings_donate_thanks">Thank you for your support~</string>
     <!-- Donation channel tab labels (WeChat / Alipay); the two QR codes switch via AnimatedContent -->
     <string name="settings_donate_tab_wx">WeChat</string>
@@ -201,8 +200,8 @@
     <string name="settings_donate_agree_link_terms">Terms of Service</string>
     <string name="settings_donate_agree_suffix">" — 3. Fees and Donations. All donations are non-refundable."</string>
     <string name="settings_platform_coolapk">CoolAPK</string>
-    <string name="settings_docs_title">View documents</string>
-    <string name="settings_docs_summary">Privacy policy, terms of service &amp; open-source licenses</string>
+    <!-- Documents row title: the former summary becomes the title (no summary anymore) -->
+    <string name="settings_docs_title">Privacy policy, terms of service &amp; open-source licenses</string>
     <string name="settings_section_other">Other</string>
     <string name="settings_clarity_title">Allow anonymous stats</string>
     <string name="settings_clarity_summary">Use Microsoft Clarity for anonymous usage stats to help improve the app. Restart is required after turning off.</string>

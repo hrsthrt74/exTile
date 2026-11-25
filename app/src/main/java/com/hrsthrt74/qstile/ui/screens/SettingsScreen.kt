@@ -797,6 +797,11 @@ fun SettingsScreen() {
                 startAction = { PreferenceLeadingIcon(R.drawable.ic_github) }
             )
 
+            // 分割线：把上面「关于本应用」类条目（作者 / 版本 / GitHub）与下面
+            // 「社区、支持、法律文档」这组入口在视觉上分开，形成第二个分组。
+            // 放在 if 之外，保证非简体中文环境（无 QQ 群条目）下这组依然有分隔
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
             // 交流群（QQ 群）：仅当系统语言为简体中文时显示（群聊仅面向简中用户）
             // 简体中文判断：语言为 zh 且文字为 Hans（或地区为 CN/SG），可覆盖 zh-CN/zh-Hans 等变体，
             // 排除繁体环境（zh-TW/zh-HK 的 script 为 Hant）。
@@ -806,9 +811,9 @@ fun SettingsScreen() {
             val isSimplifiedChinese = locale?.language == "zh" &&
                 (locale.script == "Hans" || locale.country == "CN" || locale.country == "SG")
             if (isSimplifiedChinese) {
+                // 条目不再显示 summary：单行标题更清爽，点击行为本身已足够说明用途
                 ArrowPreference(
                     title = stringResource(R.string.settings_qq_group_title),
-                    summary = stringResource(R.string.settings_qq_group_summary),
                     onClick = {
                         // 群号复制到剪贴板，方便直接在 QQ 里搜索加群
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
@@ -832,18 +837,18 @@ fun SettingsScreen() {
                 )
             }
 
-            // 支持作者
+            // 支持作者：不显示 summary，保持与上方 QQ 群、下方文档条目一致的「单行标题」形态
             ArrowPreference(
                 title = stringResource(R.string.settings_donate_title),
-                summary = stringResource(R.string.settings_donate_summary),
                 onClick = { donateSheetState.show() },
                 startAction = { PreferenceLeadingIcon(MiuixIcons.Favorites) }
             )
 
-             // 文档：隐私政策 / 用户协议 / 开源许可 统一入口，进入 Docs 页用 Tab 切换
+            // 文档：隐私政策 / 用户协议 / 开源许可 统一入口，进入 Docs 页用 Tab 切换。
+            // 原来的 summary 文案已上移为标题（三个文档名直接写进标题，比「查看文档」更明确），
+            // 故此处不再传 summary，标题即完整的入口说明
             ArrowPreference(
                 title = stringResource(R.string.settings_docs_title),
-                summary = stringResource(R.string.settings_docs_summary),
                 onClick = {
                     context.startActivity(Intent(context, DocsActivity::class.java))
                 },

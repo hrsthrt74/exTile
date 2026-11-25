@@ -186,10 +186,9 @@
     <string name="settings_author_avatar">作者头像</string>
     <string name="settings_version_title">版本</string>
     <string name="settings_donate_title">支持作者</string>
-    <string name="settings_qq_group_title">交流群</string>
-    <string name="settings_qq_group_summary">加入 QQ 群聊</string>
+    <!-- QQ 群条目标题：带上平台名，避免"交流群"指向不明；该条目不再显示 summary -->
+    <string name="settings_qq_group_title">QQ 交流群</string>
     <string name="settings_qq_group_copied">群号已复制</string>
-    <string name="settings_donate_summary">给作者加个鸡腿</string>
     <string name="settings_donate_thanks">感谢有你，我才能走得更远～</string>
     <!-- 打赏渠道 Tab 文案（微信 / 支付宝），两张收款码用 AnimatedContent 切换 -->
     <string name="settings_donate_tab_wx">微信</string>
@@ -201,8 +200,8 @@
     <string name="settings_donate_agree_link_terms">用户协议</string>
     <string name="settings_donate_agree_suffix"> - 费用与打赏一节。不支持退款。未成年人请勿打赏。</string>
     <string name="settings_platform_coolapk">酷安</string>
-    <string name="settings_docs_title">查看文档</string>
-    <string name="settings_docs_summary">隐私政策、用户协议与开源许可</string>
+    <!-- 文档条目标题：原 summary 的三个文档名上移为标题（不再显示 summary） -->
+    <string name="settings_docs_title">隐私政策、用户协议与开源许可</string>
     <string name="settings_section_other">其他</string>
     <string name="settings_clarity_title">允许匿名统计</string>
     <string name="settings_clarity_summary">使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。关闭需重启应用生效。</string>
