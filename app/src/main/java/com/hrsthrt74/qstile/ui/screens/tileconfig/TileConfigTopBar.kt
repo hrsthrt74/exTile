@@ -29,6 +29,8 @@ import com.hrsthrt74.qstile.ui.AppTopBar
 import com.hrsthrt74.qstile.ui.LocalIsWideScreen
 import com.hrsthrt74.qstile.ui.TopBarIconButton
 import com.hrsthrt74.qstile.ui.TopLayer
+import com.hrsthrt74.qstile.ui.components.ActionMenuItem
+import com.hrsthrt74.qstile.ui.components.GlassActionMenu
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -36,15 +38,18 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassIconDropdownMenu
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.glass.glassPopupAnchor
 import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
 import top.yukonga.miuix.kmp.glass.rememberGlassPopupAnchor
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.AddCircle
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Undo
 import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 磁贴编辑页顶栏。
@@ -53,14 +58,14 @@ import top.yukonga.miuix.kmp.menu.WindowIconDropdownMenu
  * - 标题：宽屏（侧边 NavigationRail）用紧凑形态，窄屏保留大标题形态；
  * - 右侧动作：撤销上一步（仅在存在可撤销快照时显示）+「更多」菜单
  *   （添加 exTile 磁贴 / 从系统导入 / 清除配置）；
- * - 玻璃风格下，「更多」菜单用 [GlassIconDropdownMenu] 并经 [TopLayer] 提升到应用根部，
+ * - 玻璃风格下，「更多」菜单用 [GlassActionMenu] 并经 [TopLayer] 提升到应用根部，
  *   避免被顶栏 / 玻璃侧栏遮挡或被 Pager 页面裁剪；
  * - 经典风格下直接用 [WindowIconDropdownMenu]（内部自管显隐状态）。
  *
  * 顶栏形态（官方玻璃渐进模糊 / 原版顶栏）由 [AppTopBar] 按「应用风格」开关统一处理，
  * 本组件只负责往 actions 槽里塞按钮。
  *
- * 之所以把玻璃菜单也放在本组件内：`GlassIconDropdownMenu` 需要与触发按钮共用同一个
+ * 之所以把玻璃菜单也放在本组件内：`GlassActionMenu` 需要与触发按钮共用同一个
  * `GlassPopupAnchor`（按钮上报窗口坐标、菜单据此定位与形变），两者放一起可以把这个
  * anchor 完全内聚在本文件，不向调用方暴露 miuix 的 anchor 类型。
  *
@@ -97,21 +102,20 @@ fun TileConfigTopBar(
     val currentOnClear by rememberUpdatedState(onClearClick)
     val currentOnImport by rememberUpdatedState(onImportClick)
 
-    // 菜单项列表：两种形态（玻璃 / 经典）共用同一份定义。
-    // 「添加 exTile 磁贴」用 DropdownItem 的两行形态：text 是主标题，summary 是灰色副标题
-    //（DropdownItem 的字段名是 summary，玻璃走 GlassIconDropdownMenu、
-    //  经典走 WindowIconDropdownMenu，两条路径都会渲染 summary，无需各写一套）。
+    // 菜单项列表：两种形态（玻璃 / 经典）共用同一份定义，每条带图标。
+    // 「添加 exTile 磁贴」用两行形态：text 是主标题，summary 是灰色副标题。
+    // 「清除配置」标 destructive，渲染成错误色以提示不可逆。
     //
     // 与下面两项之间的分割线：miuix 的菜单只在**分组之间**画线（经典路径见
     // DropdownEntriesContent 在 entry 之间插 HorizontalDivider；玻璃路径见
-    // GlassIconDropdownMenu 在 groups 之间插 GlassMenuDivider），DropdownItem 本身没有
-    // 「分隔」属性。因此这里刻意拆成两个 DropdownEntry 分组——「加磁贴」独占一组，
+    // GlassActionMenu 在 groups 之间插 HorizontalDivider），条目本身没有
+    // 「分隔」属性。因此这里刻意拆成两个分组——「加磁贴」独占一组，
     // 「从系统导入」+「清除配置」一组，天然得到一条分割线，且两种风格表现一致。
     val addTileMenuText = stringResource(R.string.config_menu_add_tile)
     val addTileMenuSummary = stringResource(R.string.config_menu_add_tile_summary)
     val clearMenuText = stringResource(R.string.config_menu_clear)
     val importSystemMenuText = stringResource(R.string.settings_import_system_title)
-    val moreMenuEntries = remember(
+    val moreMenuGroups = remember(
         addTileMenuText,
         addTileMenuSummary,
         clearMenuText,
@@ -119,23 +123,63 @@ fun TileConfigTopBar(
     ) {
         listOf(
             // 第一组：「添加 exTile 磁贴」（增益动作）
-            DropdownEntry(
-                items = listOf(
-                    DropdownItem(
-                        text = addTileMenuText,
-                        summary = addTileMenuSummary,
-                        onClick = { currentOnAddTile() },
-                    )
+            listOf(
+                ActionMenuItem(
+                    text = addTileMenuText,
+                    summary = addTileMenuSummary,
+                    icon = MiuixIcons.AddCircle,
+                    onClick = { currentOnAddTile() },
                 )
             ),
             // 第二组：导入 + 清除（清除是破坏性动作，固定压尾）
-            DropdownEntry(
-                items = listOf(
-                    DropdownItem(text = importSystemMenuText, onClick = { currentOnImport() }),
-                    DropdownItem(text = clearMenuText, onClick = { currentOnClear() }),
-                )
+            listOf(
+                ActionMenuItem(
+                    text = importSystemMenuText,
+                    icon = MiuixIcons.Download,
+                    onClick = { currentOnImport() },
+                ),
+                ActionMenuItem(
+                    text = clearMenuText,
+                    icon = MiuixIcons.Delete,
+                    destructive = true,
+                    onClick = { currentOnClear() },
+                ),
             ),
         )
+    }
+
+    // 经典路径的图标颜色：miuix 的 DropdownItem.icon 插槽直接调用传入的 Composable，
+    // 不给它下发 LocalContentColor，Icon 会回落到 Material 默认的黑色（深色主题下不可见），
+    // 所以这里显式取主题色再传进 tint。
+    val classicIconColor = MiuixTheme.colorScheme.onSurfaceContainer
+    val classicDestructiveColor = MiuixTheme.colorScheme.error
+    // 经典形态：把 ActionMenuItem 映射成 WindowIconDropdownMenu 需要的 DropdownEntry。
+    // 只在文案 / 颜色变化时重建，保证菜单内条目身份稳定（否则每次重组都会重造一遍）。
+    val classicMenuEntries = remember(moreMenuGroups, classicIconColor, classicDestructiveColor) {
+        moreMenuGroups.map { group ->
+            DropdownEntry(
+                items = group.map { item ->
+                    DropdownItem(
+                        text = item.text,
+                        enabled = item.enabled,
+                        summary = item.summary,
+                        icon = { iconModifier ->
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                modifier = iconModifier,
+                                tint = if (item.destructive) {
+                                    classicDestructiveColor
+                                } else {
+                                    classicIconColor
+                                },
+                            )
+                        },
+                        onClick = item.onClick,
+                    )
+                }
+            )
+        }
     }
 
     // 玻璃形态「更多」菜单的显隐状态与锚点（锚点由触发按钮在布局时上报窗口坐标）
@@ -189,7 +233,7 @@ fun TileConfigTopBar(
         }
 
         if (isGlassStyle) {
-            // 玻璃形态：GlassIconButton 作 anchor，GlassIconDropdownMenu 在下方 TopLayer 中渲染
+            // 玻璃形态：GlassIconButton 作 anchor，GlassActionMenu 在下方 TopLayer 中渲染
             GlassIconButton(
                 onClick = { showGlassMoreMenu = true },
                 modifier = Modifier.glassPopupAnchor(
@@ -210,7 +254,7 @@ fun TileConfigTopBar(
             // collapseOnSelection 默认值是 `entries.size <= 1`——多组时默认不收起，
             // 而这三个菜单项都会弹对话框 / 拉起系统面板，必须显式传 true。
             WindowIconDropdownMenu(
-                entries = moreMenuEntries,
+                entries = classicMenuEntries,
                 collapseOnSelection = true,
             ) {
                 Icon(MiuixIcons.More, contentDescription = stringResource(R.string.config_more_desc))
@@ -239,7 +283,7 @@ fun TileConfigTopBar(
     // （那会回写 anchor 坐标干扰形变）。
     if (isGlassStyle) {
         TopLayer {
-            GlassIconDropdownMenu(
+            GlassActionMenu(
                 show = showGlassMoreMenu,
                 onDismissRequest = { showGlassMoreMenu = false },
                 anchor = glassMoreAnchor,
@@ -250,9 +294,8 @@ fun TileConfigTopBar(
                         modifier = Modifier.size(28.dp),
                     )
                 },
-                entries = moreMenuEntries,
+                groups = moreMenuGroups,
                 backdrop = overlayBackdrop,
-                collapseOnSelection = true,
             )
         }
     }
