@@ -101,6 +101,7 @@ import com.hrsthrt74.qstile.ui.components.AppStyleSpinnerPreference
 import com.hrsthrt74.qstile.ui.components.AppTextField
 import com.hrsthrt74.qstile.ui.components.ContainedIcon
 import com.hrsthrt74.qstile.ui.components.DonateSheet
+import com.hrsthrt74.qstile.ui.components.GlassSearchField
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.rememberDialogState
@@ -930,13 +931,20 @@ fun SettingsScreen() {
 
         AppBottomSheet(
             state = updateSheetState,
-            title = stringResource(R.string.settings_update_sheet_title)
-        ) {
+            title = stringResource(R.string.settings_update_sheet_title),
+            // 整页滚动的内容，让它在标题栏下方滑过去（「延伸到顶部」）
+            contentExtendsUnderHeader = true,
+        ) { innerPadding ->
             // 整页滚动：日志不再单独限高内滚，长日志跟随整个 Sheet 内容一起滑动
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    // 顶部让位必须放在 verticalScroll **内部**：滚动视口因此从面板顶端开始、
+                    // 首屏内容仍从标题栏下方开始，滚动时正文滑到标题栏下方被渐进模糊带盖住。
+                    // 放到 verticalScroll 外面（或交给 AppBottomSheet 的容器）的话，
+                    // 视口本身就在标题栏下方，正文永远滑不进头部区域。
+                    .padding(top = innerPadding.calculateTopPadding())
             ) {
                 // 自动检查更新开关：开启后应用每次冷启动时会静默检查一次
                 // 浮层内的卡片走 AppCard：玻璃风格自动换成 GlassCard（半透明，露出 Sheet 材质）
@@ -1040,7 +1048,9 @@ fun SettingsScreen() {
         AppBottomSheet(
             state = backupSheetState,
             title = stringResource(R.string.settings_sheet_backup_title),
-        ) {
+            // JSON 正文可滚动：让它滑到标题栏下方（「延伸到顶部」），而不是被标题栏挤在下面
+            contentExtendsUnderHeader = true,
+        ) { innerPadding ->
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1055,6 +1065,9 @@ fun SettingsScreen() {
                         .weight(1f, fill = false)
                         .padding(horizontal = 8.dp)
                         .verticalScroll(rememberScrollState())
+                        // 顶部让位放在 verticalScroll **内部**：滚动视口从面板顶端开始，
+                        // JSON 首行仍从标题栏下方开始，滚动时正文会滑到标题栏下方被渐进模糊带盖住。
+                        .padding(top = innerPadding.calculateTopPadding())
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -1266,7 +1279,12 @@ fun SettingsScreen() {
         AppBottomSheet(
             state = backupListSheetState,
             title = stringResource(R.string.settings_sheet_backup_list_title),
-        ) {
+            // 列表可滚动：条目滑到标题栏下方（「延伸到顶部」）
+            contentExtendsUnderHeader = true,
+        ) { innerPadding ->
+            // 头部让出的高度交给内容自己消费（见 AppBottomSheet 的 contentExtendsUnderHeader）：
+            // 列表的 contentPadding.top、以及空状态文案的 padding.top 都用它
+            val headerHeight = innerPadding.calculateTopPadding()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1280,14 +1298,19 @@ fun SettingsScreen() {
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 32.dp),
+                            .padding(top = headerHeight + 32.dp, bottom = 32.dp),
                         textAlign = TextAlign.Center
                     )
                 } else {
                     // 备份列表：每条显示日期时间、磁贴数量，右侧有删除按钮
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(bottom = navBarBottomPadding)
+                        // 顶部让位交给 contentPadding：视口铺满到面板顶端，
+                        // 条目滚动时会从标题栏下方滑过（被渐进模糊带盖住）
+                        contentPadding = PaddingValues(
+                            top = headerHeight,
+                            bottom = navBarBottomPadding,
+                        )
                     ) {
                         items(viewModel.backupList, key = { it.fileName }) { backup ->
                             // 浮层内卡片：玻璃风格用 GlassCard，经典风格沿用 secondaryContainer 实色
@@ -1418,25 +1441,93 @@ fun SettingsScreen() {
     /** 自定义应用选择器 Sheet */
     @Composable
     fun AppPickerSheet() {
+        val haptic = LocalHapticFeedback.current
+        // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
+        // （在 AppBottomSheet 之外读：搜索框要作为 Sheet 的头部内容，只有真拿到应用才显示）
+        val apps = viewModel.launchableApps
+        val isLoading = apps == null
+        val hasApps = !isLoading && !apps.isNullOrEmpty()
+
+        // 玻璃搜索框的采样源：只录列表层（不含头部），否则会采样到 Sheet 后面的设置页，
+        // 看起来像「穿透了 Sheet」。模糊关闭 / 经典风格时返回 null，搜索框自动回退普通底色。
+        val headerBackdrop = rememberBlurBackdrop(
+            enabled = themeSettings.progressiveBlur && themeSettings.enableBlur
+        )
+
         AppBottomSheet(
             state = appPickerSheetState,
             title = stringResource(R.string.settings_sheet_app_picker_title),
+            // 搜索框放进 Sheet 的头部槽位：玻璃风格它浮在列表之上（随头部一起、不会被模糊带模糊），
+            // 经典风格退化为列表上方普通一行——与「添加磁贴」Sheet 完全同一套结构。
+            // 加载中 / 空列表时不显示搜索框（没有内容可搜）。
+            headerBottomContent = if (hasApps) {
+                {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // 搜索框会显示用户输入的应用名 / 包名，同样属于敏感信息，
+                            // 跟着内容一起挂 clarityMask（它已经不在下层 Column 的遮罩范围里了）
+                            .clarityMask()
+                            // 与列表内容之间留 8dp（列表的 contentPadding.top 从头部下缘算起）
+                            .padding(bottom = 8.dp)
+                    ) {
+                        // 搜索框（支持按应用名或包名搜索）
+                        SearchBar(
+                            expanded = false,
+                            onExpandedChange = { expanded ->
+                                if (!expanded) {
+                                    appPickerSheetState.dismiss()
+                                }
+                            },
+                            insideMargin = DpSize(0.dp, 4.dp),
+                            inputField = {
+                                // 玻璃风格：胶囊底下垫真实 backdrop 模糊（与 GlassSegmentedTabRow 同一套材质），
+                                // 采样源是本 Sheet 的列表层；没有 backdrop 时自动回退普通输入框
+                                GlassSearchField(
+                                    query = viewModel.appSearchQuery,
+                                    onQueryChange = { viewModel.appSearchQuery = it },
+                                    onSearch = {},
+                                    // 避免打开 sheet 时自动聚焦弹键盘
+                                    expanded = false,
+                                    onExpandedChange = {},
+                                    label = stringResource(R.string.common_search),
+                                    backdrop = headerBackdrop,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { }
+                    }
+                }
+            } else {
+                null
+            },
+            // 列表可滚动：条目滑到标题栏 / 搜索框下方（「延伸到顶部」）
+            contentExtendsUnderHeader = true,
             // 关闭动画完成后清空搜索关键字，避免下次打开残留
             onDismissed = { viewModel.clearAppSearchQuery() },
-        ) {
-            val haptic = LocalHapticFeedback.current
-            // 列表为空时是加载中，需要区分"加载中"和"确实没有应用"
-            val apps = viewModel.launchableApps
-            val isLoading = apps == null
+        ) { innerPadding ->
+            // 头部让出的高度交给内容自己消费（搜索框已进头部槽位，含它的高度）
+            val headerHeight = innerPadding.calculateTopPadding()
 
-            Column(modifier = Modifier.clarityMask()) {
+            Column(
+                modifier = Modifier
+                    // 列表层同时是玻璃搜索框的采样源：头部搜索框在本节点之外，不会采到自己
+                    .then(
+                        if (headerBackdrop != null) Modifier.layerBackdrop(headerBackdrop)
+                        else Modifier
+                    )
+                    .clarityMask()
+            ) {
                 when {
                     isLoading -> {
                         // 加载状态：使用 Miuix 无限进度指示器 + 加载文本，居中显示
                         // 用 fillMaxHeight 撑满，与列表加载完成后的 sheet 高度一致，避免高度突变
+                        // （顶部先让出头部高度：内容是从面板顶端开始铺的，不让位会中心偏下）
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(top = headerHeight)
                                 .fillMaxHeight(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
@@ -1457,7 +1548,7 @@ fun SettingsScreen() {
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 24.dp)
+                                .padding(top = headerHeight + 24.dp, bottom = 24.dp)
                         )
                     }
                     else -> {
@@ -1473,53 +1564,28 @@ fun SettingsScreen() {
                                 }
                             }
                         }
-                        // 搜索框（支持按应用名或包名搜索）
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            SearchBar(
-                                expanded = false,
-                                onExpandedChange = { expanded ->
-                                    if (!expanded) {
-                                        appPickerSheetState.dismiss()
-                                    }
-                                },
-                                insideMargin = DpSize(0.dp, 4.dp),
-                                inputField = {
-                                    InputField(
-                                        query = viewModel.appSearchQuery,
-                                        onQueryChange = { viewModel.appSearchQuery = it },
-                                        onSearch = {},
-                                        // 避免打开 sheet 时自动聚焦弹键盘
-                                        expanded = false,
-                                        onExpandedChange = {},
-                                        label = stringResource(R.string.common_search),
-                                        color = MiuixTheme.colorScheme.surfaceContainerHighest,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { }
-
-                            // 搜索框与结果列表之间的间距（用 Spacer 实现，确保有效）
-//                    Spacer(modifier = Modifier.height(4.dp))
-
-                            if (filteredApps.isEmpty()) {
-                                // 搜索无结果提示
-                                Text(
-                                    text = stringResource(R.string.settings_no_matching_apps),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 24.dp)
+                        // 搜索框已移到 Sheet 的头部槽位（见上方 AppBottomSheet 的 headerBottomContent），
+                        // 这里只剩列表；顶部让位交给 contentPadding，条目滚动时会从头部下方滑过
+                        if (filteredApps.isEmpty()) {
+                            // 搜索无结果提示
+                            Text(
+                                text = stringResource(R.string.settings_no_matching_apps),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = headerHeight + 24.dp, bottom = 24.dp)
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
+                                contentPadding = PaddingValues(
+                                    top = headerHeight,
+                                    bottom = navBarBottomPadding,
                                 )
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                        .scrollEndHaptic(HapticFeedbackType.TextHandleMove),
-                                    contentPadding = PaddingValues(bottom = navBarBottomPadding)
-                                ) {
+                            ) {
                                     items(filteredApps, key = { it.packageName }) { app ->
                                 // 每个应用项用卡片包裹，提供背景（无阴影）+ 圆角；
                                 // 浮层内走 AppCard：玻璃风格换成 GlassCard（半透明），经典风格保持 secondaryContainer
@@ -1568,7 +1634,6 @@ fun SettingsScreen() {
                         }
                     }
                 }
-            }
             }
         }
     }

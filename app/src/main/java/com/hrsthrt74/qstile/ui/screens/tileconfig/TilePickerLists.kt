@@ -76,12 +76,15 @@ private fun hasTileIcon(context: Context, tile: String): Boolean {
  * 被添加后这一格会从数据源里被过滤掉，若沿用「按 index 认身份」，淡出会播到末位的另一格上。
  *
  * @param viewModel 磁贴配置 ViewModel（提供候选清单、搜索词与添加动作）
- * @param topPadding 列表顶部预留高度（= 头部浮层高度），让列表铺满 Sheet、滚动时滑到头部下方
+ * @param topPadding 列表顶部预留高度 = Sheet 下发的头部高度（拖动条 + 标题行 + TabRow/搜索框）。
+ *   玻璃风格由 `GlassBottomSheet` 通过 `content` 的 `PaddingValues` 回传（含头部槽位里的 TabRow），
+ *   经典风格为 0（头部是堆叠式，列表已在其下方）。作为 `contentPadding.top` 使用：
+ *   contentPadding 在视口内部，条目滑上来时会画在该区域，于是「延伸到头部下方」。
  * @param sidePadding 列表内容左右留白。
  *   本列表是「铺满 Sheet」的（Sheet 侧不给容器级外边距，见 `AppBottomSheet(fullBleedContent)`），
- *   左右留白因此由列表自己的 contentPadding 提供：玻璃风格要补回 miuix beta04 收窄的 12dp，
- *   经典风格为 0（Sheet 自带 24dp）。**不要**改成给外层加 padding——那会把列表视口一起缩小，
- *   Tab 切换时内容会在面板内侧被硬切出一条边，顶部淡出遮罩与玻璃头部的 backdrop 也会变窄。
+ *   左右留白因此由列表自己的 contentPadding 提供，两种风格统一 24dp
+ *   （Sheet 的 `insideMargin` 被置 0，留白全交给内容）。**不要**改成给外层加 padding——那会把列表
+ *   视口一起缩小，Tab 切换时内容会在面板内侧被硬切出一条边，头部模糊带也会变窄。
  * @param continuousAdd 「连续放置」是否开启：开启时不收起 Sheet，可连续点多个
  * @param onDismissSheet 需要收起 Sheet 时调用（仅在未开启「连续放置」时被调用）
  */
@@ -243,8 +246,8 @@ internal fun SystemTilePicker(
  * 由于涉及第三方应用的名称与包名，整块列表挂了 `clarityMask()`，避免被埋点截屏采集。
  *
  * @param viewModel 磁贴配置 ViewModel（提供 Service 列表、搜索词与添加动作）
- * @param topPadding 列表顶部预留高度（= 头部浮层高度）
- * @param sidePadding 列表内容左右留白（含义同 [SystemTilePicker]，玻璃风格补 12dp、经典风格 0）
+ * @param topPadding 列表顶部预留高度（= Sheet 下发的头部高度，含义同 [SystemTilePicker]）
+ * @param sidePadding 列表内容左右留白（含义同 [SystemTilePicker]，两种风格统一 24dp）
  * @param continuousAdd 「连续放置」是否开启
  * @param onDismissSheet 需要收起 Sheet 时调用（仅在未开启「连续放置」时被调用）
  */
