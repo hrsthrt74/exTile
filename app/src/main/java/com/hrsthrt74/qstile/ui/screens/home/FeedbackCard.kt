@@ -5,11 +5,13 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,20 +27,25 @@ import com.hrsthrt74.qstile.ui.components.GITHUB_ISSUES_URL
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_NUMBER
 import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.glass.FeedbackFill
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
- * 「第一个版本」提示卡片组件。
- * 常驻显示在主页顶部，说明当前是第一个版本、恳请多多关照，并引导用户反馈问题。
+ * 反馈卡片组件。
  * 反馈渠道随语言分流：简体中文环境走 QQ 群（群聊仅面向简中用户），
  * 其他语言走 GitHub Issues。点击卡片即跳转对应渠道。
+ *
+ * 布局照抄 [TipsCard]：左「有底图标」（竖直居中）+ 右内容（标题 + 正文），
+ * 标题 `headline1`、正文 `body2`，两行之间只留 2dp（`Arrangement.spacedBy`）；
+ * 行尾再挂一个右侧箭头（照抄 [DonateCard]），提示「点开有去处」。
  */
 @Composable
-internal fun FirstVersionCard() {
+internal fun FeedbackCard() {
     val context = LocalContext.current
     // 简体中文判断：语言为 zh 且文字为 Hans（或地区为 CN/SG），可覆盖 zh-CN/zh-Hans 等变体，
     // 排除繁体环境（zh-TW/zh-HK 的 script 为 Hant）。
@@ -79,23 +86,49 @@ internal fun FirstVersionCard() {
             }
         }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // 统一卡片布局：左「有底图标」+ 右内容
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // 反馈渠道提示图标（对话/社区语义，与设置页交流群条目一致）
-                // 底色用中性灰（与「关于」分类同一档灰），Monet 下由组件压平为主题 primary
-                ContainedIcon(
-                    icon = MiuixIcons.Glass.FeedbackFill,
-                    containerColor = Color(0xFF8C9DAF)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                // 右侧文字（字号与其它卡片正文统一）
+        // 统一卡片布局（照抄 TipsCard）：左「有底图标」（竖直居中）+ 右内容（标题 + 正文）+ 行尾箭头
+        Row(
+            // fillMaxWidth 保证 Row 吃满卡片宽度，右侧 weight(1f) 的内容列才能拿到正确的剩余宽度
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 反馈渠道提示图标（对话/社区语义，与设置页交流群条目一致）
+            // 底色用中性灰（与「关于」分类同一档灰），Monet 下由组件压平为主题 primary
+            ContainedIcon(
+                icon = MiuixIcons.Glass.FeedbackFill,
+                containerColor = Color(0xFF8C9DAF)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            // 右侧内容列：weight(1f) 占满剩余宽度，标题与正文间距固定 2dp（与 TipsCard 一致）
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
-                    text = stringResource(R.string.home_first_version_summary),
+                    text = stringResource(R.string.home_feedback_title),
+                    // 卡片标题统一 headline1（与权限卡、统计卡、TipsCard 同级）
+                    style = MiuixTheme.textStyles.headline1,
+                    color = MiuixTheme.colorScheme.onSurface
+                )
+                // 正文：反馈渠道说明（字号与其它卡片正文统一，比标题弱一档形成层级）
+                Text(
+                    text = stringResource(R.string.home_feedback_summary),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
+            // 右侧箭头：卡片外观上看不出可点，靠这个箭头表达「点开有内容」（照抄 DonateCard）
+            // 尺寸与设置页可折叠卡片、DonateCard 的箭头一致（10x16dp）。
+            // 放在内容列之外，由 Row 的 CenterVertically 竖直居中——正文换行变高时箭头始终停在整卡中线上
+            Icon(
+                imageVector = MiuixIcons.Basic.ArrowRight,
+                // 纯装饰元素，语义已由整卡点击和标题表达，不重复播报
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                modifier = Modifier.size(width = 10.dp, height = 16.dp)
+            )
         }
     }
 }

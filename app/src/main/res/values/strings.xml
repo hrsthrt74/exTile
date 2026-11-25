@@ -318,8 +318,9 @@
     <string name="home_stats_unit_times">times</string>
     <string name="home_stats_recent_days">Last %1$d days</string>
     <string name="home_stats_empty">No usage yet — tap the exTile tile in Control Center to start counting</string>
-    <string name="home_first_version_title">First version</string>
-    <string name="home_first_version_summary">exTile is still in its early stages — thanks for your support! Found a problem? Tap this card to report it on GitHub Issues. Thanks for your usage!</string>
+    <!-- 反馈卡片的标题与正文：正文按语言分流，简中引导进 QQ 群，其他语言引导去 GitHub Issues -->
+    <string name="home_feedback_title">Feedback</string>
+    <string name="home_feedback_summary">Found a problem or have an idea? Tap here to report it on GitHub Issues.</string>
     <!-- 「你知道吗？」卡片的固定标题；正文来自 res/raw(-zh)/tips.txt，不放在字符串表里 -->
     <string name="home_tips_title">Did you know?</string>
 

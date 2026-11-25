@@ -321,8 +321,9 @@
     <string name="home_stats_recent_days">最近 %1$d 天</string>
     <!-- 从未使用过磁贴时的空白态提示 -->
     <string name="home_stats_empty">还没有使用记录，点一下控制中心里的 exTile 磁贴就会开始计数</string>
-    <string name="home_first_version_title">第一个版本</string>
-    <string name="home_first_version_summary">exTile 处于早期版本，功能可能还不够完善，请多关照 🙏 如有疑问，请点击进入 QQ 群反馈~ 感谢你的使用~</string>
+    <!-- 反馈卡片的标题与正文：正文按语言分流，简中引导进 QQ 群，其他语言引导去 GitHub Issues -->
+    <string name="home_feedback_title">反馈</string>
+    <string name="home_feedback_summary">遇到问题或有想法？点击加入 QQ 群~</string>
     <!-- 「你知道吗？」卡片的固定标题；正文来自 res/raw(-zh)/tips.txt，不放在字符串表里 -->
     <string name="home_tips_title">你知道吗？</string>
 

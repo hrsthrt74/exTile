@@ -40,7 +40,7 @@ import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.home.DonateCard
-import com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard
+import com.hrsthrt74.qstile.ui.screens.home.FeedbackCard
 import com.hrsthrt74.qstile.ui.screens.home.StatsCard
 import com.hrsthrt74.qstile.ui.screens.home.TipsCard
 import com.hrsthrt74.qstile.ui.theme.LocalThemeSettings
@@ -53,13 +53,13 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /**
  * 主页屏幕（只负责页面骨架：顶栏 + 滚动列表 + 卡片编排）。
  *
- * 展示 Shizuku 权限状态卡片 + 使用统计卡片 + 「你知道吗？」卡片 + 「第一个版本」反馈卡片，
+ * 展示 Shizuku 权限状态卡片 + 使用统计卡片 + 「你知道吗？」卡片 + 「反馈」卡片，
  * 是用户首次打开应用时看到的第一屏，引导完成 Shizuku 授权流程。
  *
  * 各卡片已拆分为独立文件，便于单独维护：
  * - 权限状态卡片：[PermissionStatusCard]（OOBE 也复用，故位于 ui/components）
  * - 使用统计卡片：[com.hrsthrt74.qstile.ui.screens.home.StatsCard]
- * - 首个版本提示卡片：[com.hrsthrt74.qstile.ui.screens.home.FirstVersionCard]
+ * - 「反馈」卡片：[com.hrsthrt74.qstile.ui.screens.home.FeedbackCard]
  * - 「你知道吗？」卡片：[com.hrsthrt74.qstile.ui.screens.home.TipsCard]
  *
  * @param onRequestShizukuPermission Shizuku 权限请求入口，接收结果回调
@@ -196,13 +196,13 @@ fun HomeScreen(
                         TipsCard(tips = tips)
                     }
 
-                    // 卡片与下方「第一个版本」反馈卡片之间的间距：跟着卡片一起出现 / 消失
+                    // 卡片与下方「反馈」卡片之间的间距：跟着卡片一起出现 / 消失
                     item { Spacer(modifier = Modifier.height(12.dp)) }
                 }
 
-                // 「第一个版本」提示卡片：简中环境点击跳 QQ 加群（复制群号），其他语言点击打开 GitHub Issues
+                // 「反馈」卡片：简中环境点击跳 QQ 加群（复制群号），其他语言点击打开 GitHub Issues
                 item {
-                    FirstVersionCard()
+                    FeedbackCard()
                 }
 
                 item { Spacer(modifier = Modifier.height(12.dp)) }
