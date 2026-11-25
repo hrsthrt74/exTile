@@ -54,3 +54,17 @@ fun contentBottomPadding(): Dp {
     return if (isWideScreen) navBars + 16.dp
     else NavigationBarDefaults.ItemHeight + navBars + 16.dp
 }
+
+/**
+ * Sheet 内容底部避让高度：系统导航条 + 8dp。
+ *
+ * 这个表达式原先在多个地方各写一遍（设置页的各 Sheet、[com.hrsthrt74.qstile.ui.components.DonateSheet]、
+ * 调试工具页），本次设置页拆分把各 Sheet 拆成独立文件后，若再逐文件复制会让「底部留白」散落成 N 份。
+ * 这里收敛成一处，返回值与逐字展开的写法完全一致，不影响观感。
+ *
+ * 注：本次只让设置页拆分出的 Sheet 使用它，`DonateSheet` / 调试工具页的既有写法保持不动，
+ * 避免把一次纯拆分改动扩大成跨页面的观感回归风险。
+ */
+@Composable
+fun sheetBottomPadding(): Dp =
+    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp
