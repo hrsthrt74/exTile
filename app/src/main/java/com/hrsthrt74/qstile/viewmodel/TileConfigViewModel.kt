@@ -215,45 +215,49 @@ class TileConfigViewModel : ViewModel() {
      */
     fun initProfile(context: Context) {
         if (_profile == null) {
-            _profile = DeviceProfile.from(context)
-            val profile = _profile!!
-            val isXiaomi = profile.isXiaomi
-
-            // 判断是否为平板
-            val configuration = context.resources.configuration
-            val screenSize = configuration.screenLayout
-            val sizeMask = screenSize and android.content.res.Configuration.SCREENLAYOUT_SIZE_MASK
-            val isTablet = sizeMask >= android.content.res.Configuration.SCREENLAYOUT_SIZE_LARGE
-
-            fixedTileValues = if (isXiaomi) {
-                if (isTablet) listOf("wifi", "bt") else listOf("wifi", "cell")
-            } else {
-                emptyList()
-            }
+            val profile = DeviceProfile.from(context)
+            _profile = profile
+            // 先按默认预设（WLAN + 蓝牙）算一遍固定磁贴，保证首帧渲染时 gridTiles 的过滤集合已就绪；
+            // 用户实际选择过的预设由 startConfigObservation 的观察流稍后覆盖。
+            fixedTileValues = ConfigRepository.resolveFixedTiles(
+                isXiaomi = profile.isXiaomi,
+                isTablet = profile.isTablet,
+                preset = ConfigRepository.TabletFixedTiles.WIFI_BT,
+            )
         }
     }
 
     /**
-     * 开始监听 DataStore 配置变更（普通配置 + 创造模式配置两条流）。
+     * 开始监听 DataStore 配置变更（普通配置 + 创造模式配置 + 平板固定磁贴预设三条流）。
      *
-     * 注意 DataStore 的固有行为：**任意 key 写入都会让两条流重新发射**。
+     * 注意 DataStore 的固有行为：**任意 key 写入都会让所有流重新发射**。
      * 这里靠两点保证不出问题：
      * 1. [TileConfig] / [CreativeConfig] 是 data class，值没变时 `mutableStateOf` 的结构化相等
      *    会拦掉重组（所以绝对不要换成 `neverEqualPolicy`）；
      * 2. [editingLayer] 只在「首次加载 / 模式切换」时对齐 activeLayer，普通写入不重排 Tab——
      *    否则用户在层 2 改个开关，Tab 会被弹回层 1。
+     *
+     * 第三条流（固定磁贴预设）也在这里消费：设置页切换预设后，编辑页打开着也能立刻更新
+     * [fixedTileValues]，网格与固定卡片随之刷新，不需要退出重进。
      */
     fun startConfigObservation(context: Context) {
         viewModelScope.launch {
             combine(
                 ConfigRepository.getConfigFlow(context),
                 ConfigRepository.getCreativeConfigFlow(context),
-            ) { normal, creative -> normal to creative }
-                .collect { (normal, creative) ->
+                ConfigRepository.getTabletFixedTilesFlow(context),
+            ) { normal, creative, fixedPreset -> Triple(normal, creative, fixedPreset) }
+                .collect { (normal, creative, fixedPreset) ->
                     val wasLoaded = isConfigLoaded
                     val prevEnabled = creativeConfig.enabled
                     config = normal
                     creativeConfig = creative
+                    // 固定磁贴跟着预设走（手机与非小米设备由 resolveFixedTiles 兜底）
+                    fixedTileValues = ConfigRepository.resolveFixedTiles(
+                        isXiaomi = profile.isXiaomi,
+                        isTablet = profile.isTablet,
+                        preset = fixedPreset,
+                    )
 
                     if (!wasLoaded || prevEnabled != creative.enabled) {
                         // 首次加载 / 模式切换：编辑 Tab 对齐系统当前生效层

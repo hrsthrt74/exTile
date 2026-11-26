@@ -77,6 +77,13 @@ class SettingsViewModel : ViewModel() {
     /** 自动收起 */
     var autoCollapseOnClose by mutableStateOf(false)
 
+    /**
+     * 平板固定磁贴预设（仅小米平板有意义，见 [ConfigRepository.TabletFixedTiles]）。
+     * 变更时会顺带迁移已保存的磁贴列表，因此不直接用 `saveXxx` 那种一行写入的写法。
+     */
+    var tabletFixedTiles by mutableIntStateOf(ConfigRepository.TabletFixedTiles.WIFI_BT)
+        private set
+
     // ==================== 创造模式状态 ====================
 
     /** 创造模式开关（开启后会写系统布局，因此状态由写入结果驱动，不做乐观翻转） */
@@ -156,6 +163,8 @@ class SettingsViewModel : ViewModel() {
         wordlessModeSync = ConfigRepository.getWordlessModeSync(context)
         smartDeviceControlSync = ConfigRepository.getSmartDeviceControlSync(context)
         autoCollapseOnClose = ConfigRepository.getAutoCollapseOnClose(context)
+        // 平板固定磁贴预设（仅小米平板会在设置页显示该选项，其余设备读取到的只是无害的默认值）
+        tabletFixedTiles = ConfigRepository.getTabletFixedTiles(context)
         // 创造模式：开关与两层数据一起读，供设置页开关与「备份」两处使用
         creativeConfig = ConfigRepository.getCreativeConfig(context)
         creativeModeEnabled = creativeConfig.enabled
@@ -475,6 +484,26 @@ class SettingsViewModel : ViewModel() {
         autoCollapseOnClose = enabled
         viewModelScope.launch {
             ConfigRepository.saveAutoCollapseOnClose(context, enabled)
+        }
+    }
+
+    /**
+     * 切换平板固定磁贴预设。
+     *
+     * 与普通开关不同，这个动作会顺带迁移「已保存的磁贴列表」（把旧固定磁贴换成新的），
+     * 因此**不做乐观翻转**：等 DataStore 写入成功后再更新内存状态，失败时保持原位并由
+     * 调用方弹 Toast，避免出现「界面说切了、列表还是旧的」的错位。
+     *
+     * @param preset 目标预设，见 [ConfigRepository.TabletFixedTiles]
+     * @param onResult 写入结果回调（true=成功）
+     */
+    fun saveTabletFixedTiles(context: Context, preset: Int, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = ConfigRepository.setTabletFixedTiles(context, preset)
+            if (success) {
+                tabletFixedTiles = preset
+            }
+            onResult(success)
         }
     }
 

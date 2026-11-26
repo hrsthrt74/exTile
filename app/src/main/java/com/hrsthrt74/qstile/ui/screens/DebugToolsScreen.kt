@@ -757,6 +757,18 @@ fun DebugToolsScreen() {
                             }
                         )
 
+                        // 调试开关：强制显示「设置 → 高级 → 固定磁贴」选项。
+                        // 该项正常只在小米平板出现，开启后任何设备都显示，方便在手机上调这个 UI。
+                        // 注意只影响显示，不影响切换后的列表迁移逻辑。
+                        SwitchPreference(
+                            title = stringResource(R.string.debug_force_show_tablet_fixed_tiles),
+                            summary = stringResource(R.string.debug_force_show_tablet_fixed_tiles_summary),
+                            checked = TileCapabilityFlags.forceShowTabletFixedTiles,
+                            onCheckedChange = { enabled ->
+                                TileCapabilityFlags.forceShowTabletFixedTiles = enabled
+                            }
+                        )
+
                         SwitchPreference(
                             title = stringResource(R.string.debug_satellite),
                             summary = stringResource(R.string.debug_satellite_summary),

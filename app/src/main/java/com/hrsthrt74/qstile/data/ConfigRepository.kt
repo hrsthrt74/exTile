@@ -36,6 +36,15 @@ object ConfigRepository {
     /** 自动检查更新开关 key（默认关闭） */
     private val AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
 
+    /**
+     * 平板固定磁贴预设 key（0 = WLAN+蓝牙，1 = WLAN+移动数据）。
+     *
+     * 小米平板的固定位默认是 WLAN + 蓝牙，但开启「通讯共享」后系统会把固定位换成
+     * 与手机一致的 WLAN + 移动数据（蓝牙降级成普通磁贴）。这里记录用户的真实选择，
+     * 供 [resolveFixedTiles] 解析固定磁贴列表。
+     */
+    private val TABLET_FIXED_TILES = intPreferencesKey("tablet_fixed_tiles")
+
     // ==================== 创造模式（两套独立布局） ====================
     // 全部使用独立 key，与普通模式的 expanded/collapsed/is_expanded 完全隔离：
     // 开启创造模式只切这组 key，退出后普通配置原样可用。
@@ -70,6 +79,126 @@ object ConfigRepository {
 
         /** 合法的取值范围，用于数据校验 */
         const val MAX = OPEN_DEVICE_CENTER
+    }
+
+    /** 平板固定磁贴的预设选项（仅小米平板生效） */
+    object TabletFixedTiles {
+        /** WLAN + 蓝牙（小米平板默认固定位） */
+        const val WIFI_BT = 0
+
+        /** WLAN + 移动数据（开启「通讯共享」后系统的实际固定位，与手机一致） */
+        const val WIFI_CELL = 1
+
+        /** 合法的取值范围，用于数据校验 */
+        const val MAX = WIFI_CELL
+    }
+
+    /**
+     * 解析「固定显示在面板最前方、不可拖拽」的磁贴列表。
+     *
+     * 规则集中在这一处：编辑页（[com.hrsthrt74.qstile.viewmodel.TileConfigViewModel]）计算固定磁贴、
+     * 切换预设时迁移旧列表，都走同一个函数，避免两处判断走岔。
+     *
+     * - 非小米设备：没有固定位，返回空列表；
+     * - 小米手机：固定位恒为 WLAN + 移动数据；
+     * - 小米平板：按用户选择的预设，WLAN + 蓝牙 或 WLAN + 移动数据。
+     *
+     * @param isXiaomi 是否小米设备
+     * @param isTablet 是否平板（SCREENLAYOUT_SIZE_LARGE 及以上）
+     * @param preset 平板固定磁贴预设，见 [TabletFixedTiles]。非平板时忽略
+     */
+    fun resolveFixedTiles(isXiaomi: Boolean, isTablet: Boolean, preset: Int): List<String> = when {
+        !isXiaomi -> emptyList()
+        !isTablet -> listOf("wifi", "cell")
+        preset == TabletFixedTiles.WIFI_CELL -> listOf("wifi", "cell")
+        else -> listOf("wifi", "bt")
+    }
+
+    /** 观察平板固定磁贴预设（越界值收敛到默认的 WLAN + 蓝牙） */
+    fun getTabletFixedTilesFlow(context: Context): Flow<Int> =
+        context.dataStore.data.map { preferences ->
+            val value = preferences[TABLET_FIXED_TILES] ?: TabletFixedTiles.WIFI_BT
+            if (value in 0..TabletFixedTiles.MAX) value else TabletFixedTiles.WIFI_BT
+        }
+
+    /** 读取平板固定磁贴预设 */
+    suspend fun getTabletFixedTiles(context: Context): Int = getTabletFixedTilesFlow(context).first()
+
+    /**
+     * 切换平板固定磁贴预设，并同步迁移已保存的磁贴列表。
+     *
+     * 固定磁贴是**保存时前置拼进列表**的（见 `TileConfigViewModel.updateGridTiles`），
+     * 只改预设不清洗旧值的话，旧固定磁贴（如 `bt`）会变成可拖拽的普通磁贴，
+     * 而新固定磁贴（如 `cell`）可能同时留在普通列表里造成重复。因此这里一次性迁移：
+     * 普通模式 expanded / collapsed + 创造模式层 1 / 层 2，共四份列表。
+     *
+     * **不写系统**（不调用 `applyNormalLayout` / `applyCreativeLayer`）：系统布局仍由用户在
+     * 磁贴编辑页保存时才更新，这里只保证本地配置与预设一致。
+     *
+     * @return 是否写入成功（DataStore 异常时返回 false，调用方据此提示）
+     */
+    suspend fun setTabletFixedTiles(context: Context, preset: Int): Boolean {
+        // 越界值按默认处理，避免脏数据把「固定磁贴」算成空列表
+        val target = if (preset in 0..TabletFixedTiles.MAX) preset else TabletFixedTiles.WIFI_BT
+        return try {
+            // 四份列表 + 预设必须落在同一次 edit 里：DataStore 任一 key 变化都会让所有订阅流重发，
+            // 分多次写会出现「预设已变、列表还没迁移」的中间态（编辑页会闪一下旧固定磁贴）。
+            context.dataStore.edit { preferences ->
+                val oldPreset = preferences[TABLET_FIXED_TILES] ?: TabletFixedTiles.WIFI_BT
+                val oldFixed = resolveFixedTiles(isXiaomi = true, isTablet = true, preset = oldPreset)
+                val newFixed = resolveFixedTiles(isXiaomi = true, isTablet = true, preset = target)
+                if (oldFixed != newFixed) {
+                    val listKeys = listOf(
+                        EXPANDED_TILES,
+                        COLLAPSED_TILES,
+                        CREATIVE_LAYER1_TILES,
+                        CREATIVE_LAYER2_TILES,
+                    )
+                    listKeys.forEach { key ->
+                        // 未初始化过的列表（创建模式层刚开启、从没保存过）保持为空，
+                        // 不要凭空写进固定磁贴，否则会凭空「造」出一份布局
+                        val raw = preferences[key] ?: return@forEach
+                        preferences[key] = migrateFixedPrefix(
+                            tiles = parseTileList(raw),
+                            oldFixed = oldFixed,
+                            newFixed = newFixed,
+                        ).joinToString(",")
+                    }
+                }
+                preferences[TABLET_FIXED_TILES] = target
+            }
+            true
+        } catch (_: Exception) {
+            // DataStore 读写异常（磁盘满、文件损坏等）：保持原值，由调用方提示失败
+            false
+        }
+    }
+
+    /**
+     * 把列表开头的旧固定磁贴替换成新的固定磁贴。
+     *
+     * 正常数据里固定磁贴一定在最前（保存时前置），直接替换前缀即可；
+     * 若列表不以旧固定磁贴开头（例如从系统导入、或旧版本残留的脏数据），
+     * 就把旧固定磁贴从任意位置摘掉再前置新固定磁贴，保证不重复。
+     *
+     * @param tiles 待迁移的磁贴列表（不含连字符分隔，已解析成 List）
+     * @param oldFixed 切换前的固定磁贴列表
+     * @param newFixed 切换后的固定磁贴列表
+     */
+    private fun migrateFixedPrefix(
+        tiles: List<String>,
+        oldFixed: List<String>,
+        newFixed: List<String>,
+    ): List<String> {
+        if (oldFixed == newFixed) return tiles
+        // 兼容旧前缀：列表以 oldFixed 开头就整段替换，保留后续用户排序
+        val rest = if (tiles.size >= oldFixed.size && tiles.subList(0, oldFixed.size) == oldFixed) {
+            tiles.drop(oldFixed.size)
+        } else {
+            tiles.filter { it !in oldFixed }
+        }
+        // 新固定磁贴原本可能是普通磁贴（wifi+bt → wifi+cell 时的 cell），必须去重
+        return newFixed + rest.filter { it !in newFixed }
     }
 
     fun getConfigFlow(context: Context): Flow<TileConfig> {

@@ -328,6 +328,7 @@ fun SettingsScreen() {
                             viewModel = viewModel,
                             scope = scope,
                             importDialogState = importDialogState,
+                            backdrop = backdrop,
                         )
                     }
 

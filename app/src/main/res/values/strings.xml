@@ -197,6 +197,11 @@
     <string name="settings_cat_advanced">Advanced</string>
     <string name="settings_section_tiles">Tiles</string>
     <string name="settings_section_app">App</string>
+    <!-- 平板固定磁贴：仅小米平板显示，用于对齐系统实际固定的两项 -->
+    <string name="settings_tablet_fixed_title">Tablet fixed tiles</string>
+    <string name="settings_tablet_fixed_summary">If your tablet supports Xiaomi Communication Sharing, choose Mobile data</string>
+    <string name="settings_tablet_fixed_option_wifi_bt">WLAN + Bluetooth</string>
+    <string name="settings_tablet_fixed_option_wifi_cell">WLAN + Mobile data</string>
     <string name="settings_creative_title">Creative mode</string>
     <string name="settings_creative_summary">Keep two independent layouts, switch them by tapping the tile</string>
     <string name="settings_creative_read_failed">Failed to read the current tile layout</string>
@@ -365,6 +370,8 @@
     <string name="debug_show_unavailable_tiles_summary">In the edit page add-tiles sheet, also show preset tiles unavailable on this device (dimmed)</string>
     <string name="debug_show_no_icon_tiles">Show no-icon tiles</string>
     <string name="debug_show_no_icon_tiles_summary">In the edit page add-tiles sheet, also show preset tiles whose icon cannot be resolved (unsupported system or app uninstalled, dimmed)</string>
+    <string name="debug_force_show_tablet_fixed_tiles">Show tablet fixed tiles option</string>
+    <string name="debug_force_show_tablet_fixed_tiles_summary">Show the “Tablet fixed tiles” option in Settings → Advanced on any device (normally Xiaomi tablets only)</string>
     <string name="debug_app_locale">Change app language</string>
     <string name="debug_section_update">Update check</string>
     <string name="debug_force_update_title">Force update check</string>

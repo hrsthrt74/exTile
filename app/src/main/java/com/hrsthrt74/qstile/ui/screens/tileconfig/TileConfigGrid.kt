@@ -240,7 +240,8 @@ private fun CreativeGridLayer(
 
     /**
      * 小米设备特化：固定卡片行（网格中占 1 个不可拖拽 item，不参与排序）。
-     * 展示的是由系统固定、无法移动的磁贴（手机 WLAN+移动数据 / 平板 WLAN+蓝牙）。
+     * 展示的是由系统固定、无法移动的磁贴（手机 WLAN+移动数据 / 平板 WLAN+蓝牙，
+     * 平板可在「设置 → 高级 → 固定磁贴」改成 WLAN+移动数据）。
      */
     @Composable
     fun FixedTilesRow() {

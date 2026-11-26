@@ -197,6 +197,11 @@
     <string name="settings_cat_advanced">高级</string>
     <string name="settings_section_tiles">磁贴</string>
     <string name="settings_section_app">应用</string>
+    <!-- 平板固定磁贴：仅小米平板显示，用于对齐系统实际固定的两项 -->
+    <string name="settings_tablet_fixed_title">平板固定磁贴</string>
+    <string name="settings_tablet_fixed_summary">如平板支持小米通信共享，请选择「移动数据」</string>
+    <string name="settings_tablet_fixed_option_wifi_bt">WLAN + 蓝牙</string>
+    <string name="settings_tablet_fixed_option_wifi_cell">WLAN + 移动数据</string>
     <string name="settings_creative_title">「创造模式」</string>
     <string name="settings_creative_summary">保存两层独立的布局，点击磁贴切换</string>
     <string name="settings_creative_read_failed">读取系统磁贴配置失败</string>
@@ -368,6 +373,8 @@
     <string name="debug_show_unavailable_tiles_summary">编辑页「添加磁贴」Sheet 额外显示预设内本机不可用的磁贴（降透明度展示）</string>
     <string name="debug_show_no_icon_tiles">显示无图标磁贴</string>
     <string name="debug_show_no_icon_tiles_summary">编辑页「添加磁贴」Sheet 额外显示因拿不到图标而隐藏的磁贴（系统不支持或应用已卸载，降透明度展示）</string>
+    <string name="debug_force_show_tablet_fixed_tiles">显示平板固定磁贴选项</string>
+    <string name="debug_force_show_tablet_fixed_tiles_summary">在任意设备上显示「设置 → 高级」里的「平板固定磁贴」选项（正常仅小米平板显示）</string>
     <string name="debug_app_locale">更改应用语言</string>
     <string name="debug_section_update">更新检查</string>
     <string name="debug_force_update_title">强制拉取更新</string>
