@@ -4,12 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -20,9 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.hrsthrt74.qstile.DocsActivity
-import com.hrsthrt74.qstile.ExTileApplication
 import com.hrsthrt74.qstile.R
-import com.hrsthrt74.qstile.data.ConfigRepository
 import com.hrsthrt74.qstile.ui.components.ExpandableSettingsCard
 import com.hrsthrt74.qstile.ui.components.PreferenceIconEndPadding
 import com.hrsthrt74.qstile.ui.components.PreferenceIconSize
@@ -33,23 +28,17 @@ import com.hrsthrt74.qstile.ui.components.QQ_GROUP_URL
 import com.hrsthrt74.qstile.ui.components.SheetState
 import com.hrsthrt74.qstile.viewmodel.SettingsViewModel
 import com.microsoft.clarity.modifiers.clarityUnmask
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Community
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.File
-import top.yukonga.miuix.kmp.icon.glass.Start
-import top.yukonga.miuix.kmp.icon.glass.SoundWave
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleClip
 
 /**
- * 关于分类卡片：作者 / 版本 / GitHub / 社区 / 文档 / 匿名统计 / 重跑引导。
+ * 关于分类卡片：作者 / 版本 / GitHub / 社区 / 文档。
  *
  * 由原 `SettingsScreen` 的页内局部函数 `AboutCategoryCard` 拆分而来，行为保持不变：
  * 头像保留原图配色（不走行首图标的染色逻辑）、版本号挂 `clarityUnmask`、
@@ -57,8 +46,6 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
  *
  * @param viewModel 设置页 ViewModel（分类卡片的展开/收起状态在它上面；读取留在组件内部，
  *        与拆分前的失效范围一致）
- * @param scope 页面级协程作用域（Clarity 同意状态与「重新运行引导」都要写 DataStore/SDK，
- *        且卡片会随分类收起离开组合，用组件内作用域会取消正在进行的写入）
  * @param authorSheetState 作者信息 Sheet 状态
  * @param updateSheetState 检查更新 Sheet 状态
  * @param donateSheetState 打赏 Sheet 状态（界面本体是 ui/components/DonateSheet，与主页共用）
@@ -66,7 +53,6 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 @Composable
 fun AboutCategoryCard(
     viewModel: SettingsViewModel,
-    scope: CoroutineScope,
     authorSheetState: SheetState,
     updateSheetState: SheetState,
     donateSheetState: SheetState,
@@ -74,9 +60,6 @@ fun AboutCategoryCard(
     val context = LocalContext.current
     // 版本号读不到时（PackageManager 异常）的兜底文案
     val unknownText = stringResource(R.string.common_unknown)
-    // MS Clarity 匿名统计同意状态
-    val clarityConsent by ConfigRepository.getClarityConsentFlow(context)
-        .collectAsState(initial = false)
 
     ExpandableSettingsCard(
         title = stringResource(R.string.settings_cat_about),
@@ -86,8 +69,9 @@ fun AboutCategoryCard(
         // 该图标内容（4~44 / 48 视口）比 miuix 图标更「满」，同尺寸渲染反而显大，
         // 因此比其它分类图标小一档（24dp vs 26dp）做视觉对齐
         iconSize = 24.dp,
-        // 关于分类品牌色：灰色；Monet 动态取色下会被自动压平为主题 primary
-        containerColor = Color(0xFF8C9DAF),
+        // 关于分类品牌色：深灰；Monet 动态取色下会被自动压平为主题 primary。
+        // 深底会让 ContainedIcon 自动把前景图标切成白色，保证对比度
+        containerColor = Color(0xFF616161),
         expanded = viewModel.expandedCategory == SettingsViewModel.SettingsCategory.ABOUT,
         onToggle = { viewModel.toggleCategory(SettingsViewModel.SettingsCategory.ABOUT) }
     ) {
@@ -192,45 +176,6 @@ fun AboutCategoryCard(
             startAction = { PreferenceLeadingIcon(MiuixIcons.File) }
         )
 
-        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-        SmallTitle(
-            text = stringResource(R.string.settings_section_other),
-            insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
-        )
-
-        // 允许匿名统计开关：开启时初始化 Clarity，关闭时标记停止状态
-        // Clarity SDK 不支持运行时停止，关闭后需重启应用才能完全停止数据收集
-        SwitchPreference(
-            title = stringResource(R.string.settings_clarity_title),
-            summary = stringResource(R.string.settings_clarity_summary),
-            checked = clarityConsent,
-            onCheckedChange = { newValue ->
-                scope.launch {
-                    ConfigRepository.saveClarityConsent(context, newValue)
-                    val application = context.applicationContext as? ExTileApplication
-                    if (newValue) {
-                        // 同意：初始化 Clarity
-                        application?.initClarity()
-                    } else {
-                        // 撤销同意：标记停止状态
-                        application?.shutdownClarity()
-                    }
-                }
-            },
-            startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.SoundWave) }
-        )
-
-        // 重新运行首次配置引导：仅重置 OOBE 标志（配置数据保留，可再次导入覆盖），
-        // 壳层监听到标志变 false 后自动切回 OOBE 页面
-        ArrowPreference(
-            title = stringResource(R.string.settings_rerun_oobe_title),
-            onClick = {
-                scope.launch {
-                    ConfigRepository.saveOobeCompleted(context, false)
-                }
-            },
-            startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.Start) }
-        )
+        // 「其他」分组（匿名统计 / 重新运行引导）已迁到「高级」分类。
     }
 }

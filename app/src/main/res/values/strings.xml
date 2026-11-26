@@ -130,22 +130,15 @@
     <string name="settings_device_center_summary">Show device center when expanded, hide when collapsed</string>
     <string name="settings_auto_collapse_title">Auto-collapse</string>
     <string name="settings_auto_collapse_summary">Collapse automatically when the control center closes</string>
-    <!-- Advanced: creative mode (two independent layouts) -->
-    <string name="settings_section_advanced">Advanced</string>
-    <string name="settings_creative_title">Creative mode</string>
-    <string name="settings_creative_summary">Keep two independent layouts, switch them by tapping the tile</string>
-    <string name="settings_creative_read_failed">Failed to read the current tile layout</string>
-    <string name="settings_creative_write_failed">Failed to write the system layout. Check permissions.</string>
-    <string name="settings_creative_exit_failed">Failed to restore the normal layout. Check permissions.</string>
-    <string name="settings_section_custom">Tile Customization</string>
+    <string name="settings_section_custom">exTile tile</string>
     <string name="settings_tile_icon_title">Icon</string>
     <string name="settings_tile_icon_default">Default</string>
-    <string name="settings_tile_label_title">Label</string>
-    <string name="settings_display_label_title">Display label</string>
+    <string name="settings_tile_label_title">Display name</string>
+    <string name="settings_display_label_title">Custom</string>
     <string name="settings_not_set">Not set</string>
     <string name="settings_none_selected">Not selected</string>
-    <string name="settings_longpress_title">Long press exTile tile opens</string>
-    <string name="settings_jump_target_title">Jump target</string>
+    <string name="settings_longpress_title">Long press to open</string>
+    <string name="settings_jump_target_title">Custom</string>
     <string name="settings_longpress_extile">exTile</string>
     <string name="settings_longpress_settings">System settings</string>
     <string name="settings_longpress_custom">Custom app</string>
@@ -155,10 +148,8 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_cat_appearance">Appearance</string>
     <string name="settings_color_mode_title">Color mode</string>
-    <string name="settings_dynamic_color_title">Dynamic color</string>
-    <string name="settings_dynamic_color_summary">Use Monet color</string>
+    <string name="settings_dynamic_color_title">Monet color</string>
     <string name="settings_blur_title">Blur effects</string>
-    <string name="settings_blur_summary">Blur for top / bottom bars</string>
     <string name="settings_progressive_blur_title">App style</string>
     <string name="settings_progressive_blur_summary">On for glass style, off for classic style</string>
     <!-- 磁贴名预设下拉 -->
@@ -202,7 +193,15 @@
     <string name="settings_platform_coolapk">CoolAPK</string>
     <!-- Documents row title: the former summary becomes the title (no summary anymore) -->
     <string name="settings_docs_title">Privacy policy, terms of service &amp; open-source licenses</string>
-    <string name="settings_section_other">Other</string>
+    <!-- 高级分类：创造模式 / 从系统导入 / 隐私统计 / 重跑引导 -->
+    <string name="settings_cat_advanced">Advanced</string>
+    <string name="settings_section_tiles">Tiles</string>
+    <string name="settings_section_app">App</string>
+    <string name="settings_creative_title">Creative mode</string>
+    <string name="settings_creative_summary">Keep two independent layouts, switch them by tapping the tile</string>
+    <string name="settings_creative_read_failed">Failed to read the current tile layout</string>
+    <string name="settings_creative_write_failed">Failed to write the system layout. Check permissions.</string>
+    <string name="settings_creative_exit_failed">Failed to restore the normal layout. Check permissions.</string>
     <string name="settings_clarity_title">Allow anonymous stats</string>
     <string name="settings_clarity_summary">Use Microsoft Clarity for anonymous usage stats to help improve the app. Restart is required after turning off.</string>
     <string name="settings_rerun_oobe_title">Run setup again</string>

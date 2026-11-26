@@ -137,7 +137,8 @@ class SettingsViewModel : ViewModel() {
         GENERAL,    // 通用
         APPEARANCE, // 外观
         DATA,       // 数据
-        ABOUT       // 关于
+        ABOUT,      // 关于
+        ADVANCED    // 高级（创造模式 / 从系统导入 / 隐私统计 / 重跑引导）
     }
 
     // ==================== 初始化方法 ====================

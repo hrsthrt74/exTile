@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hrsthrt74.qstile.BuildConfig
 import com.hrsthrt74.qstile.DebugToolsActivity
 import com.hrsthrt74.qstile.R
 import com.hrsthrt74.qstile.ui.AppTopBar
@@ -37,6 +38,7 @@ import com.hrsthrt74.qstile.ui.components.rememberSheetState
 import com.hrsthrt74.qstile.ui.contentBottomPadding
 import com.hrsthrt74.qstile.ui.rememberBlurBackdrop
 import com.hrsthrt74.qstile.ui.screens.settings.AboutCategoryCard
+import com.hrsthrt74.qstile.ui.screens.settings.AdvancedCategoryCard
 import com.hrsthrt74.qstile.ui.screens.settings.AppPickerSheet
 import com.hrsthrt74.qstile.ui.screens.settings.AppearanceCategoryCard
 import com.hrsthrt74.qstile.ui.screens.settings.AuthorSheet
@@ -74,10 +76,11 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  *
  * | 组件 | 文件 | 职责 |
  * |------|------|------|
- * | [GeneralCategoryCard] | `settings/GeneralCategoryCard.kt` | 通用：磁贴联动 / 图标 / 磁贴名 / 长按行为 / 创造模式 |
+ * | [GeneralCategoryCard] | `settings/GeneralCategoryCard.kt` | 通用：磁贴联动 / 图标 / 磁贴名 / 长按行为 |
  * | [AppearanceCategoryCard] | `settings/AppearanceCategoryCard.kt` | 外观：配色模式 / 动态取色 / 模糊 / 应用风格 |
- * | [DataCategoryCard] | `settings/DataCategoryCard.kt` | 数据：备份 / 恢复 / 查看系统磁贴 / 从系统导入 |
- * | [AboutCategoryCard] | `settings/AboutCategoryCard.kt` | 关于：作者 / 版本 / GitHub / 社区 / 文档 / Clarity / 重跑引导 |
+ * | [DataCategoryCard] | `settings/DataCategoryCard.kt` | 数据：备份 / 恢复 / 查看系统磁贴 |
+ * | [AdvancedCategoryCard] | `settings/AdvancedCategoryCard.kt` | 高级：创造模式 / 从系统导入磁贴 / Clarity / 重跑引导 / 调试工具 |
+ * | [AboutCategoryCard] | `settings/AboutCategoryCard.kt` | 关于：作者 / 版本 / GitHub / 社区 / 文档 |
  * | [UpdateSheet] | `settings/UpdateSheet.kt` | 检查更新：自动检查开关 + 手动检查 + 内置更新日志 |
  * | [BackupSheet] / [ImportBackupSheet] / [BackupListSheet] / [DeleteBackupDialog] | `settings/` 同名文件 | 备份三种保存、恢复三种入口、本地备份列表与删除确认 |
  * | [AppPickerSheet] / [CustomTileLabelSheet] / [SystemTilesSheet] / [AuthorSheet] / [ImportSystemTilesDialog] | `settings/` 同名文件 | 各分类下的独立浮层 |
@@ -92,7 +95,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  * Scaffold(topBar = AppTopBar)
  *   └─ Box(顶栏 blur backdrop 录制层)
  *        └─ Column(垂直居中)
- *             └─ LazyColumn(四张分类卡片)
+ *             └─ LazyColumn(五张分类卡片)
  * 11 个 Sheet / Dialog（浮层，组合在页面末尾）
  * ```
  */
@@ -209,7 +212,7 @@ fun SettingsScreen() {
 
     // 首次进入页面：一次性读回全部设置项后再放行渲染（未就绪就空白，与主题/OOBE 门控策略一致）
     // 先让出启动首帧后的几帧：本页在冷启动首帧就会随 Pager 一起被组合，若此处立即开跑，
-    // 加载完成后的「整页首次组合」（四张分类卡片 + 一堆 Preference）会正好压住玻璃底栏指示器
+    // 加载完成后的「整页首次组合」（五张分类卡片 + 一堆 Preference）会正好压住玻璃底栏指示器
     // 所等的那次重组，表现为底栏先出现、高亮块过半秒才冒出来且期间点击无响应。
     // 详见 awaitStartupFrames 注释。
     LaunchedEffect(Unit) {
@@ -231,13 +234,19 @@ fun SettingsScreen() {
                 scrollBehavior = scrollBehavior,
                 backdrop = backdrop,
                 progressive = themeSettings.progressiveBlur,
+                // 顶栏调试入口仅 debug 变体显示：release 包不应暴露调试能力
+                // （强制更新、能力开关模拟等）；debug 包里另外在「设置 → 高级」也加了入口。
                 actions = {
-                    // 调试工具入口：右上角设置图标按钮，点击直接跳转 DebugToolsActivity
-                    // 用 TopBarIconButton 跟随顶栏形态：玻璃态→GlassIconButton，原版→IconButton
-                    TopBarIconButton(onClick = {
-                        context.startActivity(Intent(context, DebugToolsActivity::class.java))
-                    }) {
-                        Icon(MiuixIcons.Glass.Maintenance, contentDescription = stringResource(R.string.debug_title))
+                    if (BuildConfig.DEBUG) {
+                        // 用 TopBarIconButton 跟随顶栏形态：玻璃态→GlassIconButton，原版→IconButton
+                        TopBarIconButton(onClick = {
+                            context.startActivity(Intent(context, DebugToolsActivity::class.java))
+                        }) {
+                            Icon(
+                                MiuixIcons.Glass.Maintenance,
+                                contentDescription = stringResource(R.string.debug_title)
+                            )
+                        }
                     }
                 }
             )
@@ -293,7 +302,7 @@ fun SettingsScreen() {
                         )
                     }
 
-                    // ===== 外观分类：主题设置 =====
+                    // ===== 外观 =====
                     item {
                         AppearanceCategoryCard(
                             viewModel = viewModel,
@@ -302,7 +311,7 @@ fun SettingsScreen() {
                         )
                     }
 
-                    // ===== 数据分类：备份 / 恢复 / 系统导入（合并原两个板块） =====
+                    // ===== 数据 =====
                     item {
                         DataCategoryCard(
                             viewModel = viewModel,
@@ -310,15 +319,22 @@ fun SettingsScreen() {
                             backupSheetState = backupSheetState,
                             importBackupSheetState = importBackupSheetState,
                             systemTilesSheetState = systemTilesSheetState,
+                        )
+                    }
+
+                    // ===== 高级 =====
+                    item {
+                        AdvancedCategoryCard(
+                            viewModel = viewModel,
+                            scope = scope,
                             importDialogState = importDialogState,
                         )
                     }
 
-                    // ===== 关于分类 =====
+                    // ===== 关于 =====
                     item {
                         AboutCategoryCard(
                             viewModel = viewModel,
-                            scope = scope,
                             authorSheetState = authorSheetState,
                             updateSheetState = updateSheetState,
                             donateSheetState = donateSheetState,

@@ -130,22 +130,15 @@
     <string name="settings_device_center_summary">展开显示设备中心，收起隐藏</string>
     <string name="settings_auto_collapse_title">自动收起</string>
     <string name="settings_auto_collapse_summary">收起控制中心时，自动折叠</string>
-    <!-- 高级功能：创造模式（两套独立布局） -->
-    <string name="settings_section_advanced">高级</string>
-    <string name="settings_creative_title">「创造模式」</string>
-    <string name="settings_creative_summary">保存两层独立的布局，点击磁贴切换</string>
-    <string name="settings_creative_read_failed">读取系统磁贴配置失败</string>
-    <string name="settings_creative_write_failed">写入系统布局失败，请检查权限</string>
-    <string name="settings_creative_exit_failed">恢复普通布局失败，请检查权限</string>
-    <string name="settings_section_custom">自定义</string>
-    <string name="settings_tile_icon_title">磁贴图标</string>
+    <string name="settings_section_custom">exTile 磁贴</string>
+    <string name="settings_tile_icon_title">图标</string>
     <string name="settings_tile_icon_default">默认</string>
-    <string name="settings_tile_label_title">磁贴名显示</string>
-    <string name="settings_display_label_title">显示标题</string>
+    <string name="settings_tile_label_title">显示名称</string>
+    <string name="settings_display_label_title">自定义</string>
     <string name="settings_not_set">未设置</string>
     <string name="settings_none_selected">未选择</string>
-    <string name="settings_longpress_title">长按 exTile 磁贴\n跳转到</string>
-    <string name="settings_jump_target_title">跳转目标</string>
+    <string name="settings_longpress_title">长按跳转到</string>
+    <string name="settings_jump_target_title">自定义</string>
     <string name="settings_longpress_extile">exTile</string>
     <string name="settings_longpress_settings">系统设置</string>
     <string name="settings_longpress_custom">自定义</string>
@@ -155,10 +148,8 @@
     <string name="settings_theme_dark">深色</string>
     <string name="settings_cat_appearance">外观</string>
     <string name="settings_color_mode_title">配色模式</string>
-    <string name="settings_dynamic_color_title">动态取色</string>
-    <string name="settings_dynamic_color_summary">使用 Monet 配色</string>
+    <string name="settings_dynamic_color_title">Monet 配色</string>
     <string name="settings_blur_title">模糊效果</string>
-    <string name="settings_blur_summary">顶栏 / 底栏的模糊</string>
     <string name="settings_progressive_blur_title">OS4 样式</string>
     <string name="settings_progressive_blur_summary">使用全新的玻璃组件</string>
     <!-- 磁贴名预设下拉 -->
@@ -202,7 +193,15 @@
     <string name="settings_platform_coolapk">酷安</string>
     <!-- 文档条目标题：原 summary 的三个文档名上移为标题（不再显示 summary） -->
     <string name="settings_docs_title">隐私政策、用户协议与开源许可</string>
-    <string name="settings_section_other">其他</string>
+    <!-- 高级分类：创造模式 / 从系统导入 / 隐私统计 / 重跑引导 -->
+    <string name="settings_cat_advanced">高级</string>
+    <string name="settings_section_tiles">磁贴</string>
+    <string name="settings_section_app">应用</string>
+    <string name="settings_creative_title">「创造模式」</string>
+    <string name="settings_creative_summary">保存两层独立的布局，点击磁贴切换</string>
+    <string name="settings_creative_read_failed">读取系统磁贴配置失败</string>
+    <string name="settings_creative_write_failed">写入系统布局失败，请检查权限</string>
+    <string name="settings_creative_exit_failed">恢复普通布局失败，请检查权限</string>
     <string name="settings_clarity_title">允许匿名统计</string>
     <string name="settings_clarity_summary">使用 Microsoft Clarity 进行匿名使用统计，帮助改进应用体验。关闭需重启应用生效。</string>
     <string name="settings_rerun_oobe_title">重新运行引导</string>

@@ -38,7 +38,7 @@ private val dayNightModeLabels = listOf(
 // private val colorSpecLabels = listOf("Spec2021", "Spec2025")
 
 /**
- * 外观分类卡片：主题设置（配色模式 / 动态取色 / 模糊效果 / 应用风格）。
+ * 外观分类卡片：主题设置（配色模式 / Monet 配色 / 模糊效果 / 应用风格）。
  *
  * 由原 `SettingsScreen` 的页内局部函数 `AppearanceCategoryCard` 拆分而来，行为保持不变。
  * 主题相关状态全部由 `LocalThemeSettings` 直接读取（`ExTileTheme` 在根部下发），
@@ -85,7 +85,6 @@ fun AppearanceCategoryCard(
 
         SwitchPreference(
             title = stringResource(R.string.settings_dynamic_color_title),
-            summary = stringResource(R.string.settings_dynamic_color_summary),
             checked = themeSettings.isDynamicColorMode,
             onCheckedChange = { enabled ->
                 scope.launch {
@@ -99,7 +98,6 @@ fun AppearanceCategoryCard(
 
         SwitchPreference(
             title = stringResource(R.string.settings_blur_title),
-            summary = stringResource(R.string.settings_blur_summary),
             checked = themeSettings.enableBlur,
             onCheckedChange = { enabled ->
                 scope.launch {

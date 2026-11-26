@@ -1,6 +1,5 @@
 package com.hrsthrt74.qstile.ui.screens.settings
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,7 +33,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Copy
 import top.yukonga.miuix.kmp.icon.extended.Rename
 import top.yukonga.miuix.kmp.icon.extended.Unpin
-import top.yukonga.miuix.kmp.icon.glass.AiWriting
 import top.yukonga.miuix.kmp.icon.glass.MiHome
 import top.yukonga.miuix.kmp.icon.glass.OpenWithOtherApp
 import top.yukonga.miuix.kmp.icon.glass.PptNotes
@@ -62,12 +60,12 @@ private val tileLabelPresetLabels = listOf(
 )
 
 /**
- * 通用分类卡片：磁贴联动开关 / 磁贴图标 / 磁贴名 / 长按行为 / 创造模式。
+ * 通用分类卡片：磁贴联动开关 / 磁贴图标 / 磁贴名 / 长按行为。
  *
  * 由原 `SettingsScreen` 的页内局部函数 `GeneralCategoryCard` 拆分而来，行为保持不变：
  * 非小米机型隐藏「无字模式」与长按下拉里的「融合设备中心」项（下拉索引与存储值解耦，
  * 通过 displayedBehaviorValues 双向映射）；创造模式开启后整块「磁贴联动」折叠隐藏
- * （不是置灰——三个开关在切层模式下都没有意义）。
+ * （不是置灰——三个开关在切层模式下都没有意义）。创造模式开关本身已迁到「高级」分类。
  *
  * @param viewModel 设置页 ViewModel（所有开关与下拉的存储值、分类展开状态都在它上面）
  * @param backdrop 页面 backdrop（仅供三个下拉的玻璃弹窗采样；null 时弹窗回退纯色）
@@ -86,11 +84,6 @@ fun GeneralCategoryCard(
     val glassStyle = LocalThemeSettings.current.progressiveBlur
     // 文案在 Composable 上下文预解析，避免在回调 lambda 里读资源（lint: 非配置感知）
     val noneSelectedText = stringResource(R.string.settings_none_selected)
-    // 创造模式开关的结果提示（开启 / 关闭都有系统写入，失败必须让用户知道）
-    val creativeReadFailedToast = stringResource(R.string.settings_creative_read_failed)
-    val creativeWriteFailedToast = stringResource(R.string.settings_creative_write_failed)
-    val creativeExitFailedToast = stringResource(R.string.settings_creative_exit_failed)
-
     // 设备能力快照：用于判断是否为小米机型，非小米机型隐藏「融合设备中心」选项
     val profile = remember { DeviceProfile.from(context) }
     // 非小米机型移除「融合设备中心」；显示顺序与存储值解耦，
@@ -285,34 +278,6 @@ fun GeneralCategoryCard(
             )
         }
 
-        // ===== 高级功能：创造模式（两套互相独立的层布局）=====
-        // 放在「通用」分类最后。开启后 exTile 磁贴不再是「展开 / 收起」，而是切换层 1 / 层 2，
-        // 因此上面的「磁贴联动」两个开关会被接管（置灰），改由每层的「当切换到此层时…」决定。
-        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-        SmallTitle(
-            text = stringResource(R.string.settings_section_advanced),
-            insideMargin = PaddingValues(start = 20.dp, top = 12.dp)
-        )
-
-        SwitchPreference(
-            title = stringResource(R.string.settings_creative_title),
-            summary = stringResource(R.string.settings_creative_summary),
-            checked = viewModel.creativeModeEnabled,
-            // 开关状态由「写系统成功」驱动，写入期间禁用避免连续点击并发写 sysui_qs_tiles
-            enabled = !viewModel.creativeModeBusy,
-            onCheckedChange = { enabled ->
-                viewModel.setCreativeMode(context, enabled) { result ->
-                    val message = when (result) {
-                        ConfigRepository.CreativeModeResult.Success -> null
-                        ConfigRepository.CreativeModeResult.ReadFailed -> creativeReadFailedToast
-                        ConfigRepository.CreativeModeResult.WriteFailed ->
-                            if (enabled) creativeWriteFailedToast else creativeExitFailedToast
-                    }
-                    message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
-                }
-            },
-            startAction = { PreferenceLeadingIcon(MiuixIcons.Glass.AiWriting) }
-        )
+        // 创造模式开关已迁到「高级」分类；本分类只保留磁贴行为相关设置。
     }
 }
